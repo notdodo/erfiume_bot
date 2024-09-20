@@ -19,11 +19,27 @@ dynamodb.Table(
     name="Stazioni",
     billing_mode="PAY_PER_REQUEST",
     hash_key="idstazione",
+    range_key="ordinamento",
     attributes=[
-        {
-            "name": "idstazione",
-            "type": "S",
-        }
+        dynamodb.TableAttributeArgs(
+            name="idstazione",
+            type="S",
+        ),
+        dynamodb.TableAttributeArgs(
+            name="nomestaz",
+            type="S",
+        ),
+        dynamodb.TableAttributeArgs(
+            name="ordinamento",
+            type="N",
+        ),
+    ],
+    local_secondary_indexes=[
+        dynamodb.TableLocalSecondaryIndexArgs(
+            name="nomestaz",
+            projection_type="KEYS_ONLY",
+            range_key="nomestaz",
+        )
     ],
 )
 
