@@ -5,10 +5,10 @@ Handle bot intections with users.
 import asyncio
 from datetime import datetime
 from inspect import cleandoc
-from zoneinfo import ZoneInfo
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+from zoneinfo import ZoneInfo
 
 from .storage import DynamoClient
 
@@ -27,7 +27,13 @@ async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     db_client = await DynamoClient.create()
     stazione = await db_client.get_station("-/1223505,4413971/spdsra")
     if stazione:
-        timestamp = int(stazione.timestamp) / 1000
+        timestamp = (
+            datetime.fromtimestamp(
+                int(stazione.timestamp) / 1000, tz=ZoneInfo("Europe/Rome")
+            )
+            .replace(tzinfo=None)
+            .strftime("%d-%m-%Y %H:%M")
+        )
         value = float(stazione.value)
         yellow = stazione.soglia1
         orange = stazione.soglia2
@@ -39,7 +45,7 @@ async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 Soglia Gialla: {yellow}
                 Soglia Arancione: {orange}
                 Soglia Rossa: {red}
-                Ultimo rilevamento: {datetime.fromtimestamp(timestamp, tz=ZoneInfo("Europe/Rome"))}"""
+                Ultimo rilevamento: {timestamp}"""
             )
             await update.message.reply_html(message)
     elif update.message:
