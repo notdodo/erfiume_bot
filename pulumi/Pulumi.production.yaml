@@ -1,0 +1,6 @@
+config:
+  aws:region: eu-west-1
+  aws:defaultTags:
+    tags:
+      environment: production
+      project: erfiume

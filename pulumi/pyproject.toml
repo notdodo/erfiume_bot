@@ -1,0 +1,55 @@
+[tool.poetry]
+name = "erfiume-pulumi"
+version = "0.1.0"
+description = ""
+authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pulumi-aws = "^6.52.0"
+pulumi-archive = "^0.2.0"
+
+[tool.poetry.group.dev.dependencies]
+awscli-local = "^0.22.0"
+mypy = "^1.10.1"
+ruff = "^0.6.5"
+pydantic = "^2.9.2"
+
+[tool.ruff]
+output-format = "github"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D2", "D4", "ANN", "COM812", "ISC001"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 150
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+strict = true
+pretty = true
+show_error_codes = true
+show_error_context = true
+implicit_reexport = true
+
+[tool.pylint."MESSAGES CONTROL"]
+persistent = "no"
+disable = ["fixme", "line-too-long"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
