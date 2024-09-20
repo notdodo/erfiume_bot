@@ -129,7 +129,7 @@ async def bot(event: dict[str, Any]) -> None:
     application.add_handler(CommandHandler("cesena", cesena))
     application.add_handler(
         MessageHandler(
-            filters.ChatType.PRIVATE & filters.TEXT & filters.COMMAND,
+            filters.ChatType.PRIVATE & (filters.TEXT | filters.COMMAND),
             handle_private_message,
         )
     )
