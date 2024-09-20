@@ -1,6 +1,8 @@
 config:
-  aws:region: eu-west-1
   aws:defaultTags:
     tags:
       environment: production
       project: erfiume
+  aws:region: eu-west-1
+  erfiume:telegram-bot-token:
+    secure: AAABAPwvcC722Zh0BGmJZ73kUE7l0G9DDM40Q34uSQWJciCW9YdzWiqgzO/UvouqD7IGD6/O3q/KCnfphKeUQVC5L/89r+pjKOiAZSR0

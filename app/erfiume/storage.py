@@ -55,7 +55,7 @@ class DynamoClient:
         try:
             table = await self.client.Table("Stazioni")
             response = await table.query(
-                KeyConditionExpression=Key("idstazione").eq(station.idstazione),
+                KeyConditionExpression=Key("nomestaz").eq(station.nomestaz),
             )
 
             # Get the latest timestamp from the DynamoDB response
@@ -75,14 +75,14 @@ class DynamoClient:
                 await table.put_item(Item=station.to_dict())
         except ClientError as e:
             logger.exception(
-                "Error while checking or updating station %s: %s", station.idstazione, e
+                "Error while checking or updating station %s: %s", station.nomestaz, e
             )
             raise
         except Exception as e:
             logger.exception("Unexpected error: %s", e)
             raise
 
-    async def get_station(self, station_id: str) -> Stazione | None:
+    async def get_matching_station(self, station_name: str) -> Stazione | None:
         """
         Retrieve a station from the DynamoDB table by its idstazione.
         Returns the station data as a dictionary, or None if not found.
@@ -90,14 +90,15 @@ class DynamoClient:
         try:
             table = await self.client.Table("Stazioni")
             response = await table.query(
-                KeyConditionExpression=Key("idstazione").eq(station_id),
+                Limit=1,
+                KeyConditionExpression=Key("nomestaz").eq(station_name),
             )
 
             if response["Count"] > 0:
                 return Stazione(**response["Items"][0])  # type: ignore[arg-type]
-            logger.info("Station %s not found in DynamoDB.", station_id)
+            logger.info("Station %s not found in DynamoDB.", station_name)
         except ClientError as e:
-            logger.exception("Error while retrieving station %s: %s", station_id, e)
+            logger.exception("Error while retrieving station %s: %s", station_name, e)
             raise
         except Exception as e:
             logger.exception("Unexpected error: %s", e)
