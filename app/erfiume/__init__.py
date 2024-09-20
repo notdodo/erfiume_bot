@@ -7,7 +7,7 @@ from __future__ import annotations
 from .apis import Stazione, Valore, enrich_data, fetch_latest_time, fetch_stations_data
 from .logging import logger
 from .storage import DynamoClient
-from .tgbot import main as tg_main
+from .tgbot import bot
 
 __all__ = [
     "Stazione",
@@ -17,5 +17,5 @@ __all__ = [
     "fetch_latest_time",
     "fetch_stations_data",
     "logger",
-    "tg_main",
+    "bot",
 ]

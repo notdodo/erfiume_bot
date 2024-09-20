@@ -2,6 +2,7 @@
 Handle bot intections with users.
 """
 
+import asyncio
 from datetime import datetime
 from inspect import cleandoc
 
@@ -33,10 +34,11 @@ async def savio(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         red = stazione.soglia3
         if update.message:
             message = cleandoc(
-                f"""Valore: {value!r} il {datetime.fromtimestamp(timestamp, tz=ZoneInfo("Europe/Rome"))}
+                f"""Valore: {value!r}
                 Soglia Gialla: {yellow}
                 Soglia Arancione: {orange}
-                Soglia Rossa: {red}"""
+                Soglia Rossa: {red}
+                Ultimo rilevamento: {datetime.fromtimestamp(timestamp, tz=ZoneInfo("Europe/Rome"))}"""
             )
             await update.message.reply_html(message)
     elif update.message:
@@ -45,7 +47,7 @@ async def savio(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
-async def main(token: str) -> None:
+async def bot(token: str) -> None:
     """Run entry point for the bot"""
     application = Application.builder().token(token).build()
 
@@ -56,3 +58,5 @@ async def main(token: str) -> None:
     await application.start()
     if application.updater:
         await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    e = asyncio.Event()
+    await e.wait()
