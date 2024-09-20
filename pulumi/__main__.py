@@ -2,6 +2,7 @@
 
 import pulumi
 from pulumi_aws import (
+    apigatewayv2,
     dynamodb,
     get_caller_identity,
     iam,
@@ -11,20 +12,17 @@ from pulumi_aws import (
 )
 
 from lambda_utils import create_lambda_zip
+from telegram_provider import Webhook
 
 RESOURCES_PREFIX = "erfiume"
 
-dynamodb.Table(
+stazioni_table = dynamodb.Table(
     f"{RESOURCES_PREFIX}-stazioni",
     name="Stazioni",
     billing_mode="PAY_PER_REQUEST",
-    hash_key="idstazione",
+    hash_key="nomestaz",
     range_key="ordinamento",
     attributes=[
-        dynamodb.TableAttributeArgs(
-            name="idstazione",
-            type="S",
-        ),
         dynamodb.TableAttributeArgs(
             name="nomestaz",
             type="S",
@@ -34,16 +32,9 @@ dynamodb.Table(
             type="N",
         ),
     ],
-    local_secondary_indexes=[
-        dynamodb.TableLocalSecondaryIndexArgs(
-            name="nomestaz",
-            projection_type="KEYS_ONLY",
-            range_key="nomestaz",
-        )
-    ],
 )
 
-secretsmanager.Secret(
+telegram_token_secret = secretsmanager.Secret(
     f"{RESOURCES_PREFIX}-telegram-bot-token",
     name="telegram-bot-token",
     description="The Telegram Bot token for erfiume_bot",
@@ -67,6 +58,9 @@ fetcher_role = iam.Role(
             }
         ]
     ).json,
+    managed_policy_arns=[
+        "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+    ],
     inline_policies=[
         iam.RoleInlinePolicyArgs(
             name="DynamoDBStazioniRW",
@@ -78,10 +72,57 @@ fetcher_role = iam.Role(
                             "dynamodb:PutItem",
                             "dynamodb:Query",
                         ],
+                        "Resources": [stazioni_table.arn],
+                    }
+                ],
+            ).json,
+        )
+    ],
+)
+
+bot_role = iam.Role(
+    f"{RESOURCES_PREFIX}-bot",
+    name=f"{RESOURCES_PREFIX}-bot",
+    assume_role_policy=iam.get_policy_document(
+        statements=[
+            {
+                "Effect": "Allow",
+                "Principals": [
+                    {
+                        "Type": "Service",
+                        "Identifiers": ["lambda.amazonaws.com"],
+                    }
+                ],
+                "Actions": ["sts:AssumeRole"],
+            }
+        ]
+    ).json,
+    managed_policy_arns=[
+        "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+    ],
+    inline_policies=[
+        iam.RoleInlinePolicyArgs(
+            name="DynamoSMReadOnly",
+            policy=iam.get_policy_document_output(
+                statements=[
+                    {
+                        "Effect": "Allow",
+                        "Actions": [
+                            "dynamodb:Query",
+                        ],
                         "Resources": [
                             f"arn:aws:dynamodb:eu-west-1:{get_caller_identity().account_id}:table/Stazioni"
                         ],
-                    }
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Actions": [
+                            "secretsmanager:GetSecretValue",
+                        ],
+                        "Resources": [
+                            telegram_token_secret.arn,
+                        ],
+                    },
                 ],
             ).json,
         )
@@ -91,7 +132,7 @@ fetcher_role = iam.Role(
 lambda_zip = create_lambda_zip(RESOURCES_PREFIX)
 fetcher_lambda = lambda_.Function(
     f"{RESOURCES_PREFIX}-fetcher",
-    code=lambda_zip.zip_path,  # type: ignore[arg-type]
+    code=lambda_zip.zip_path,
     name=f"{RESOURCES_PREFIX}-fetcher",
     role=fetcher_role.arn,
     handler="erfiume_fetcher.handler",
@@ -103,6 +144,22 @@ fetcher_lambda = lambda_.Function(
         },
     },
     timeout=60,
+)
+
+bot_lambda = lambda_.Function(
+    f"{RESOURCES_PREFIX}-bot",
+    code=lambda_zip.zip_path,
+    name=f"{RESOURCES_PREFIX}-bot",
+    role=bot_role.arn,
+    handler="erfiume_bot.handler",
+    source_code_hash=lambda_zip.zip_sha256,
+    runtime=lambda_.Runtime.PYTHON3D12,
+    environment={
+        "variables": {
+            "ENVIRONMENT": pulumi.get_stack(),
+        },
+    },
+    timeout=15,
 )
 
 scheduler.Schedule(
@@ -159,3 +216,24 @@ scheduler.Schedule(
         ).arn,
     ),
 )
+
+bot_webhook_gw = apigatewayv2.Api(
+    f"{RESOURCES_PREFIX}-webhook",
+    protocol_type="HTTP",
+    route_key="POST /erfiume_bot",
+    target=bot_lambda.arn,
+)
+lambda_.Permission(
+    f"{RESOURCES_PREFIX}-lambda-bot-api-gateway",
+    action="lambda:InvokeFunction",
+    function=bot_lambda.arn,
+    principal="apigateway.amazonaws.com",
+    source_arn=bot_webhook_gw.execution_arn.apply(lambda arn: f"{arn}/*/*"),
+)
+
+if pulumi.get_stack() == "production":
+    Webhook(
+        f"{RESOURCES_PREFIX}-apigateway-registration",
+        token=pulumi.Config().require_secret("telegram-bot-token"),
+        url=bot_webhook_gw.api_endpoint.apply(lambda url: f"{url}/erfiume_bot"),
+    )

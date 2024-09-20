@@ -50,3 +50,7 @@ def handler(_event: dict[str, Any], _context: LambdaContext) -> None:
     AWS Lambda starting method
     """
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

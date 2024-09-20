@@ -16,13 +16,14 @@ awscli-local = "^0.22.0"
 mypy = "^1.10.1"
 ruff = "^0.6.5"
 pydantic = "^2.9.2"
+types-requests = "^2.32.0.20240914"
 
 [tool.ruff]
 output-format = "github"
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["D2", "D4", "ANN", "COM812", "ISC001"]
+ignore = ["D2", "D4", "ANN", "COM812", "ISC001", "D107"]
 fixable = ["ALL"]
 unfixable = []
 

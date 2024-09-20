@@ -103,7 +103,12 @@ async def fetch_stations_data(client: httpx.AsyncClient, time: int) -> list[Staz
             if "time" not in stazione:
                 if not stazione["value"]:
                     stazione["value"] = "-1.0"
-                stazioni.append(Stazione(timestamp=time, **stazione))
+                stazioni.append(
+                    Stazione(
+                        timestamp=time,
+                        **stazione,
+                    )
+                )
     except httpx.HTTPStatusError as e:
         logger.exception("Error fetching stations data: %s", e.response.status_code)
         raise

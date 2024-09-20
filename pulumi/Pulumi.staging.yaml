@@ -1,14 +1,9 @@
 config:
+  aws:accessKey: test
   aws:defaultTags:
     tags:
       environment: staging
       project: erfiume
-  aws:region: eu-west-1
-  aws:accessKey: test
-  aws:secretKey: test
-  aws:s3UsePathStyle: true
-  aws:skipCredentialsValidation: true
-  aws:skipRequestingAccountId: true
   aws:endpoints:
     - accessanalyzer: http://localhost:4566
       account: http://localhost:4566
@@ -268,3 +263,10 @@ config:
       worklink: http://localhost:4566
       workspaces: http://localhost:4566
       xray: http://localhost:4566
+  aws:region: eu-west-1
+  aws:s3UsePathStyle: "true"
+  aws:secretKey: test
+  aws:skipCredentialsValidation: "true"
+  aws:skipRequestingAccountId: "true"
+  erfiume:telegram-bot-token:
+    secure: AAABAJCtZcMcH6RjMHY80HjCxKpVe2pLIHvj6g/v9efhMAZIg3HiNYmofthrZhjrSnkSMKzSrVcoqpvOgMUvV+zsZ1GUonnFmBYZ/VvA

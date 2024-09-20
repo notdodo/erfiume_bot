@@ -5,9 +5,7 @@ Main.
 from __future__ import annotations
 
 import asyncio
-import os
 
-import boto3
 import httpx
 
 from erfiume import (
@@ -18,19 +16,6 @@ from erfiume import (
     fetch_stations_data,
     logger,
 )
-
-
-async def fetch_bot_token() -> str:
-    """
-    Fetch the Telegram Bot token from AWS SM
-    """
-    environment = os.getenv("ENVIRONMENT", "staging")
-    return boto3.client(
-        service_name="secretsmanager",
-        endpoint_url=("http://localhost:4566" if environment != "production" else None),
-    ).get_secret_value(
-        SecretId="telegram-bot-token",
-    )["SecretString"]
 
 
 async def update() -> None:
@@ -56,7 +41,7 @@ async def update() -> None:
 async def main() -> None:
     """Run entry point for the bot and periodic update task."""
     update_task = asyncio.create_task(update())
-    tg_task = asyncio.create_task(bot(await fetch_bot_token()))
+    tg_task = asyncio.create_task(bot({}))
     await update_task
     await tg_task
 

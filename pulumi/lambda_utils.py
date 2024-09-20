@@ -16,7 +16,7 @@ class LambdaZip:
     Dataclass to store Lambda ZIP informations
     """
 
-    zip_path: pulumi.Output[str]
+    zip_path: pulumi.FileArchive
     zip_sha256: pulumi.Output[str]
 
 
@@ -45,15 +45,9 @@ def create_lambda_zip(resource_prefix: str) -> LambdaZip:
         ),
     )
 
-    zip_lambda_package = local.Command(
-        f"{resource_prefix}-lambda-create-zip",
+    local.run(
         dir="../dist/lambda-package",
-        create="zip -q -r ../lambda.zip .",
-        archive_paths=["../dist/lambda.zip"],
-        triggers=[
-            pulumi.FileAsset("../app/poetry.lock"),
-            pulumi.FileArchive("../dist/lambda-package"),
-        ],
+        command="zip -q -r ../lambda.zip .",
     )
 
     sha256_zip = local.Command(
@@ -63,11 +57,10 @@ def create_lambda_zip(resource_prefix: str) -> LambdaZip:
         update="sha256sum lambda.zip | cut -d ' ' -f1",
         triggers=[
             pulumi.FileAsset("../app/poetry.lock"),
-            zip_lambda_package.archive_paths,
+            pulumi.FileArchive("../dist/lambda.zip"),
         ],
-        opts=pulumi.ResourceOptions(depends_on=[zip_lambda_package]),
     )
 
     return LambdaZip(
-        zip_path=zip_lambda_package.archive_paths[0], zip_sha256=sha256_zip.stdout
+        zip_path=pulumi.FileArchive("../dist/lambda.zip"), zip_sha256=sha256_zip.stdout
     )
