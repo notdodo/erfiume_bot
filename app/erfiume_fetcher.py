@@ -39,14 +39,13 @@ async def update() -> None:
             logger.exception("Connection timeout")
 
 
-async def main() -> dict[str, Any]:
+async def main() -> None:
     """Run entry point periodic update task."""
     update_task = asyncio.create_task(update())
     await update_task
-    return {}
 
 
-def handler(_event: dict[str, Any], _context: LambdaContext) -> dict[str, Any]:
+def handler(_event: dict[str, Any], _context: LambdaContext) -> None:
     """
     AWS Lambda starting method
     """
