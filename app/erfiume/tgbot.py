@@ -5,10 +5,10 @@ Handle bot intections with users.
 import asyncio
 from datetime import datetime
 from inspect import cleandoc
+from zoneinfo import ZoneInfo
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from zoneinfo import ZoneInfo
 
 from .storage import DynamoClient
 
@@ -22,8 +22,8 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
-async def savio(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /savio is issued."""
+async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /cesena is issued."""
     db_client = await DynamoClient.create()
     stazione = await db_client.get_station("-/1223505,4413971/spdsra")
     if stazione:
@@ -34,7 +34,8 @@ async def savio(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         red = stazione.soglia3
         if update.message:
             message = cleandoc(
-                f"""Valore: {value!r}
+                f"""Nome Stazione: {stazione.nomestaz}
+                Valore: {value!r}
                 Soglia Gialla: {yellow}
                 Soglia Arancione: {orange}
                 Soglia Rossa: {red}
@@ -52,7 +53,7 @@ async def bot(token: str) -> None:
     application = Application.builder().token(token).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("savio", savio))
+    application.add_handler(CommandHandler("cesena", cesena))
 
     await application.initialize()
     await application.start()
