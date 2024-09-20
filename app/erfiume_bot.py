@@ -9,14 +9,14 @@ import os
 
 import boto3
 
-from erfiume import tg_main
+from erfiume import bot
 
 
 async def fetch_bot_token() -> str:
     """
     Fetch the Telegram Bot token from AWS SM
     """
-    environment = os.getenv("ENVIRONMENT", "production")
+    environment = os.getenv("ENVIRONMENT", "staging")
     return boto3.client(
         service_name="secretsmanager",
         endpoint_url=("http://localhost:4566" if environment != "production" else None),
@@ -28,7 +28,7 @@ async def fetch_bot_token() -> str:
 async def handler() -> None:
     """Run entry point for the bot and periodic update task."""
     token = await fetch_bot_token()
-    tg_task = asyncio.create_task(tg_main(token))
+    tg_task = asyncio.create_task(bot(token))
     await tg_task
 
 

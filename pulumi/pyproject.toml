@@ -9,7 +9,7 @@ package-mode = false
 [tool.poetry.dependencies]
 python = "^3.12"
 pulumi-aws = "^6.52.0"
-pulumi-archive = "^0.2.0"
+pulumi-command = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
 awscli-local = "^0.22.0"

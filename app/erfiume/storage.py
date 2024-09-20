@@ -36,7 +36,7 @@ class DynamoClient:
         Factory method to initialize the DynamoDB client.
         This method is asynchronous and sets up the connection based on environment.
         """
-        environment = os.getenv("ENVIRONMENT", "production")
+        environment = os.getenv("ENVIRONMENT", "staging")
         session = aioboto3.Session()
 
         async with session.resource(

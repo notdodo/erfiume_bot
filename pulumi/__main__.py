@@ -1,9 +1,16 @@
 """An AWS Python Pulumi program"""
 
-import pulumi_archive as archive
-from pulumi_aws import dynamodb, iam, lambda_, secretsmanager
-
 import pulumi
+from pulumi_aws import (
+    dynamodb,
+    get_caller_identity,
+    iam,
+    lambda_,
+    scheduler,
+    secretsmanager,
+)
+
+from lambda_utils import create_lambda_zip
 
 RESOURCES_PREFIX = "erfiume"
 
@@ -27,43 +34,112 @@ secretsmanager.Secret(
     recovery_window_in_days=7,
 )
 
-assume_role = iam.get_policy_document(
-    statements=[
-        {
-            "effect": "Allow",
-            "principals": [
-                {
-                    "type": "Service",
-                    "identifiers": ["lambda.amazonaws.com"],
-                }
-            ],
-            "actions": ["sts:AssumeRole"],
-        }
-    ]
+fetcher_role = iam.Role(
+    f"{RESOURCES_PREFIX}-fetcher",
+    name=f"{RESOURCES_PREFIX}-fetcher",
+    assume_role_policy=iam.get_policy_document(
+        statements=[
+            {
+                "Effect": "Allow",
+                "Principals": [
+                    {
+                        "Type": "Service",
+                        "Identifiers": ["lambda.amazonaws.com"],
+                    }
+                ],
+                "Actions": ["sts:AssumeRole"],
+            }
+        ]
+    ).json,
+    inline_policies=[
+        iam.RoleInlinePolicyArgs(
+            name="DynamoDBStazioniRW",
+            policy=iam.get_policy_document_output(
+                statements=[
+                    {
+                        "Effect": "Allow",
+                        "Actions": [
+                            "dynamodb:PutItem",
+                            "dynamodb:Query",
+                        ],
+                        "Resources": [
+                            f"arn:aws:dynamodb:eu-west-1:{get_caller_identity().account_id}:table/Stazioni"
+                        ],
+                    }
+                ],
+            ).json,
+        )
+    ],
 )
-iam_for_lambda = iam.Role(
-    "iam_for_lambda",
-    name="iam_for_lambda",
-    assume_role_policy=assume_role.json,
-    managed_policy_arns=["arn:aws:iam::aws:policy/AdministratorAccess"],
-)
-lambda_fn = archive.get_file(
-    type="zip",
-    source_dir="../app/",
-    output_path="lambda_function_payload.zip",
-    excludes=["../app/.mypy_cache", "../app/.ruff_cache"],
-)
-test_lambda = lambda_.Function(
-    "test_lambda",
-    code=pulumi.FileArchive("lambda_function_payload.zip"),
-    name="lambda_function_name",
-    role=iam_for_lambda.arn,
+
+lambda_zip = create_lambda_zip(RESOURCES_PREFIX)
+fetcher_lambda = lambda_.Function(
+    f"{RESOURCES_PREFIX}-fetcher",
+    code=lambda_zip.zip_path,  # type: ignore[arg-type]
+    name=f"{RESOURCES_PREFIX}-fetcher",
+    role=fetcher_role.arn,
     handler="erfiume_fetcher.handler",
-    source_code_hash=lambda_fn.output_base64sha256,
+    source_code_hash=lambda_zip.zip_sha256,
     runtime=lambda_.Runtime.PYTHON3D12,
     environment={
         "variables": {
-            "ENVIRONMENT": "staging",
+            "ENVIRONMENT": pulumi.get_stack(),
         },
     },
+    timeout=60,
+)
+
+scheduler.Schedule(
+    f"{RESOURCES_PREFIX}-fetcher",
+    name=f"{RESOURCES_PREFIX}-fetcher",
+    flexible_time_window=scheduler.ScheduleFlexibleTimeWindowArgs(
+        mode="FLEXIBLE",
+        maximum_window_in_minutes=5,
+    ),
+    schedule_expression="rate(25 minutes)",
+    schedule_expression_timezone="Europe/Rome",
+    target=scheduler.ScheduleTargetArgs(
+        arn=fetcher_lambda.arn,
+        role_arn=iam.Role(
+            f"{RESOURCES_PREFIX}-fetcher-scheduler",
+            name=f"{RESOURCES_PREFIX}-fetcher-scheduler",
+            assume_role_policy=iam.get_policy_document(
+                statements=[
+                    {
+                        "Effect": "Allow",
+                        "Principals": [
+                            {
+                                "Type": "Service",
+                                "Identifiers": ["scheduler.amazonaws.com"],
+                            }
+                        ],
+                        "Actions": ["sts:AssumeRole"],
+                        "conditions": [
+                            {
+                                "Test": "StringEquals",
+                                "Variable": "aws:SourceAccount",
+                                "Values": [f"{get_caller_identity().account_id}"],
+                            }
+                        ],
+                    }
+                ]
+            ).json,
+            inline_policies=[
+                iam.RoleInlinePolicyArgs(
+                    name="DynamoDBStazioniRW",
+                    policy=iam.get_policy_document_output(
+                        statements=[
+                            {
+                                "Effect": "Allow",
+                                "Actions": [
+                                    "lambda:InvokeFunction",
+                                ],
+                                "Resources": [fetcher_lambda.arn],
+                            }
+                        ],
+                    ).json,
+                )
+            ],
+        ).arn,
+    ),
 )
