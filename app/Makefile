@@ -1,12 +1,11 @@
 .PHONY: build format format-check lint install test type-check check help
 
-build:
+build-layer-zip:
 	poetry install --only main --sync
-	cd ..; mkdir -p ./dist/lambda-package
-	cd ..; cp -r ./app/.venv/lib/python*/site-packages/* ./dist/lambda-package/
-	cd ..; cp -r ./app/ ./dist/lambda-package/
-	cd ../dist/lambda-package; rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py
-	cd ../dist/lambda-package; zip -r ../../dist/lambda.zip .
+	cd ..; mkdir -p ./dist/lambda-layer/python
+	cd ..; cp -r -p ./app/.venv/lib ./dist/lambda-layer/python/
+	cd ../dist/lambda-layer/python; rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py
+	cd ../dist/lambda-layer/python; zip -q -r -D -X -9 -A ../../lambda-layer.zip ../
 
 format: ## Format repository code
 	poetry run ruff format
