@@ -5,12 +5,10 @@ Handle bot intections with users.
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime
 from inspect import cleandoc
 from typing import TYPE_CHECKING, Any
 
-import boto3
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -24,21 +22,17 @@ from zoneinfo import ZoneInfo
 if TYPE_CHECKING:
     from .apis import Stazione
 
+from aws_lambda_powertools.utilities import parameters
+
 from .logging import logger
-from .storage import DynamoClient
+from .storage import AsyncDynamoDB
 
 
 async def fetch_bot_token() -> str:
     """
     Fetch the Telegram Bot token from AWS SM
     """
-    environment = os.getenv("ENVIRONMENT", "staging")
-    return boto3.client(
-        service_name="secretsmanager",
-        endpoint_url=("http://localhost:4566" if environment != "production" else None),
-    ).get_secret_value(
-        SecretId="telegram-bot-token",
-    )["SecretString"]
+    return parameters.get_secret("telegram-bot-token")
 
 
 async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -84,15 +78,15 @@ def create_station_message(station: Stazione) -> str:
 
 async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /cesena is issued."""
-    db_client = await DynamoClient.create()
-    stazione = await db_client.get_matching_station("Cesena")
-    if stazione:
-        if update.message:
-            await update.message.reply_html(create_station_message(stazione))
-    elif update.message:
-        await update.message.reply_html(
-            "Nessun stazione trovata!",
-        )
+    async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
+        stazione = await dynamo.get_matching_station("Cesena")
+        if stazione:
+            if update.message:
+                await update.message.reply_html(create_station_message(stazione))
+        elif update.message:
+            await update.message.reply_html(
+                "Nessun stazione trovata!",
+            )
 
 
 async def handle_private_message(
@@ -109,14 +103,14 @@ async def handle_private_message(
     )
     if update.message and update.effective_chat and update.message.text:
         logger.info("Received private message: %s", update.message.text)
-        db_client = await DynamoClient.create()
-        stazione = await db_client.get_matching_station(update.message.text)
-        if stazione and update.message:
-            message = create_station_message(stazione)
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=message,
-        )
+        async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
+            stazione = await dynamo.get_matching_station(update.message.text)
+            if stazione and update.message:
+                message = create_station_message(stazione)
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+            )
 
 
 async def bot(event: dict[str, Any]) -> None:

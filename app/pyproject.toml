@@ -31,7 +31,7 @@ output-format = "github"
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["D2", "D4", "ANN", "COM812", "ISC001"]
+ignore = ["D2", "D4", "ANN", "COM812", "ISC001", "D105", "D107"]
 fixable = ["ALL"]
 unfixable = []
 
