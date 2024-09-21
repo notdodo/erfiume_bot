@@ -63,7 +63,7 @@ class AsyncDynamoDB:
             # Get the latest timestamp from the DynamoDB response
             latest_timestamp = (
                 int(response["Item"].get("timestamp"))  # type: ignore[arg-type]
-                if response["Item"]
+                if "Item" in response
                 else 0
             )
 
@@ -94,7 +94,7 @@ class AsyncDynamoDB:
                 Key={"nomestaz": station_name},
             )
 
-            if stazione["Item"]:
+            if "Item" in stazione:
                 return Stazione(**stazione["Item"])  # type: ignore[arg-type]
             logger.info("Station %s not found in DynamoDB.", station_name)
         except ClientError as e:

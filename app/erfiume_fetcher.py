@@ -46,6 +46,7 @@ async def main() -> None:
     await update_task
 
 
+@logger.inject_lambda_context
 def handler(_event: dict[str, Any], _context: LambdaContext) -> None:
     """
     AWS Lambda starting method
