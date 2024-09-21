@@ -1,0 +1,40 @@
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+      time: "12:00"
+      day: wednesday
+    groups:
+      erfiume-docker:
+        patterns:
+          - "*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      time: "12:00"
+      day: wednesday
+  - package-ecosystem: pip
+    directory: /pulumi
+    schedule:
+      interval: monthly
+      time: "12:00"
+      day: wednesday
+    groups:
+      pulumi:
+        dependency-type: "production"
+      pulumi-dev:
+        dependency-type: "development"
+  - package-ecosystem: pip
+    directory: /app
+    schedule:
+      interval: monthly
+      time: "12:00"
+      day: wednesday
+    groups:
+      app:
+        dependency-type: "production"
+      app-dev:
+        dependency-type: "development"

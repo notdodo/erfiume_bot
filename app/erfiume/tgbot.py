@@ -36,7 +36,9 @@ async def fetch_bot_token() -> str:
     return boto3.client(
         service_name="secretsmanager",
         endpoint_url=("http://localhost:4566" if environment != "production" else None),
-    ).get_secret_value(SecretId="telegram-bot-token",)["SecretString"]
+    ).get_secret_value(
+        SecretId="telegram-bot-token",
+    )["SecretString"]
 
 
 async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
