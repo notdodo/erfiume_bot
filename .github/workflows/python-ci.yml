@@ -1,6 +1,17 @@
 name: Python CI
 on:
   push:
+    branches:
+      - main
+    paths:
+      - app/**
+      - pulumi/**
+      - .github/workflows/python-ci.yml
+  pull_request:
+    paths:
+      - app/**
+      - pulumi/**
+      - .github/workflows/python-ci.yml
 
 concurrency:
   group: ghas-erfiume-ci-${{ github.ref }}
