@@ -16,6 +16,9 @@ from lambda_utils import create_lambda_layer, create_lambda_zip
 from telegram_provider import Webhook
 
 RESOURCES_PREFIX = "erfiume"
+SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
+SYNC_MINUTES_RATE_EMERGENCY = 20
+EMERGENCY = False
 
 stazioni_table = dynamodb.Table(
     f"{RESOURCES_PREFIX}-stazioni",
@@ -143,7 +146,8 @@ fetcher_lambda = lambda_.Function(
             "ENVIRONMENT": pulumi.get_stack(),
         },
     },
-    timeout=60,
+    memory_size=1024,
+    timeout=50,
 )
 
 bot_lambda = lambda_.Function(
@@ -160,7 +164,8 @@ bot_lambda = lambda_.Function(
             "ENVIRONMENT": pulumi.get_stack(),
         },
     },
-    timeout=15,
+    memory_size=1024,
+    timeout=10,
 )
 
 scheduler.Schedule(
@@ -170,7 +175,7 @@ scheduler.Schedule(
         mode="FLEXIBLE",
         maximum_window_in_minutes=5,
     ),
-    schedule_expression="rate(25 minutes)",
+    schedule_expression=f"rate({SYNC_MINUTES_RATE_EMERGENCY if EMERGENCY else SYNC_MINUTES_RATE_NORMAL} minutes)",
     schedule_expression_timezone="Europe/Rome",
     target=scheduler.ScheduleTargetArgs(
         arn=fetcher_lambda.arn,
@@ -222,13 +227,13 @@ cloudwatch.LogGroup(
     f"{RESOURCES_PREFIX}-fetcher",
     log_group_class="STANDARD",
     name="/aws/lambda/erfiume-fetcher",
-    retention_in_days=60,
+    retention_in_days=14,
 )
 cloudwatch.LogGroup(
     f"{RESOURCES_PREFIX}-bot",
     log_group_class="STANDARD",
     name="/aws/lambda/erfiume-bot",
-    retention_in_days=60,
+    retention_in_days=14,
 )
 
 if pulumi.get_stack() == "production":
