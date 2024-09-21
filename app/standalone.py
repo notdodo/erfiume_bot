@@ -9,7 +9,7 @@ import asyncio
 import httpx
 
 from erfiume import (
-    DynamoClient,
+    AsyncDynamoDB,
     bot,
     enrich_data,
     fetch_latest_time,
@@ -22,15 +22,16 @@ async def update() -> None:
     """
     Run main.
     """
-    db_client = await DynamoClient.create()
-    async with httpx.AsyncClient() as http_client:
+    async with httpx.AsyncClient() as http_client, AsyncDynamoDB(
+        table_name="Stazioni"
+    ) as dynamo:
         while True:
             try:
                 latest_time = await fetch_latest_time(http_client)
                 stations = await fetch_stations_data(http_client, latest_time)
                 await enrich_data(http_client, stations)
                 for stazione in stations:
-                    await db_client.check_and_update_stazioni(stazione)
+                    await dynamo.check_and_update_stazioni(stazione)
             except httpx.HTTPStatusError as e:
                 logger.exception("HTTP error occurred: %d", e.response.status_code)
             except httpx.ConnectTimeout:

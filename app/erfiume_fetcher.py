@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from erfiume import (
-    DynamoClient,
+    AsyncDynamoDB,
     enrich_data,
     fetch_latest_time,
     fetch_stations_data,
@@ -25,14 +25,15 @@ async def update() -> None:
     """
     Run main.
     """
-    db_client = await DynamoClient.create()
-    async with httpx.AsyncClient() as http_client:
+    async with httpx.AsyncClient() as http_client, AsyncDynamoDB(
+        table_name="Stazioni"
+    ) as dynamo:
         try:
             latest_time = await fetch_latest_time(http_client)
             stations = await fetch_stations_data(http_client, latest_time)
             await enrich_data(http_client, stations)
             for stazione in stations:
-                await db_client.check_and_update_stazioni(stazione)
+                await dynamo.check_and_update_stazioni(stazione)
         except httpx.HTTPStatusError as e:
             logger.exception("HTTP error occurred: %d", e.response.status_code)
         except httpx.ConnectTimeout:

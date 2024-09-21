@@ -22,15 +22,10 @@ stazioni_table = dynamodb.Table(
     name="Stazioni",
     billing_mode="PAY_PER_REQUEST",
     hash_key="nomestaz",
-    range_key="ordinamento",
     attributes=[
         dynamodb.TableAttributeArgs(
             name="nomestaz",
             type="S",
-        ),
-        dynamodb.TableAttributeArgs(
-            name="ordinamento",
-            type="N",
         ),
     ],
 )
@@ -72,6 +67,7 @@ fetcher_role = iam.Role(
                         "Actions": [
                             "dynamodb:PutItem",
                             "dynamodb:Query",
+                            "dynamodb:GetItem",
                         ],
                         "Resources": [stazioni_table.arn],
                     }
@@ -110,6 +106,7 @@ bot_role = iam.Role(
                         "Effect": "Allow",
                         "Actions": [
                             "dynamodb:Query",
+                            "dynamodb:GetItem",
                         ],
                         "Resources": [
                             f"arn:aws:dynamodb:eu-west-1:{get_caller_identity().account_id}:table/Stazioni"
