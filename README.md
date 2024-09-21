@@ -1,2 +1,2 @@
 # erfiume_bot
-![erfiume](https://github.com/user-attachments/assets/82d2326f-c496-40be-8601-e2c8f593ccec)
+![padded_erfiume_640x360](https://github.com/user-attachments/assets/58bb5033-87e0-4794-99f7-ddc1a3fd65b4)
