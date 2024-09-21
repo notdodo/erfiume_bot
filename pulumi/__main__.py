@@ -1,8 +1,8 @@
 """An AWS Python Pulumi program"""
 
-import pulumi
 from pulumi_aws import (
     apigatewayv2,
+    cloudwatch,
     dynamodb,
     get_caller_identity,
     iam,
@@ -11,7 +11,8 @@ from pulumi_aws import (
     secretsmanager,
 )
 
-from lambda_utils import create_lambda_zip
+import pulumi
+from lambda_utils import create_lambda_layer, create_lambda_zip
 from telegram_provider import Webhook
 
 RESOURCES_PREFIX = "erfiume"
@@ -129,6 +130,7 @@ bot_role = iam.Role(
     ],
 )
 
+lambda_layer = create_lambda_layer(RESOURCES_PREFIX)
 lambda_zip = create_lambda_zip(RESOURCES_PREFIX)
 fetcher_lambda = lambda_.Function(
     f"{RESOURCES_PREFIX}-fetcher",
@@ -137,6 +139,7 @@ fetcher_lambda = lambda_.Function(
     role=fetcher_role.arn,
     handler="erfiume_fetcher.handler",
     source_code_hash=lambda_zip.zip_sha256,
+    layers=[lambda_layer.arn],
     runtime=lambda_.Runtime.PYTHON3D12,
     environment={
         "variables": {
@@ -153,6 +156,7 @@ bot_lambda = lambda_.Function(
     role=bot_role.arn,
     handler="erfiume_bot.handler",
     source_code_hash=lambda_zip.zip_sha256,
+    layers=[lambda_layer.arn],
     runtime=lambda_.Runtime.PYTHON3D12,
     environment={
         "variables": {
@@ -229,6 +233,19 @@ lambda_.Permission(
     function=bot_lambda.arn,
     principal="apigateway.amazonaws.com",
     source_arn=bot_webhook_gw.execution_arn.apply(lambda arn: f"{arn}/*/*"),
+)
+
+cloudwatch.LogGroup(
+    f"{RESOURCES_PREFIX}-fetcher",
+    log_group_class="STANDARD",
+    name="/aws/lambda/erfiume-fetcher",
+    retention_in_days=60,
+)
+cloudwatch.LogGroup(
+    f"{RESOURCES_PREFIX}-bot",
+    log_group_class="STANDARD",
+    name="/aws/lambda/erfiume-bot",
+    retention_in_days=60,
 )
 
 if pulumi.get_stack() == "production":
