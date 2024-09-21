@@ -1,0 +1,7 @@
+name: Gitleaks
+on:
+  pull_request:
+
+jobs:
+  gitleaks:
+    uses: notdodo/github-actions/.github/workflows/gitleaks.yml@gitleaks-v0.0.2
