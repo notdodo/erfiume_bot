@@ -218,20 +218,6 @@ scheduler.Schedule(
     ),
 )
 
-bot_webhook_gw = apigatewayv2.Api(
-    f"{RESOURCES_PREFIX}-webhook",
-    protocol_type="HTTP",
-    route_key="POST /erfiume_bot",
-    target=bot_lambda.arn,
-)
-lambda_.Permission(
-    f"{RESOURCES_PREFIX}-lambda-bot-api-gateway",
-    action="lambda:InvokeFunction",
-    function=bot_lambda.arn,
-    principal="apigateway.amazonaws.com",
-    source_arn=bot_webhook_gw.execution_arn.apply(lambda arn: f"{arn}/*/*"),
-)
-
 cloudwatch.LogGroup(
     f"{RESOURCES_PREFIX}-fetcher",
     log_group_class="STANDARD",
@@ -246,6 +232,20 @@ cloudwatch.LogGroup(
 )
 
 if pulumi.get_stack() == "production":
+    bot_webhook_gw = apigatewayv2.Api(
+        f"{RESOURCES_PREFIX}-webhook",
+        protocol_type="HTTP",
+        route_key="POST /erfiume_bot",
+        target=bot_lambda.arn,
+    )
+    lambda_.Permission(
+        f"{RESOURCES_PREFIX}-lambda-bot-api-gateway",
+        action="lambda:InvokeFunction",
+        function=bot_lambda.arn,
+        principal="apigateway.amazonaws.com",
+        source_arn=bot_webhook_gw.execution_arn.apply(lambda arn: f"{arn}/*/*"),
+    )
+
     Webhook(
         f"{RESOURCES_PREFIX}-apigateway-registration",
         token=pulumi.Config().require_secret("telegram-bot-token"),
