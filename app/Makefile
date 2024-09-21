@@ -11,7 +11,7 @@ build-lambda-zip: build-layer-zip
 	cd ..; mkdir -p ./dist/lambda-package/
 	cd ..; cp -r -p ./app/ ./dist/lambda-package/
 	cd ../dist/lambda-package/; rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py
-	cd ../dist/lambda-package/; zip -q -r -D -X -9 -A ../lambda.zip ../
+	cd ../dist/lambda-package/; zip -q -r -D -X -9 -A ../lambda.zip .
 
 format: ## Format repository code
 	poetry run ruff format
