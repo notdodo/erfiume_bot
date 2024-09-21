@@ -8,7 +8,7 @@ import json
 import os
 from datetime import datetime
 from inspect import cleandoc
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import boto3
 from telegram import Update
@@ -20,6 +20,9 @@ from telegram.ext import (
     filters,
 )
 from zoneinfo import ZoneInfo
+
+if TYPE_CHECKING:
+    from .apis import Stazione
 
 from .logging import logger
 from .storage import DynamoClient
@@ -47,32 +50,45 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
+def create_station_message(station: Stazione) -> str:
+    """
+    Create and format the answer from the bot.
+    """
+    timestamp = (
+        datetime.fromtimestamp(
+            int(station.timestamp) / 1000, tz=ZoneInfo("Europe/Rome")
+        )
+        .replace(tzinfo=None)
+        .strftime("%d-%m-%Y %H:%M")
+    )
+    value = float(station.value)
+    yellow = station.soglia1
+    orange = station.soglia2
+    red = station.soglia3
+    alarm = "🔴"
+    if value <= yellow:
+        alarm = "🟢"
+    elif value > yellow and value <= orange:
+        alarm = "🟡"
+    elif value >= orange and value <= red:
+        alarm = "🟠"
+    return cleandoc(
+        f"""Stazione: {station.nomestaz}
+            Valore: {value!r} {alarm}
+            Soglia Gialla: {yellow}
+            Soglia Arancione: {orange}
+            Soglia Rossa: {red}
+            <b>Ultimo rilevamento: {timestamp}</b>"""
+    )
+
+
 async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /cesena is issued."""
     db_client = await DynamoClient.create()
     stazione = await db_client.get_matching_station("Cesena")
     if stazione:
-        timestamp = (
-            datetime.fromtimestamp(
-                int(stazione.timestamp) / 1000, tz=ZoneInfo("Europe/Rome")
-            )
-            .replace(tzinfo=None)
-            .strftime("%d-%m-%Y %H:%M")
-        )
-        value = float(stazione.value)
-        yellow = stazione.soglia1
-        orange = stazione.soglia2
-        red = stazione.soglia3
         if update.message:
-            message = cleandoc(
-                f"""Nome Stazione: {stazione.nomestaz}
-                Valore: {value!r}
-                Soglia Gialla: {yellow}
-                Soglia Arancione: {orange}
-                Soglia Rossa: {red}
-                Ultimo rilevamento: {timestamp}"""
-            )
-            await update.message.reply_html(message)
+            await update.message.reply_html(create_station_message(stazione))
     elif update.message:
         await update.message.reply_html(
             "Nessun stazione trovata!",
@@ -95,26 +111,8 @@ async def handle_private_message(
         logger.info("Received private message: %s", update.message.text)
         db_client = await DynamoClient.create()
         stazione = await db_client.get_matching_station(update.message.text)
-        if stazione:
-            timestamp = (
-                datetime.fromtimestamp(
-                    int(stazione.timestamp) / 1000, tz=ZoneInfo("Europe/Rome")
-                )
-                .replace(tzinfo=None)
-                .strftime("%d-%m-%Y %H:%M")
-            )
-            value = float(stazione.value)
-            yellow = stazione.soglia1
-            orange = stazione.soglia2
-            red = stazione.soglia3
-            message = cleandoc(
-                f"""Nome Stazione: {stazione.nomestaz}
-                Valore: {value!r}
-                Soglia Gialla: {yellow}
-                Soglia Arancione: {orange}
-                Soglia Rossa: {red}
-                Ultimo rilevamento: {timestamp}"""
-            )
+        if stazione and update.message:
+            message = create_station_message(stazione)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=message,
