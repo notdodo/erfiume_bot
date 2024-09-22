@@ -1,5 +1,6 @@
 """An AWS Python Pulumi program"""
 
+import pulumi
 import pulumi_cloudflare
 from pulumi_aws import (
     apigatewayv2,
@@ -12,7 +13,6 @@ from pulumi_aws import (
     secretsmanager,
 )
 
-import pulumi
 from lambda_utils import create_lambda_layer, create_lambda_zip
 from telegram_provider import Webhook
 
