@@ -1,6 +1,7 @@
 """An AWS Python Pulumi program"""
 
 import pulumi
+import pulumi_cloudflare
 from pulumi_aws import (
     apigatewayv2,
     cloudwatch,
@@ -19,6 +20,7 @@ RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
 SYNC_MINUTES_RATE_EMERGENCY = 20
 EMERGENCY = False
+CUSTOM_DOMAIN_NAME = "erfiume.thedodo.xyz"
 
 stazioni_table = dynamodb.Table(
     f"{RESOURCES_PREFIX}-stazioni",
@@ -146,7 +148,7 @@ fetcher_lambda = lambda_.Function(
             "ENVIRONMENT": pulumi.get_stack(),
         },
     },
-    memory_size=1024,
+    memory_size=768,
     timeout=50,
 )
 
@@ -164,7 +166,7 @@ bot_lambda = lambda_.Function(
             "ENVIRONMENT": pulumi.get_stack(),
         },
     },
-    memory_size=1024,
+    memory_size=768,
     timeout=10,
 )
 
@@ -237,11 +239,21 @@ cloudwatch.LogGroup(
 )
 
 if pulumi.get_stack() == "production":
+    gw_domain_name = apigatewayv2.DomainName(
+        f"{RESOURCES_PREFIX}-bot",
+        domain_name=CUSTOM_DOMAIN_NAME,
+        domain_name_configuration=apigatewayv2.DomainNameDomainNameConfigurationArgs(
+            certificate_arn="arn:aws:acm:eu-west-1:841162699174:certificate/109ca827-8d70-4e11-8995-0b3dbdbd0510",
+            endpoint_type="REGIONAL",
+            security_policy="TLS_1_2",
+        ),
+    )
     bot_webhook_gw = apigatewayv2.Api(
         f"{RESOURCES_PREFIX}-webhook",
         protocol_type="HTTP",
         route_key="POST /erfiume_bot",
         target=bot_lambda.arn,
+        disable_execute_api_endpoint=True,
     )
     lambda_.Permission(
         f"{RESOURCES_PREFIX}-lambda-bot-api-gateway",
@@ -250,9 +262,51 @@ if pulumi.get_stack() == "production":
         principal="apigateway.amazonaws.com",
         source_arn=bot_webhook_gw.execution_arn.apply(lambda arn: f"{arn}/*/*"),
     )
+    gw_api_mapping = apigatewayv2.ApiMapping(
+        f"{RESOURCES_PREFIX}-bot-domain-mapping",
+        api_id=bot_webhook_gw.id,
+        domain_name=gw_domain_name.domain_name,
+        stage="$default",
+    )
+
+    pulumi_cloudflare.Record(
+        f"{RESOURCES_PREFIX}-api-gw-cname",
+        name="erfiume",
+        type="CNAME",
+        zone_id="cec5bf01afed114303a536c264a1f394",
+        proxied=True,
+        content=gw_domain_name.domain_name_configuration.target_domain_name,
+    )
+
+    telegram_authorization_token = pulumi.Config().require_secret(
+        "telegram-authorization-token"
+    )
+    pulumi_cloudflare.Ruleset(
+        f"{RESOURCES_PREFIX}-waf",
+        zone_id="cec5bf01afed114303a536c264a1f394",
+        name="erfiume-bot-check-authorization-header",
+        description="erfiume_bot Block Invalid Authorization Header",
+        kind="zone",
+        phase="http_request_firewall_custom",
+        rules=[
+            pulumi_cloudflare.RulesetRuleArgs(
+                action="block",
+                expression="(cf.client.bot)",
+                enabled=True,
+            ),
+            pulumi_cloudflare.RulesetRuleArgs(
+                action="block",
+                expression=telegram_authorization_token.apply(
+                    lambda header: f'(all(http.request.headers["x-telegram-bot-api-secret-token"][*] ne "{header}") and http.host eq "{CUSTOM_DOMAIN_NAME}")'  # noqa: E501
+                ),
+                enabled=True,
+            ),
+        ],
+    )
 
     Webhook(
         f"{RESOURCES_PREFIX}-apigateway-registration",
         token=pulumi.Config().require_secret("telegram-bot-token"),
-        url=bot_webhook_gw.api_endpoint.apply(lambda url: f"{url}/erfiume_bot"),
+        authorization_token=telegram_authorization_token,
+        url=f"https://{CUSTOM_DOMAIN_NAME}/erfiume_bot",
     )

@@ -268,5 +268,7 @@ config:
   aws:secretKey: test
   aws:skipCredentialsValidation: "true"
   aws:skipRequestingAccountId: "true"
+  erfiume:telegram-authorization-token:
+    secure: AAABANBm/MQpNhcald3hBBL7UPUAhiYz5jxH+zeC4suyb48OpZcrnZHIhKl3qcPMRqjKtmdLGVoit/Cs+GVrfDprpQ2S4g1c7aujoehK2WTHuJwkznfqRzjyEXMxRd45
   erfiume:telegram-bot-token:
     secure: AAABAJCtZcMcH6RjMHY80HjCxKpVe2pLIHvj6g/v9efhMAZIg3HiNYmofthrZhjrSnkSMKzSrVcoqpvOgMUvV+zsZ1GUonnFmBYZ/VvA
