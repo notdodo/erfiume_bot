@@ -372,6 +372,22 @@ pulumi = ">=3.0.0,<4.0.0"
 semver = ">=2.8.1"
 
 [[package]]
+name = "pulumi-cloudflare"
+version = "5.39.0"
+description = "A Pulumi package for creating and managing Cloudflare cloud resources."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "pulumi_cloudflare-5.39.0-py3-none-any.whl", hash = "sha256:9921f0a3fb442e6a446ccd76fc0ba532b9f327e768e17391c71e59d4981c5242"},
+    {file = "pulumi_cloudflare-5.39.0.tar.gz", hash = "sha256:e8088415418ddb0d6cf21fa7ba42b920414b58e6a4224751e6b40c56754b5edd"},
+]
+
+[package.dependencies]
+parver = ">=0.2.1"
+pulumi = ">=3.0.0,<4.0.0"
+semver = ">=2.8.1"
+
+[[package]]
 name = "pulumi-command"
 version = "1.0.1"
 description = "The Pulumi Command Provider enables you to execute commands and scripts either locally or remotely as part of the Pulumi resource model."
@@ -698,4 +714,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "c431a4af3ab7eefbd7440be15dd2cf119e6a66d40c3658cd1ce2f412e550d80d"
+content-hash = "8e116b20677ce8a01ab503412bf2f67a3027c784d30de6a2c67955df7f31af17"

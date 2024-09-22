@@ -4,5 +4,7 @@ config:
       environment: production
       project: erfiume
   aws:region: eu-west-1
+  erfiume:telegram-authorization-token:
+    secure: AAABAAtA6vkP45ayorXzotOCFcQKQoeCjsLAFRG06Dr/DY1k3XbPLCdwAhiXtIh8T8b7rH0E/Ct9IrnvHbvJb7WyvTW4EG/92at/kVy8jBhjSp9uZ++Z3vCOI8rid2eP
   erfiume:telegram-bot-token:
     secure: AAABAPwvcC722Zh0BGmJZ73kUE7l0G9DDM40Q34uSQWJciCW9YdzWiqgzO/UvouqD7IGD6/O3q/KCnfphKeUQVC5L/89r+pjKOiAZSR0

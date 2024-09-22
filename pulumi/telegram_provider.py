@@ -18,14 +18,18 @@ class _TelegramWebhookProvider(ResourceProvider):
     def create(self, props: dict[str, Any]) -> CreateResult:
         webhook_url = props["url"]
         token = props["token"]
+        secret_token = props["authorization_token"]
         response = requests.post(
             f"https://api.telegram.org/bot{token}/setWebhook",
-            json={"url": webhook_url},
+            json={
+                "url": webhook_url,
+                "secret_token": secret_token,
+            },
             timeout=10,
         )
         if response.status_code != requests.codes.OK:
             raise requests.RequestException(response.text)
-        return CreateResult(id_="-", outs={})
+        return CreateResult(id_="-")
 
 
 class Webhook(Resource):
@@ -34,8 +38,19 @@ class Webhook(Resource):
     """
 
     def __init__(
-        self, name: str, token: str | pulumi.Output[str], url: str | pulumi.Output[str]
+        self,
+        name: str,
+        token: str | pulumi.Output[str],
+        url: str | pulumi.Output[str],
+        authorization_token: str | pulumi.Output[str] | None = None,
     ) -> None:
         super().__init__(
-            _TelegramWebhookProvider(), name, {"token": token, "url": url}, None
+            _TelegramWebhookProvider(),
+            name,
+            {
+                "token": token,
+                "url": url,
+                "authorization_token": authorization_token,
+            },
+            None,
         )
