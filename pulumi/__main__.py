@@ -331,5 +331,10 @@ if pulumi.get_stack() == "production":
         f"{RESOURCES_PREFIX}-apigateway-registration",
         token=pulumi.Config().require_secret("telegram-bot-token"),
         authorization_token=telegram_authorization_token,
+        react_on=[
+            "message",
+            "inline_query",
+            "my_chat_member",
+        ],
         url=f"https://{CUSTOM_DOMAIN_NAME}/erfiume_bot",
     )
