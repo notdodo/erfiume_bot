@@ -35,6 +35,23 @@ stazioni_table = dynamodb.Table(
     ],
 )
 
+utenti_table = dynamodb.Table(
+    f"{RESOURCES_PREFIX}-users",
+    name="Utenti",
+    billing_mode="PAY_PER_REQUEST",
+    hash_key="chatid",
+    attributes=[
+        dynamodb.TableAttributeArgs(
+            name="chatid",
+            type="S",
+        ),
+    ],
+    ttl=dynamodb.TableTtlArgs(
+        attribute_name="ttl",
+        enabled=True,
+    ),
+)
+
 telegram_token_secret = secretsmanager.Secret(
     f"{RESOURCES_PREFIX}-telegram-bot-token",
     name="telegram-bot-token",
@@ -64,7 +81,7 @@ fetcher_role = iam.Role(
     ],
     inline_policies=[
         iam.RoleInlinePolicyArgs(
-            name="DynamoDBStazioniRW",
+            name="FetcherRole",
             policy=iam.get_policy_document_output(
                 statements=[
                     {
@@ -72,6 +89,7 @@ fetcher_role = iam.Role(
                         "Actions": [
                             "dynamodb:PutItem",
                             "dynamodb:Query",
+                            "dynamodb:UpdateItem",
                             "dynamodb:GetItem",
                         ],
                         "Resources": [stazioni_table.arn],
@@ -104,7 +122,7 @@ bot_role = iam.Role(
     ],
     inline_policies=[
         iam.RoleInlinePolicyArgs(
-            name="DynamoSMReadOnly",
+            name="BotRole",
             policy=iam.get_policy_document_output(
                 statements=[
                     {
@@ -113,9 +131,14 @@ bot_role = iam.Role(
                             "dynamodb:Query",
                             "dynamodb:GetItem",
                         ],
-                        "Resources": [
-                            f"arn:aws:dynamodb:eu-west-1:{get_caller_identity().account_id}:table/Stazioni"
+                        "Resources": [stazioni_table.arn, utenti_table.arn],
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Actions": [
+                            "dynamodb:PutItem",
                         ],
+                        "Resources": [utenti_table.arn],
                     },
                     {
                         "Effect": "Allow",

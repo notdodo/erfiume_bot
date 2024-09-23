@@ -5,6 +5,7 @@ Module to handle interactions with storage (DynamoDB).
 from __future__ import annotations
 
 import os
+from decimal import Decimal
 from typing import TYPE_CHECKING, Self
 
 import aioboto3
@@ -16,6 +17,8 @@ from .logging import logger
 
 if TYPE_CHECKING:
     from types import TracebackType
+
+UNKNOWN_VALUE = -9999.0
 
 
 class AsyncDynamoDB:
@@ -68,12 +71,26 @@ class AsyncDynamoDB:
             )
 
             # If the provided station has newer data or the record doesn't exist, update DynamoDB
-            if station.timestamp > latest_timestamp or not response["Item"]:
-                logger.info(
-                    "Updating data for station %s (%s)",
-                    station.nomestaz,
-                    station.idstazione,
+            if station.timestamp > latest_timestamp:
+                logger.info("Updating data for station %s", station.nomestaz)
+                await self.table.update_item(
+                    Key={"nomestaz": station.nomestaz},
+                    UpdateExpression="SET #ts = :new_timestamp, #vl = :new_value",
+                    ExpressionAttributeValues={
+                        ":new_timestamp": station.timestamp,
+                        ":new_value": (
+                            Decimal(str(station.value))
+                            if station.value is not None
+                            else Decimal(str(UNKNOWN_VALUE))
+                        ),
+                    },
+                    ExpressionAttributeNames={
+                        "#ts": "timestamp",
+                        "#vl": "value",
+                    },
                 )
+            elif not response["Item"]:
+                logger.info("Creating data for station %s", station.nomestaz)
                 await self.table.put_item(Item=station.to_dict())
         except ClientError as e:
             logger.exception(
@@ -81,6 +98,7 @@ class AsyncDynamoDB:
             )
             raise
         except Exception as e:
+            logger.info("Stazione: %s", station)
             logger.exception("Unexpected error: %s", e)
             raise
 
