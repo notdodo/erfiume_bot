@@ -1,6 +1,6 @@
 """
 Custom provider to register the API GW as Telegram webhook.
-source: https://github.com/omerholz/chatbot-example/blob/serverless-telegram-bot/infra/bot_lambda.py
+improved from: https://github.com/omerholz/chatbot-example/blob/serverless-telegram-bot/infra/bot_lambda.py
 """
 
 from __future__ import annotations
@@ -8,22 +8,29 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import requests
-from pulumi.dynamic import CreateResult, Resource, ResourceProvider
+from pulumi.dynamic import (
+    CreateResult,
+    ReadResult,
+    Resource,
+    ResourceProvider,
+    UpdateResult,
+)
 
 if TYPE_CHECKING:
     import pulumi
+    from pulumi import ResourceOptions
 
 
 class _TelegramWebhookProvider(ResourceProvider):
+    """Define how to interact with the Telegram API for the Webhook."""
+
     def create(self, props: dict[str, Any]) -> CreateResult:
-        webhook_url = props["url"]
-        token = props["token"]
-        secret_token = props["authorization_token"]
         response = requests.post(
-            f"https://api.telegram.org/bot{token}/setWebhook",
+            f"https://api.telegram.org/bot{props["token"]}/setWebhook",
             json={
-                "url": webhook_url,
-                "secret_token": secret_token,
+                "url": props["url"],
+                "allowed_updates": props["react_on"],
+                "secret_token": props[".authorization_token"],
             },
             timeout=10,
         )
@@ -31,26 +38,64 @@ class _TelegramWebhookProvider(ResourceProvider):
             raise requests.RequestException(response.text)
         return CreateResult(id_="-")
 
+    def read(
+        self,
+        id: str,  # noqa: A002
+        props: dict[str, Any],
+    ) -> ReadResult:
+        response = requests.get(
+            f"https://api.telegram.org/bot{props["token"]}/getWebhookInfo",
+            timeout=10,
+        )
+
+        if response.status_code != requests.codes.OK:
+            raise requests.RequestException(response.text)
+        return ReadResult(id, response.json())
+
+    def update(
+        self,
+        _id: str,
+        _oldInputs: dict[str, Any],  # noqa: N803
+        newInputs: dict[str, Any],  # noqa: N803
+    ) -> UpdateResult:
+        response = requests.post(
+            f"https://api.telegram.org/bot{newInputs["token"]}/setWebhook",
+            json={
+                "url": newInputs["url"],
+                "allowed_updates": newInputs["react_on"],
+                "secret_token": newInputs["authorization_token"],
+            },
+            timeout=10,
+        )
+        if response.status_code != requests.codes.OK:
+            raise requests.RequestException(response.text)
+        return UpdateResult(response.json())
+
 
 class Webhook(Resource):
     """
-    Register a Telegram Webhook with a custom URL
+    Pulumi dynamic resource.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         name: str,
         token: str | pulumi.Output[str],
         url: str | pulumi.Output[str],
+        react_on: list[str] | None,
         authorization_token: str | pulumi.Output[str] | None = None,
-    ) -> None:
+        opts: ResourceOptions | None = None,
+    ):
+        if not react_on:
+            react_on = ["message", "inline_query"]
         super().__init__(
             _TelegramWebhookProvider(),
             name,
             {
                 "token": token,
                 "url": url,
+                "react_on": react_on,
                 "authorization_token": authorization_token,
             },
-            None,
+            opts,
         )
