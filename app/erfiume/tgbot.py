@@ -27,6 +27,8 @@ from aws_lambda_powertools.utilities import parameters
 from .logging import logger
 from .storage import AsyncDynamoDB
 
+UNKNOWN_VALUE = -9999.0
+
 
 async def fetch_bot_token() -> str:
     """
@@ -55,7 +57,7 @@ def create_station_message(station: Stazione) -> str:
         .replace(tzinfo=None)
         .strftime("%d-%m-%Y %H:%M")
     )
-    value = float(station.value)
+    value = float(station.value)  # type: ignore [arg-type]
     yellow = station.soglia1
     orange = station.soglia2
     red = station.soglia3
@@ -66,6 +68,10 @@ def create_station_message(station: Stazione) -> str:
         alarm = "🟡"
     elif value >= orange and value <= red:
         alarm = "🟠"
+
+    if value == UNKNOWN_VALUE:
+        value = "non disponibile"  # type: ignore[assignment]
+        alarm = ""
     return cleandoc(
         f"""Stazione: {station.nomestaz}
             Valore: {value!r} {alarm}
@@ -104,7 +110,35 @@ async def handle_private_message(
     if update.message and update.effective_chat and update.message.text:
         logger.info("Received private message: %s", update.message.text)
         async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
-            stazione = await dynamo.get_matching_station(update.message.text)
+            stazione = await dynamo.get_matching_station(
+                update.message.text.replace("/", "").strip()
+            )
+            if stazione and update.message:
+                message = create_station_message(stazione)
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+            )
+
+
+async def handle_group_message(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """
+    Handle messages writte from private chat to match a specific station
+    """
+
+    message = cleandoc(
+        """Stazione non trovata!
+        Inserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico
+        Ad esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'"""
+    )
+    if update.message and update.effective_chat and update.message.text:
+        logger.info("Received group message: %s", update.message.text)
+        async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
+            stazione = await dynamo.get_matching_station(
+                update.message.text.replace("/", "").replace("erfiume_bot", "").strip()
+            )
             if stazione and update.message:
                 message = create_station_message(stazione)
             await context.bot.send_message(
@@ -123,6 +157,13 @@ async def bot(event: dict[str, Any]) -> None:
         MessageHandler(
             filters.ChatType.PRIVATE & (filters.TEXT | filters.COMMAND),
             handle_private_message,
+        )
+    )
+    application.add_handler(
+        MessageHandler(
+            (filters.ChatType.SUPERGROUP | filters.ChatType.GROUP)
+            & (filters.COMMAND | filters.Regex("@erfiume_bot")),
+            handle_group_message,
         )
     )
 
