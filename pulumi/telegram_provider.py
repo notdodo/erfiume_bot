@@ -1,6 +1,6 @@
 """
 Custom provider to register the API GW as Telegram webhook.
-source: https://github.com/omerholz/chatbot-example/blob/serverless-telegram-bot/infra/bot_lambda.py
+improved from: https://github.com/omerholz/chatbot-example/blob/serverless-telegram-bot/infra/bot_lambda.py
 """
 
 from __future__ import annotations
@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import requests
+
 from pulumi.dynamic import (
     CreateResult,
     ReadResult,
