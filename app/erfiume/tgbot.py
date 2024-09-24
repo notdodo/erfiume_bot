@@ -5,7 +5,7 @@ Handle bot intections with users.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import random
 from inspect import cleandoc
 from typing import TYPE_CHECKING, Any
 
@@ -17,19 +17,19 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
-    from .apis import Stazione
+    from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from aws_lambda_powertools.utilities import parameters
 
 from .logging import logger
 from .storage import AsyncDynamoDB
 
-UNKNOWN_VALUE = -9999.0
+RANDOM_SEND_LINK = 10
 
 
+# UTILS
 async def fetch_bot_token() -> str:
     """
     Fetch the Telegram Bot token from AWS SM
@@ -37,49 +37,90 @@ async def fetch_bot_token() -> str:
     return parameters.get_secret("telegram-bot-token")
 
 
-async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+def is_from_group(update: Update) -> bool:
+    """Check if the update is from a group."""
+    chat = update.effective_chat
+    return chat is not None and chat.type in [
+        "group",
+        "supergroup",
+    ]
+
+
+def is_from_user(update: Update) -> bool:
+    """Check if the update is from a real user."""
+    return update.effective_user is not None
+
+
+def is_from_private_chat(update: Update) -> bool:
+    """Check if the update is from a private chat with the bot."""
+    return update.effective_chat is not None and update.effective_chat.type == "private"
+
+
+def has_joined_group(update: Update) -> bool:
+    """
+    Handle event when the bot is add to a group chat
+    """
+    if is_from_group(update) and update.message and update.effective_chat:
+        for new_user in update.message.new_chat_members:
+            if new_user.username == "erfiume_bot":
+                return True
+    return False
+
+
+async def send_donation_link(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Randomnly send a donation link."""
+    if random.randint(1, 10) == RANDOM_SEND_LINK and update.effective_chat:  # noqa: S311
+        message = """Contribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0"""
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message,
+        )
+
+
+async def send_project_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Randomnly send a link to the GitHub repository."""
+    if random.randint(1, 50) == RANDOM_SEND_LINK and update.effective_chat:  # noqa: S311
+        message = """Esplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot"""
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message,
+        )
+
+
+async def send_random_messages(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle the send of random messages."""
+    await send_donation_link(update, context)
+    await send_project_link(update, context)
+
+
+# END UTILS
+
+
+# HANDLERS
+async def start(update: Update, _: ContextTypes.DEFAULT_TYPE | None) -> None:
     """Send a message when the command /start is issued."""
-    user = update.effective_user
-    if update.message and user:
-        await update.message.reply_html(
-            rf"Ciao {user.mention_html()}! Scrivi il nome di una stazione da monitorare per iniziare (e.g. <b>Cesena</b>)",
-        )
-
-
-def create_station_message(station: Stazione) -> str:
-    """
-    Create and format the answer from the bot.
-    """
-    timestamp = (
-        datetime.fromtimestamp(
-            int(station.timestamp) / 1000, tz=ZoneInfo("Europe/Rome")
-        )
-        .replace(tzinfo=None)
-        .strftime("%d-%m-%Y %H:%M")
-    )
-    value = float(station.value)  # type: ignore [arg-type]
-    yellow = station.soglia1
-    orange = station.soglia2
-    red = station.soglia3
-    alarm = "🔴"
-    if value <= yellow:
-        alarm = "🟢"
-    elif value > yellow and value <= orange:
-        alarm = "🟡"
-    elif value >= orange and value <= red:
-        alarm = "🟠"
-
-    if value == UNKNOWN_VALUE:
-        value = "non disponibile"  # type: ignore[assignment]
-        alarm = ""
-    return cleandoc(
-        f"""Stazione: {station.nomestaz}
-            Valore: {value!r} {alarm}
-            Soglia Gialla: {yellow}
-            Soglia Arancione: {orange}
-            Soglia Rossa: {red}
-            Ultimo rilevamento: {timestamp}"""
-    )
+    if (
+        is_from_user(update)
+        and is_from_private_chat(update)
+        and update.effective_user
+        and update.message
+    ):
+        user = update.effective_user
+        message = rf"Ciao {user.mention_html()}! Scrivi il nome di una stazione da monitorare per iniziare (e.g. <b>Cesena</b> o <b>/S. Carlo</b>)"
+        await update.message.reply_html(message)
+    elif (
+        is_from_user(update)
+        and is_from_group(update)
+        and update.effective_chat
+        and update.message
+    ):
+        chat = update.effective_chat
+        message = rf"Ciao {chat.title}! Per iniziare scrivete il nome di una stazione da monitorare (e.g. <b>/Cesena</b> o <b>/S. Carlo</b>)"
+        await update.message.reply_html(message)
 
 
 async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -88,7 +129,7 @@ async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         stazione = await dynamo.get_matching_station("Cesena")
         if stazione:
             if update.message:
-                await update.message.reply_html(create_station_message(stazione))
+                await update.message.reply_html(stazione.create_station_message())
         elif update.message:
             await update.message.reply_html(
                 "Nessun stazione trovata!",
@@ -99,7 +140,7 @@ async def handle_private_message(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """
-    Handle messages writte from private chat to match a specific station
+    Handle messages written from private chat to match a specific station
     """
 
     message = cleandoc(
@@ -114,11 +155,12 @@ async def handle_private_message(
                 update.message.text.replace("/", "").strip()
             )
             if stazione and update.message:
-                message = create_station_message(stazione)
+                message = stazione.create_station_message()
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
             )
+            await send_random_messages(update, context)
 
 
 async def handle_group_message(
@@ -131,7 +173,7 @@ async def handle_group_message(
     message = cleandoc(
         """Stazione non trovata!
         Inserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico
-        Ad esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'"""
+        Ad esempio '/Cesena', '/Lavino di Sopra' o '/S. Carlo'"""
     )
     if update.message and update.effective_chat and update.message.text:
         logger.info("Received group message: %s", update.message.text)
@@ -140,14 +182,18 @@ async def handle_group_message(
                 update.message.text.replace("/", "").replace("erfiume_bot", "").strip()
             )
             if stazione and update.message:
-                message = create_station_message(stazione)
+                message = stazione.create_station_message()
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
             )
+            await send_random_messages(update, context)
 
 
-async def bot(event: dict[str, Any]) -> None:
+# END HANDLERS
+
+
+async def bot(event: dict[str, Any], _context: LambdaContext) -> None:
     """Run entry point for the bot"""
     application = Application.builder().token(await fetch_bot_token()).build()
 
@@ -162,7 +208,7 @@ async def bot(event: dict[str, Any]) -> None:
     application.add_handler(
         MessageHandler(
             (filters.ChatType.SUPERGROUP | filters.ChatType.GROUP)
-            & (filters.COMMAND | filters.Regex("@erfiume_bot")),
+            & (filters.COMMAND | filters.Mention("erfiume_bot")),
             handle_group_message,
         )
     )
@@ -172,4 +218,6 @@ async def bot(event: dict[str, Any]) -> None:
         update_dict = json.loads(event["body"])
         async with application:
             update = Update.de_json(update_dict, application.bot)
+            if update and has_joined_group(update):
+                await start(update, None)
             await application.process_update(update)
