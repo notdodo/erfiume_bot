@@ -17,6 +17,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from thefuzz import process  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -175,11 +176,15 @@ async def handle_private_message(
     if update.message and update.effective_chat and update.message.text:
         logger.info("Received private message: %s", update.message.text)
         async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
-            stazione = await dynamo.get_matching_station(
-                update.message.text.replace("/", "").strip()
-            )
+            query = update.message.text.replace("/", "").strip()
+            fuzzy_query = process.extractOne(query, KNOWN_STATIONS)[0]
+            stazione = await dynamo.get_matching_station(fuzzy_query)
             if stazione and update.message:
                 message = stazione.create_station_message()
+                if query != fuzzy_query:
+                    message += (
+                        "\nSe non é la stazione corretta prova ad affinare la ricerca."
+                    )
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
@@ -203,11 +208,17 @@ async def handle_group_message(
     if update.message and update.effective_chat and update.message.text:
         logger.info("Received group message: %s", update.message.text)
         async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
-            stazione = await dynamo.get_matching_station(
+            query = (
                 update.message.text.replace("/", "").replace("erfiume_bot", "").strip()
             )
+            fuzzy_query = process.extractOne(query, KNOWN_STATIONS)[0]
+            stazione = await dynamo.get_matching_station(fuzzy_query)
             if stazione and update.message:
                 message = stazione.create_station_message()
+                if query != fuzzy_query:
+                    message += (
+                        "\nSe non é la stazione corretta prova ad affinare la ricerca."
+                    )
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
