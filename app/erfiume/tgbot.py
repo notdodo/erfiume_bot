@@ -17,16 +17,19 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from thefuzz import process  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from aws_lambda_powertools.utilities import parameters
 
+from .apis import KNOWN_STATIONS
 from .logging import logger
 from .storage import AsyncDynamoDB
 
 RANDOM_SEND_LINK = 10
+FUZZ_SCORE_CUTOFF = 80
 
 
 # UTILS
@@ -110,7 +113,7 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE | None) -> None:
         and update.message
     ):
         user = update.effective_user
-        message = rf"Ciao {user.mention_html()}! Scrivi il nome di una stazione da monitorare per iniziare (e.g. <b>Cesena</b> o <b>/S. Carlo</b>)"
+        message = rf"Ciao {user.mention_html()}! Scrivi il nome di una stazione da monitorare per iniziare (e.g. <b>Cesena</b> o <b>/S. Carlo</b>) o cercane una con /stazioni"  # noqa: E501
         await update.message.reply_html(message)
     elif (
         is_from_user(update)
@@ -119,7 +122,7 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE | None) -> None:
         and update.message
     ):
         chat = update.effective_chat
-        message = rf"Ciao {chat.title}! Per iniziare scrivete il nome di una stazione da monitorare (e.g. <b>/Cesena</b> o <b>/S. Carlo</b>)"
+        message = rf"Ciao {chat.title}! Per iniziare scrivete il nome di una stazione da monitorare (e.g. <b>/Cesena</b> o <b>/S. Carlo</b>) o cercane una con /stazioni"  # noqa: E501
         await update.message.reply_html(message)
 
 
@@ -136,6 +139,28 @@ async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             )
 
 
+async def list_stations(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /cesena is issued."""
+    if update.message:
+        await update.message.reply_html("\n".join(KNOWN_STATIONS))
+
+
+async def info(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /cesena is issued."""
+    message = cleandoc(
+        """
+        Bot Telegram che permette di leggere i livelli idrometrici dei fiumi dell'Emilia Romagna.
+        I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagna.it.
+        Il progetto è completamente open-source (https://github.com/notdodo/erfiume_bot).
+        Per donazioni per mantenere il servizio attivo: buymeacoffee.com/d0d0
+
+        Inizia con /start o /stazioni
+        """
+    )
+    if update.message:
+        await update.message.reply_html(message, disable_web_page_preview=True)
+
+
 async def handle_private_message(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -146,16 +171,22 @@ async def handle_private_message(
     message = cleandoc(
         """Stazione non trovata!
         Inserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico
-        Ad esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'"""
+        Ad esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'.
+        Se non sai quale cercare prova con /stazioni"""
     )
     if update.message and update.effective_chat and update.message.text:
-        logger.info("Received private message: %s", update.message.text)
         async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
-            stazione = await dynamo.get_matching_station(
-                update.message.text.replace("/", "").strip()
+            query = update.message.text.replace("/", "").strip()
+            fuzzy_query = process.extractOne(
+                query, KNOWN_STATIONS, score_cutoff=FUZZ_SCORE_CUTOFF
             )
-            if stazione and update.message:
-                message = stazione.create_station_message()
+            logger.info(query)
+            if fuzzy_query:
+                stazione = await dynamo.get_matching_station(fuzzy_query[0])
+                if stazione and update.message:
+                    message = stazione.create_station_message()
+                    if query != fuzzy_query[0]:
+                        message += "\nSe non è la stazione corretta prova ad affinare la ricerca."
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
@@ -173,16 +204,24 @@ async def handle_group_message(
     message = cleandoc(
         """Stazione non trovata!
         Inserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico
-        Ad esempio '/Cesena', '/Lavino di Sopra' o '/S. Carlo'"""
+        Ad esempio '/Cesena', '/Lavino di Sopra' o '/S. Carlo'.
+        Se non sai quale cercare prova con /stazioni"""
     )
     if update.message and update.effective_chat and update.message.text:
-        logger.info("Received group message: %s", update.message.text)
         async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
-            stazione = await dynamo.get_matching_station(
+            query = (
                 update.message.text.replace("/", "").replace("erfiume_bot", "").strip()
             )
-            if stazione and update.message:
-                message = stazione.create_station_message()
+            fuzzy_query = process.extractOne(
+                query, KNOWN_STATIONS, score_cutoff=FUZZ_SCORE_CUTOFF
+            )
+            logger.info(query)
+            if fuzzy_query:
+                stazione = await dynamo.get_matching_station(fuzzy_query[0])
+                if stazione and update.message:
+                    message = stazione.create_station_message()
+                    if query != fuzzy_query[0]:
+                        message += "\nSe non é la stazione corretta prova ad affinare la ricerca."
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
@@ -199,6 +238,8 @@ async def bot(event: dict[str, Any], _context: LambdaContext) -> None:
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("cesena", cesena))
+    application.add_handler(CommandHandler("stazioni", list_stations))
+    application.add_handler(CommandHandler("info", info))
     application.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE & (filters.TEXT | filters.COMMAND),

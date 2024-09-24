@@ -25,5 +25,4 @@ def handler(event: dict[str, Any], context: LambdaContext) -> dict[str, Any]:
         logger.exception(traceback.format_exc())
         return {"statusCode": 501}
 
-    logger.info("Successfully processed event")
     return {"statusCode": 200}
