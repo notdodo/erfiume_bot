@@ -1,0 +1,72 @@
+name: Pulumi Preview
+on:
+  pull_request:
+    paths:
+      - pulumi/**
+      - .github/workflows/pulumi-preview.yml
+
+concurrency:
+  group: ghas-erfiume-pulumi-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    defaults:
+      run:
+        working-directory: ./pulumi
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        # v4.1.7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3
+        # v5.2.0
+        with:
+          python-version: 3.12
+      - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
+        # v4.0.2
+        with:
+          path: ~/.local
+          key: poetry-latest
+      - uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a
+        # v1.4.1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+      - id: cache-deps
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
+        # v4.0.2
+        with:
+          path: .venv
+          key: python-3.12-poetry-${{ hashFiles('**/poetry.lock') }}
+      - run: poetry install
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+      - uses: pulumi/auth-actions@80dec0d5e009a11565cbf87d9ef9103fc7d24198
+        # v1.0.0
+        with:
+          organization: notdodo
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:notdodo
+      - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
+        # v4.0.2
+        with:
+          path: ~/.pulumi/plugins
+          key: python-3.12-pulumi-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            python-3.12-pulumi-
+      - uses: pulumi/actions@cd99a7f8865434dd3532b586a26f9ebea596894f
+        # v5.5.1
+        with:
+          command: preview
+          stack-name: notdodo/erfiume
+          comment-on-pr: true
+          color: always
+          suppress-progress: true
+          always-include-summary: true
