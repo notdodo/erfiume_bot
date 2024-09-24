@@ -65,7 +65,7 @@ jobs:
         # v5.5.1
         with:
           command: preview
-          stack-name: notdodo/erfiume
+          stack-name: notdodo/erfiume/production
           comment-on-pr: true
           color: always
           suppress-progress: true
