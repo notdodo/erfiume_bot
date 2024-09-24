@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  preview:
-    name: Preview
+  pulumi-preview:
+    name: Pulumi Preview
     runs-on: ubuntu-latest
     permissions:
       contents: read
