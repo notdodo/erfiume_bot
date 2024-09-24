@@ -61,6 +61,19 @@ jobs:
           key: python-3.12-pulumi-${{ hashFiles('**/poetry.lock') }}
           restore-keys: |
             python-3.12-pulumi-
+
+      - name: Checkout actions-oidc-debugger
+        uses: actions/checkout@v3
+        with:
+          repository: github/actions-oidc-debugger
+          ref: main
+          token: ${{ secrets.your-checkout-token }}
+          path: ./.github/actions/actions-oidc-debugger
+      - name: Debug OIDC Claims
+        uses: ./.github/actions/actions-oidc-debugger
+        with:
+          audience: "${{ github.server_url }}/${{ github.repository_owner }}"
+
       - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         # v4.0.2
         with:
