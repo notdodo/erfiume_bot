@@ -79,6 +79,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::841162699174:role/erfiume-oidc-read
           aws-region: eu-west-1
+          retry-max-attempts: 2
       - uses: pulumi/actions@cd99a7f8865434dd3532b586a26f9ebea596894f
         # v5.5.1
         with:
