@@ -6,9 +6,12 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
+from inspect import cleandoc
 
 import httpx
+from zoneinfo import ZoneInfo
 
 from .logging import logger
 
@@ -49,6 +52,41 @@ class Stazione:
             "soglia3": Decimal(str(self.soglia3)),
             "value": Decimal(str(self.value)),
         }
+
+    def create_station_message(self) -> str:
+        """
+        Create and format the answer from the bot.
+        """
+        timestamp = (
+            datetime.fromtimestamp(
+                int(self.timestamp) / 1000, tz=ZoneInfo("Europe/Rome")
+            )
+            .replace(tzinfo=None)
+            .strftime("%d-%m-%Y %H:%M")
+        )
+        value = float(self.value)  # type: ignore [arg-type]
+        yellow = self.soglia1
+        orange = self.soglia2
+        red = self.soglia3
+        alarm = "🔴"
+        if value <= yellow:
+            alarm = "🟢"
+        elif value > yellow and value <= orange:
+            alarm = "🟡"
+        elif value >= orange and value <= red:
+            alarm = "🟠"
+
+        if value == UNKNOWN_VALUE:
+            value = "non disponibile"  # type: ignore[assignment]
+            alarm = ""
+        return cleandoc(
+            f"""Stazione: {self.nomestaz}
+                Valore: {value!r} {alarm}
+                Soglia Gialla: {yellow}
+                Soglia Arancione: {orange}
+                Soglia Rossa: {red}
+                Ultimo rilevamento: {timestamp}"""
+        )
 
 
 @dataclass

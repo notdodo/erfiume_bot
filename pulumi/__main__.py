@@ -334,7 +334,6 @@ if pulumi.get_stack() == "production":
         react_on=[
             "message",
             "inline_query",
-            "my_chat_member",
         ],
         url=f"https://{CUSTOM_DOMAIN_NAME}/erfiume_bot",
     )

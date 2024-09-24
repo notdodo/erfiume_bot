@@ -15,11 +15,11 @@ if TYPE_CHECKING:
 
 
 @logger.inject_lambda_context
-def handler(event: dict[str, Any], _context: LambdaContext) -> dict[str, Any]:
+def handler(event: dict[str, Any], context: LambdaContext) -> dict[str, Any]:
     """Run entry point for the bot."""
     logger.info("Received event: %s", event)
     try:
-        asyncio.run(bot(event))
+        asyncio.run(bot(event, context))
     except Exception as e:  # noqa: BLE001
         logger.exception("An error occurred: %s", e)
         logger.exception(traceback.format_exc())
