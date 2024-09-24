@@ -66,6 +66,7 @@ jobs:
         with:
           command: preview
           stack-name: notdodo/erfiume/production
+          work-dir: ./pulumi
           comment-on-pr: true
           color: always
           suppress-progress: true
