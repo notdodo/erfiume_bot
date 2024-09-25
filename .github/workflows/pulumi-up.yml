@@ -1,6 +1,8 @@
 name: Pulumi Up
 on:
-  pull_request:
+  push:
+    branches:
+      - master
     paths:
       - pulumi/**
       - .github/workflows/pulumi-up.yml
