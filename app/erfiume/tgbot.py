@@ -22,6 +22,8 @@ from thefuzz import process  # type: ignore[import-untyped]
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
 
+    from .apis import Stazione
+
 from aws_lambda_powertools.utilities import parameters
 
 from .apis import KNOWN_STATIONS
@@ -49,11 +51,6 @@ def is_from_group(update: Update) -> bool:
     ]
 
 
-def is_from_user(update: Update) -> bool:
-    """Check if the update is from a real user."""
-    return update.effective_user is not None
-
-
 def is_from_private_chat(update: Update) -> bool:
     """Check if the update is from a private chat with the bot."""
     return update.effective_chat is not None and update.effective_chat.type == "private"
@@ -68,6 +65,22 @@ def has_joined_group(update: Update) -> bool:
             if new_user.username == "erfiume_bot":
                 return True
     return False
+
+
+async def fuzz_search_station(
+    station_name: str,
+) -> tuple[Stazione | None, str]:
+    """Search for a station even if the name is not exactly correct."""
+    fuzzy_query = process.extractOne(
+        station_name, KNOWN_STATIONS, score_cutoff=FUZZ_SCORE_CUTOFF
+    )
+    if fuzzy_query:
+        async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
+            return (
+                await dynamo.get_matching_station(fuzzy_query[0]),
+                fuzzy_query[0],
+            )
+    return None, ""
 
 
 async def send_donation_link(
@@ -106,17 +119,12 @@ async def send_random_messages(
 # HANDLERS
 async def start(update: Update, _: ContextTypes.DEFAULT_TYPE | None) -> None:
     """Send a message when the command /start is issued."""
-    if (
-        is_from_user(update)
-        and is_from_private_chat(update)
-        and update.effective_user
-        and update.message
-    ):
+    if update.effective_user and is_from_private_chat(update) and update.message:
         user = update.effective_user
         message = rf"Ciao {user.mention_html()}! Scrivi il nome di una stazione da monitorare per iniziare (e.g. <b>Cesena</b> o <b>/S. Carlo</b>) o cercane una con /stazioni"  # noqa: E501
         await update.message.reply_html(message)
     elif (
-        is_from_user(update)
+        update.effective_user
         and is_from_group(update)
         and update.effective_chat
         and update.message
@@ -128,15 +136,13 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE | None) -> None:
 
 async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /cesena is issued."""
-    async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
-        stazione = await dynamo.get_matching_station("Cesena")
-        if stazione:
-            if update.message:
-                await update.message.reply_html(stazione.create_station_message())
-        elif update.message:
-            await update.message.reply_html(
-                "Nessun stazione trovata!",
-            )
+    station, _match = await fuzz_search_station("Cesena")
+    if update.message and station:
+        await update.message.reply_html(station.create_station_message())
+    elif update.message:
+        await update.message.reply_html(
+            "Nessun stazione trovata!",
+        )
 
 
 async def list_stations(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -165,7 +171,7 @@ async def handle_private_message(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """
-    Handle messages written from private chat to match a specific station
+    Handle messages from private chat to match a specific station
     """
 
     message = cleandoc(
@@ -175,30 +181,27 @@ async def handle_private_message(
         Se non sai quale cercare prova con /stazioni"""
     )
     if update.message and update.effective_chat and update.message.text:
-        async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
-            query = update.message.text.replace("/", "").strip()
-            fuzzy_query = process.extractOne(
-                query, KNOWN_STATIONS, score_cutoff=FUZZ_SCORE_CUTOFF
-            )
-            logger.info(query)
-            if fuzzy_query:
-                stazione = await dynamo.get_matching_station(fuzzy_query[0])
-                if stazione and update.message:
-                    message = stazione.create_station_message()
-                    if query != fuzzy_query[0]:
-                        message += "\nSe non è la stazione corretta prova ad affinare la ricerca."
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=message,
-            )
-            await send_random_messages(update, context)
+        query = update.message.text.replace("/", "").strip()
+        logger.info(query)
+        station, match = await fuzz_search_station(query)
+        if station:
+            message = station.create_station_message()
+            if query != match:
+                message += (
+                    "\nSe non è la stazione corretta prova ad affinare la ricerca."
+                )
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message,
+        )
+        await send_random_messages(update, context)
 
 
 async def handle_group_message(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """
-    Handle messages writte from private chat to match a specific station
+    Handle messages from groups to match a specific station
     """
 
     message = cleandoc(
@@ -208,25 +211,19 @@ async def handle_group_message(
         Se non sai quale cercare prova con /stazioni"""
     )
     if update.message and update.effective_chat and update.message.text:
-        async with AsyncDynamoDB(table_name="Stazioni") as dynamo:
-            query = (
-                update.message.text.replace("/", "").replace("erfiume_bot", "").strip()
-            )
-            fuzzy_query = process.extractOne(
-                query, KNOWN_STATIONS, score_cutoff=FUZZ_SCORE_CUTOFF
-            )
-            logger.info(query)
-            if fuzzy_query:
-                stazione = await dynamo.get_matching_station(fuzzy_query[0])
-                if stazione and update.message:
-                    message = stazione.create_station_message()
-                    if query != fuzzy_query[0]:
-                        message += "\nSe non é la stazione corretta prova ad affinare la ricerca."
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=message,
-            )
-            await send_random_messages(update, context)
+        query = update.message.text.replace("/", "").replace("erfiume_bot", "").strip()
+        station, match = await fuzz_search_station(query)
+        if station:
+            message = station.create_station_message()
+            if query != match:
+                message += (
+                    "\nSe non é la stazione corretta prova ad affinare la ricerca."
+                )
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message,
+        )
+        await send_random_messages(update, context)
 
 
 # END HANDLERS
