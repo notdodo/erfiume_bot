@@ -35,9 +35,9 @@ stazioni_table = dynamodb.Table(
     ],
 )
 
-utenti_table = dynamodb.Table(
+chats_table = dynamodb.Table(
     f"{RESOURCES_PREFIX}-users",
-    name="Utenti",
+    name="Chats",
     billing_mode="PAY_PER_REQUEST",
     hash_key="chatid",
     attributes=[
@@ -131,14 +131,14 @@ bot_role = iam.Role(
                             "dynamodb:Query",
                             "dynamodb:GetItem",
                         ],
-                        "Resources": [stazioni_table.arn, utenti_table.arn],
+                        "Resources": [stazioni_table.arn, chats_table.arn],
                     },
                     {
                         "Effect": "Allow",
                         "Actions": [
                             "dynamodb:PutItem",
                         ],
-                        "Resources": [utenti_table.arn],
+                        "Resources": [chats_table.arn],
                     },
                     {
                         "Effect": "Allow",

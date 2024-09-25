@@ -1,21 +1,21 @@
-name: Pulumi Preview
+name: Pulumi Up
 on:
-  pull_request:
+  push:
+    branches:
+      - master
     paths:
       - pulumi/**
-      - .github/workflows/pulumi-preview.yml
+      - .github/workflows/pulumi-up.yml
 
 concurrency:
-  group: ghas-erfiume-pulumi-preview-${{ github.ref }}
-  cancel-in-progress: true
+  group: ghas-erfiume-pulumi-up-${{ github.ref }}
 
 jobs:
-  pulumi-preview:
-    name: Pulumi Preview
+  pulumi-up:
+    name: Pulumi Up
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
       id-token: write
     defaults:
       run:
@@ -64,20 +64,18 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         # v4.0.2
         with:
-          role-to-assume: arn:aws:iam::841162699174:role/erfiume-oidc-read
+          role-to-assume: arn:aws:iam::841162699174:role/erfiume-oidc-write
           aws-region: eu-west-1
           retry-max-attempts: 2
       - uses: aws-actions/aws-secretsmanager-get-secrets@4e95aaf6ba8028772f5384971d4fedccfaab8621
         # v2.0.6
         with:
-          secret-ids: CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-only
+          secret-ids: CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-write
       - uses: pulumi/actions@cd99a7f8865434dd3532b586a26f9ebea596894f
         # v5.5.1
         with:
-          command: preview
+          command: up
           stack-name: notdodo/erfiume/production
           work-dir: ./pulumi
-          comment-on-pr: true
           color: always
           suppress-progress: true
-          always-include-summary: true
