@@ -76,6 +76,7 @@ jobs:
         # v5.5.1
         with:
           command: up
+          diff: true
           stack-name: notdodo/erfiume/production
           work-dir: ./pulumi
           color: always

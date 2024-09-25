@@ -92,6 +92,7 @@ jobs:
         with:
           command: preview
           stack-name: notdodo/erfiume/production
+          diff: true
           work-dir: ./pulumi
           comment-on-pr: true
           color: always
