@@ -61,25 +61,16 @@ jobs:
           key: python-3.12-pulumi-${{ hashFiles('**/poetry.lock') }}
           restore-keys: |
             python-3.12-pulumi-
-
-      - name: Checkout actions-oidc-debugger
-        uses: actions/checkout@v3
-        with:
-          repository: github/actions-oidc-debugger
-          ref: main
-          token: ${{ secrets.github_token }}
-          path: ./.github/actions/actions-oidc-debugger
-      - name: Debug OIDC Claims
-        uses: ./.github/actions/actions-oidc-debugger
-        with:
-          audience: "${{ github.server_url }}/${{ github.repository_owner }}"
-
       - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         # v4.0.2
         with:
           role-to-assume: arn:aws:iam::841162699174:role/erfiume-oidc-read
           aws-region: eu-west-1
           retry-max-attempts: 2
+      - uses: aws-actions/aws-secretsmanager-get-secrets@4e95aaf6ba8028772f5384971d4fedccfaab8621
+        # v2.0.6
+        with:
+          secret-ids: CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-only
       - uses: pulumi/actions@cd99a7f8865434dd3532b586a26f9ebea596894f
         # v5.5.1
         with:
