@@ -2,7 +2,9 @@
 
 [![Pulumi Up](https://github.com/notdodo/erfiume_bot/actions/workflows/pulumi-up.yml/badge.svg)](https://github.com/notdodo/erfiume_bot/actions/workflows/pulumi-up.yml) [![Python CI](https://github.com/notdodo/erfiume_bot/actions/workflows/python-ci.yml/badge.svg)](https://github.com/notdodo/erfiume_bot/actions/workflows/python-ci.yml)
 
-![padded_erfiume_640x360](https://github.com/user-attachments/assets/58bb5033-87e0-4794-99f7-ddc1a3fd65b4)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/58bb5033-87e0-4794-99f7-ddc1a3fd65b4" width="400px"/>
+</p>
 
 ## Introduction
 
@@ -10,8 +12,6 @@
 The bot can be used in both private or group chats, responding to specific station names or commands.
 
 ![Screenshot 2024-09-25 at 09 47 02](https://github.com/user-attachments/assets/f5bc07c1-fb6c-48be-b871-a9d6dd4aae82)
-
-Start the bot using: https://t.me/erfiume_bot
 
 ## Basic commands:
 
