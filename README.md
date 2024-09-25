@@ -58,7 +58,7 @@ This Lambda function is scheduled to fetch data from the APIs on [Allerta Meteo 
 
 The Lambda is scheduled to run once a day in "normal" mode, but in "emergency" mode, it can be set to update data every 20 minutes or less.
 
-## Struttura del progetto
+## Repository Structure
 
 - **app/**: Contains the bot and fetcher code
 - **pulumi/**: IaC for the AWS infrastructure
