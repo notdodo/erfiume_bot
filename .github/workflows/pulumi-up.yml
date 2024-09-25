@@ -2,7 +2,7 @@ name: Pulumi Up
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - pulumi/**
       - .github/workflows/pulumi-up.yml
