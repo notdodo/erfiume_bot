@@ -282,6 +282,7 @@ KNOWN_STATIONS = [
     "Faenza",
     "Portonovo",
 ]
+KNOWN_STATIONS.sort()
 
 
 @dataclass
