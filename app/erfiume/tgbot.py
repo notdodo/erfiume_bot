@@ -233,6 +233,13 @@ async def bot(event: dict[str, Any], _context: LambdaContext) -> None:
     """Run entry point for the bot"""
     application = Application.builder().token(await fetch_bot_token()).build()
 
+    await application.bot.set_my_commands(
+        commands=[
+            ("/start", "Inizia ad interagire con il bot"),
+            ("/stazioni", "Visualizza la lista delle stazioni disponibili"),
+            ("/info", "Ottieni informazioni riguardanti il bot"),
+        ]
+    )
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("cesena", cesena))
     application.add_handler(CommandHandler("stazioni", list_stations))
