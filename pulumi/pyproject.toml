@@ -12,6 +12,7 @@ pulumi-aws = "^6.52.0"
 pulumi-command = "^1.0.1"
 pulumi-cloudflare = "^5.39.0"
 requests = "^2.32.3"
+diagrams = "^0.23.4"
 
 [tool.poetry.group.dev.dependencies]
 awscli-local = "^0.22.0"

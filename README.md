@@ -27,6 +27,8 @@ The bot consists of two main components:
 1. **User interaction**: the code in `./app/erfiume_bot.py` is triggered by a Telegram webhook that starts an AWS Lambda function when a user interacts with the bot.
 2. **Stations data update**: the code in `./app/erfiume_fetcher.py` runs on a Lambda function via an EventBridge scheduler, updating the data from the stations. This data is then used by the bot to answer to messages.
 
+![](./assets/erfiume.png)
+
 ### Main technologies:
 
 - **Pulumi** for IaC
