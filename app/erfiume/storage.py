@@ -66,7 +66,8 @@ class AsyncDynamoDB:
         try:
             response = await self.table.get_item(
                 Key={"nomestaz": station.nomestaz},
-                ProjectionExpression="timestamp",
+                ProjectionExpression="#tsp",
+                ExpressionAttributeNames={"#tsp": "timestamp"},
             )
 
             # Get the latest timestamp from the DynamoDB response
