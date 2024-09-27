@@ -145,6 +145,7 @@ def create_lambda_layer(resource_prefix: str) -> aws.lambda_.LayerVersion:
         f"{resource_prefix}-python3.12",
         layer_name=f"{resource_prefix}",
         description=f"Lambda Python layer for {resource_prefix}",
+        compatible_runtimes=["python3.12"],
         code=sha256_zip.archive_paths[0],
         source_code_hash=sha256_zip.stdout,
         opts=pulumi.ResourceOptions(

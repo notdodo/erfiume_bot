@@ -39,11 +39,11 @@ chats_table = dynamodb.Table(
     f"{RESOURCES_PREFIX}-users",
     name="Chats",
     billing_mode="PAY_PER_REQUEST",
-    hash_key="chatid",
+    hash_key="id",
     attributes=[
         dynamodb.TableAttributeArgs(
-            name="chatid",
-            type="S",
+            name="id",
+            type="N",
         ),
     ],
     ttl=dynamodb.TableTtlArgs(
@@ -129,6 +129,7 @@ bot_role = iam.Role(
                         "Effect": "Allow",
                         "Actions": [
                             "dynamodb:Query",
+                            "dynamodb:UpdateItem",
                             "dynamodb:GetItem",
                         ],
                         "Resources": [stazioni_table.arn, chats_table.arn],
@@ -171,7 +172,7 @@ fetcher_lambda = lambda_.Function(
             "ENVIRONMENT": pulumi.get_stack(),
         },
     },
-    memory_size=768,
+    memory_size=1024,
     timeout=50,
 )
 

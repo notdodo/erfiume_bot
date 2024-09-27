@@ -4,9 +4,9 @@ Handle bot intections with users.
 
 from __future__ import annotations
 
-import json
-import random
+from dataclasses import dataclass
 from inspect import cleandoc
+from random import randint
 from typing import TYPE_CHECKING, Any
 
 from telegram import Update
@@ -32,6 +32,50 @@ from .storage import AsyncDynamoDB
 
 RANDOM_SEND_LINK = 10
 FUZZ_SCORE_CUTOFF = 80
+
+
+@dataclass
+class Chat:
+    """
+    Telegram user
+    """
+
+    id: int
+    title: str
+    type: str
+
+    def to_dict(self) -> dict[str, str | bool | int]:
+        """Convert dataclass to dictionary, suitable for DynamoDB storage."""
+        return {
+            "id": self.id,
+            "title": self.title,
+            "type": self.type,
+        }
+
+
+@dataclass
+class User:
+    """
+    Telegram user
+    """
+
+    id: int
+    is_bot: bool
+    first_name: str
+    last_name: str
+    username: str
+    language_code: str
+
+    def to_dict(self) -> dict[str, str | bool | int]:
+        """Convert dataclass to dictionary, suitable for DynamoDB storage."""
+        return {
+            "id": self.id,
+            "is_bot": self.is_bot,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "username": self.username,
+            "language_code": self.language_code,
+        }
 
 
 # UTILS
@@ -67,9 +111,7 @@ def has_joined_group(update: Update) -> bool:
     return False
 
 
-async def fuzz_search_station(
-    station_name: str,
-) -> tuple[Stazione | None, str]:
+async def fuzz_search_station(station_name: str) -> tuple[Stazione | None, str]:
     """Search for a station even if the name is not exactly correct."""
     fuzzy_query = process.extractOne(
         station_name, KNOWN_STATIONS, score_cutoff=FUZZ_SCORE_CUTOFF
@@ -87,7 +129,7 @@ async def send_donation_link(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Randomnly send a donation link."""
-    if random.randint(1, 10) == RANDOM_SEND_LINK and update.effective_chat:  # noqa: S311
+    if randint(1, 10) == RANDOM_SEND_LINK and update.effective_chat:  # noqa: S311
         message = """Contribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0"""
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -97,7 +139,7 @@ async def send_donation_link(
 
 async def send_project_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Randomnly send a link to the GitHub repository."""
-    if random.randint(1, 50) == RANDOM_SEND_LINK and update.effective_chat:  # noqa: S311
+    if randint(1, 50) == RANDOM_SEND_LINK and update.effective_chat:  # noqa: S311
         message = """Esplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot"""
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -136,6 +178,14 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE | None) -> None:
 
 async def cesena(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /cesena is issued."""
+    if update.effective_user:
+        async with AsyncDynamoDB("Chats") as chats:
+            is_throttled = await chats.check_throttled_user(
+                User(**update.effective_user.to_dict())
+            )
+            if is_throttled > 0 and update.message:
+                await update.message.reply_html(f"throttled for {is_throttled}!")
+                return
     station, _match = await fuzz_search_station("Cesena")
     if update.message and station:
         await update.message.reply_html(station.create_station_message())
@@ -260,6 +310,8 @@ async def bot(event: dict[str, Any], _context: LambdaContext) -> None:
 
     # Decode the incoming Telegram message
     if event.get("body"):
+        import json
+
         update_dict = json.loads(event["body"])
         async with application:
             update = Update.de_json(update_dict, application.bot)

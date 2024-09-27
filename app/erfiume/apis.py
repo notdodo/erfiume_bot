@@ -4,13 +4,13 @@ Module to call allertameteo.regione.emilia-romagna.it APIs.
 
 from __future__ import annotations
 
-import asyncio
+from asyncio import gather as async_gather
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from inspect import cleandoc
 
-import httpx
+from httpx import AsyncClient, HTTPStatusError
 from zoneinfo import ZoneInfo
 
 from .logging import logger
@@ -376,7 +376,7 @@ class Valore:
         return {"t": self.t, "v": Decimal(str(self.v))}
 
 
-async def fetch_latest_time(client: httpx.AsyncClient) -> int:
+async def fetch_latest_time(client: AsyncClient) -> int:
     """
     Fetch the latest updated time.
     """
@@ -388,7 +388,7 @@ async def fetch_latest_time(client: httpx.AsyncClient) -> int:
         response.raise_for_status()
         data = response.json()
         return int(data[0]["time"])
-    except httpx.HTTPStatusError as e:
+    except HTTPStatusError as e:
         logger.exception("Error fetching latest time: %s", e.response.status_code)
         raise
     except (KeyError, IndexError):
@@ -396,7 +396,7 @@ async def fetch_latest_time(client: httpx.AsyncClient) -> int:
         raise
 
 
-async def fetch_stations_data(client: httpx.AsyncClient, time: int) -> list[Stazione]:
+async def fetch_stations_data(client: AsyncClient, time: int) -> list[Stazione]:
     """
     Fetch the list of all stations from the latest update timestamp.
     """
@@ -418,7 +418,7 @@ async def fetch_stations_data(client: httpx.AsyncClient, time: int) -> list[Staz
             for stazione in data
             if "time" not in stazione
         ]
-    except httpx.HTTPStatusError as e:
+    except HTTPStatusError as e:
         logger.exception("Error fetching stations data: %s", e.response.status_code)
         raise
     except (KeyError, IndexError):
@@ -427,7 +427,7 @@ async def fetch_stations_data(client: httpx.AsyncClient, time: int) -> list[Staz
 
 
 async def fetch_time_series(
-    client: httpx.AsyncClient,
+    client: AsyncClient,
     stazione: Stazione,
 ) -> list[Valore]:
     """
@@ -438,7 +438,7 @@ async def fetch_time_series(
         response = await client.get(url)
         response.raise_for_status()
         return [Valore(**valore) for valore in response.json()]
-    except httpx.HTTPStatusError:
+    except HTTPStatusError:
         logger.exception(
             "Error fetching time series for stagiong %s %s: %s",
             stazione.nomestaz,
@@ -455,10 +455,10 @@ async def fetch_time_series(
         raise
 
 
-async def enrich_data(client: httpx.AsyncClient, stations: list[Stazione]) -> None:
+async def enrich_data(client: AsyncClient, stations: list[Stazione]) -> None:
     """Enrich station data with time series values."""
     tasks = [fetch_time_series(client, stazione) for stazione in stations]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    results = await async_gather(*tasks, return_exceptions=True)
 
     for stazione, dati in zip(stations, results):
         if isinstance(dati, BaseException):
@@ -466,4 +466,5 @@ async def enrich_data(client: httpx.AsyncClient, stations: list[Stazione]) -> No
         else:
             max_value = max(dati, key=lambda x: x.t)
             stazione.value = max_value.v
+            stazione.timestamp = max_value.t
             stazione.timestamp = max_value.t

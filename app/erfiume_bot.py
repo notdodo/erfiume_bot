@@ -4,8 +4,7 @@ Lambda function to react to Telegram Bot messages
 
 from __future__ import annotations
 
-import asyncio
-import traceback
+from asyncio import run
 from typing import TYPE_CHECKING, Any
 
 from erfiume import bot, logger
@@ -19,10 +18,9 @@ def handler(event: dict[str, Any], context: LambdaContext) -> dict[str, Any]:
     """Run entry point for the bot."""
     logger.info("Received event: %s", event)
     try:
-        asyncio.run(bot(event, context))
+        run(bot(event, context))
     except Exception as e:  # noqa: BLE001
         logger.exception("An error occurred: %s", e)
-        logger.exception(traceback.format_exc())
         return {"statusCode": 501}
 
     return {"statusCode": 200}

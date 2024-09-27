@@ -4,12 +4,13 @@ Module to handle interactions with storage (DynamoDB).
 
 from __future__ import annotations
 
-import os
+from datetime import datetime, timedelta
 from decimal import Decimal
+from os import getenv
 from typing import TYPE_CHECKING, Self
+from zoneinfo import ZoneInfo
 
-import aioboto3
-import aioboto3.resources
+from aioboto3 import Session
 from botocore.exceptions import ClientError
 
 from .apis import Stazione
@@ -18,7 +19,11 @@ from .logging import logger
 if TYPE_CHECKING:
     from types import TracebackType
 
+    from .tgbot import Chat, User
+
 UNKNOWN_VALUE = -9999.0
+THROTTLING_THRESHOLD = 5
+THROTTLING_TIME = 15
 
 
 class AsyncDynamoDB:
@@ -28,7 +33,7 @@ class AsyncDynamoDB:
     """
 
     def __init__(self, table_name: str) -> None:
-        environment = os.getenv("ENVIRONMENT", "staging")
+        environment = getenv("ENVIRONMENT", "staging")
         self.endpoint_url = (
             "http://localhost:4566" if environment != "production" else None
         )
@@ -36,7 +41,7 @@ class AsyncDynamoDB:
 
     async def __aenter__(self) -> Self:
         """Set up the client and table."""
-        self.session = aioboto3.Session()
+        self.session = Session()
         self.dynamodb = await self.session.resource(
             service_name="dynamodb",
             endpoint_url=self.endpoint_url,
@@ -61,6 +66,7 @@ class AsyncDynamoDB:
         try:
             response = await self.table.get_item(
                 Key={"nomestaz": station.nomestaz},
+                ProjectionExpression="timestamp",
             )
 
             # Get the latest timestamp from the DynamoDB response
@@ -72,7 +78,6 @@ class AsyncDynamoDB:
 
             # If the provided station has newer data or the record doesn't exist, update DynamoDB
             if station.timestamp > latest_timestamp:
-                logger.info("Updating data for station %s", station.nomestaz)
                 await self.table.update_item(
                     Key={"nomestaz": station.nomestaz},
                     UpdateExpression="SET #ts = :new_timestamp, #vl = :new_value",
@@ -90,7 +95,6 @@ class AsyncDynamoDB:
                     },
                 )
             elif not response["Item"]:
-                logger.info("Creating data for station %s", station.nomestaz)
                 await self.table.put_item(Item=station.to_dict())
         except ClientError as e:
             logger.exception(
@@ -98,7 +102,6 @@ class AsyncDynamoDB:
             )
             raise
         except Exception as e:
-            logger.info("Stazione: %s", station)
             logger.exception("Unexpected error: %s", e)
             raise
 
@@ -114,7 +117,6 @@ class AsyncDynamoDB:
 
             if "Item" in stazione:
                 return Stazione(**stazione["Item"])  # type: ignore[arg-type]
-            logger.info("Station %s not found in DynamoDB.", station_name)
         except ClientError as e:
             logger.exception("Error while retrieving station %s: %s", station_name, e)
             raise
@@ -123,3 +125,64 @@ class AsyncDynamoDB:
             raise
         else:
             return None
+
+    async def check_throttled_user(self, user: User | Chat) -> int:
+        """
+        Check if the a chat or a user must be throttled due to high-volume of requests.
+        """
+        try:
+            response = await self.table.get_item(
+                Key={"id": user.id},
+                ProjectionExpression="#cnt ,#tl",
+                ExpressionAttributeNames={"#cnt": "count", "#tl": "ttl"},
+            )
+            now = datetime.now(tz=ZoneInfo("Europe/Rome"))
+            now_with_wait_time = int(
+                (now + timedelta(minutes=THROTTLING_TIME)).timestamp()
+            )
+            if "Item" in response:
+                if int(response["Item"].get("count", 0)) > THROTTLING_THRESHOLD:  # type: ignore[arg-type]
+                    await self.table.update_item(
+                        Key={"id": user.id},
+                        UpdateExpression="set #tl = :new_ttl",
+                        ExpressionAttributeNames={
+                            "#tl": "ttl",
+                        },
+                        ExpressionAttributeValues={":new_ttl": now_with_wait_time},
+                    )
+                    wait_time = int(
+                        (
+                            datetime.fromtimestamp(
+                                int(response["Item"].get("ttl")),  # type: ignore[arg-type]
+                                tz=ZoneInfo("Europe/Rome"),
+                            )
+                            - now
+                        ).total_seconds()
+                    )
+                    logger.info("Throttled %s for %s", user, wait_time)
+                    return wait_time
+                await self.table.update_item(
+                    Key={"id": user.id},
+                    ExpressionAttributeValues={
+                        ":inc": 1,
+                        ":new_ttl": now_with_wait_time,
+                    },
+                    UpdateExpression="ADD #cnt :inc SET #tl = :new_ttl",
+                    ExpressionAttributeNames={
+                        "#cnt": "count",
+                        "#tl": "ttl",
+                    },
+                )
+            else:
+                user_info = user.to_dict()
+                user_info.update({"count": 1, "ttl": now_with_wait_time})
+                await self.table.put_item(Item=user_info)
+        except ClientError as e:
+            logger.exception("Error while adding chat or user %s: %s", user, e)
+            raise
+        except Exception as e:
+            logger.info("Stazione: %s", user)
+            logger.exception("Unexpected error: %s", e)
+            raise
+        else:
+            return 0
