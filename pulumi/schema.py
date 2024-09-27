@@ -16,9 +16,10 @@ from diagrams.saas.chat import Telegram
 graph_attr = {
     "layout": "dot",
     "splines": "curved",
-    "bgcolor": "transparent",
+    # "bgcolor": "transparent",
     "beautify": "true",
     "center": "true",
+    "margin": "-1.2,-1.9",
 }
 
 
@@ -39,7 +40,7 @@ with Diagram(
         api_gw = APIGateway("API Gateway")
         scheduler = Scheduler("every 24h or 15m")
 
-    user >> Edge(label="/command") >> bot
+    user >> Edge(label="send command") >> bot
     bot >> Edge(label="trigger webhook") >> cf
     cf << api_gw >> Edge(label="invoke lambda") >> erfiume_bot
     erfiume_bot >> Edge(label="fetch information") >> stations
