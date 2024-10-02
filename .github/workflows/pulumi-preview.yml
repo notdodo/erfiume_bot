@@ -19,7 +19,7 @@ jobs:
       working-directory: "./app"
 
   python-ci-pulumi:
-    uses: notdodo/github-actions/.github/workflows/python-ci.yml@gitleaks-v0.0.3
+    uses: notdodo/github-actions/.github/workflows/python-ci.yml@python-ci-v0.0.3
     with:
       poetry-version: latest
       python-version: 3.12
