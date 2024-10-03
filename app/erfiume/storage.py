@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from os import getenv
 from typing import TYPE_CHECKING, Self
-from zoneinfo import ZoneInfo
 
 from aioboto3 import Session
 from botocore.exceptions import ClientError
+from zoneinfo import ZoneInfo
 
 from .apis import Stazione
 from .logging import logger

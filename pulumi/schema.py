@@ -16,7 +16,6 @@ from diagrams.saas.chat import Telegram
 graph_attr = {
     "layout": "dot",
     "splines": "curved",
-    # "bgcolor": "transparent",
     "beautify": "true",
     "center": "true",
     "margin": "-1.2,-1.9",

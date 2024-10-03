@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from inspect import cleandoc
+from zoneinfo import ZoneInfo
 
 from httpx import AsyncClient, HTTPStatusError
-from zoneinfo import ZoneInfo
 
 from .logging import logger
 
@@ -464,7 +464,7 @@ async def enrich_data(client: AsyncClient, stations: list[Stazione]) -> None:
         if isinstance(dati, BaseException):
             logger.error("Failed to fetch time series for station %s", stazione)
         else:
-            max_value = max(dati, key=lambda x: x.t)
-            stazione.value = max_value.v
-            stazione.timestamp = max_value.t
-            stazione.timestamp = max_value.t
+            if len(dati) > 0:
+                max_value = max(dati, key=lambda x: x.t)
+                stazione.value = max_value.v
+                stazione.timestamp = max_value.t

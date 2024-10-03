@@ -62,9 +62,9 @@ class User:
     id: int
     is_bot: bool
     first_name: str
-    last_name: str
     username: str
     language_code: str
+    last_name: str | None = ""
 
     def to_dict(self) -> dict[str, str | bool | int]:
         """Convert dataclass to dictionary, suitable for DynamoDB storage."""
@@ -72,7 +72,7 @@ class User:
             "id": self.id,
             "is_bot": self.is_bot,
             "first_name": self.first_name,
-            "last_name": self.last_name,
+            "last_name": "" if not self.last_name else self.last_name,
             "username": self.username,
             "language_code": self.language_code,
         }
