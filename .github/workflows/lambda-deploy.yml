@@ -61,8 +61,9 @@ jobs:
           arch: x86_64 # Other valid options for linux: 'aarch64'
       - name: deploy lambda
         env:
-          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
-          OPENSSL_DIR: /usr
+          OPENSSL_DIR: usr/lib/ssl
+          OPENSSL_INCLUDE_DIR: /usr/include/openssl
+          OPENSSL_LIB_DIR: /usr/lib/x86-linux-gnu
         run: |
           cargo lambda build --release
           cargo lambda deploy erfiume-fetcher
