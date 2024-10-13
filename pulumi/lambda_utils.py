@@ -6,10 +6,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pulumi
 import pulumi_aws as aws
 from pulumi_command import local
-
-import pulumi
 
 
 @dataclass
@@ -20,40 +19,6 @@ class LambdaZip:
 
     zip_path: pulumi.FileArchive
     zip_sha256: pulumi.Output[str]
-
-
-def create_lambda_zip(resource_prefix: str) -> LambdaZip:
-    """
-    Check changes on application folder to update the ZIP file for the lambda deployment
-    """
-    dist_folder = "lambda-package"
-    output_file = "lambda.zip"
-    local.run(
-        dir="../",
-        command=f"""
-        mkdir -p ./dist/{dist_folder}; \
-        cp -r -p ./app/ ./dist/{dist_folder}/""",
-    )
-
-    local.run(
-        dir=f"../dist/{dist_folder}",
-        command=f"""rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py r; \
-            zip -q -r -D -X -9 -A ../{output_file} .""",
-    )
-
-    sha256_zip = local.Command(
-        f"{resource_prefix}-sha256-lambda-zip",
-        dir="../dist/",
-        create=f"sha256sum {output_file} | cut -d ' ' -f1",
-        update=f"sha256sum {output_file} | cut -d ' ' -f1",
-        triggers=[
-            pulumi.FileArchive(f"../dist/{output_file}"),
-        ],
-    )
-
-    return LambdaZip(
-        zip_path=pulumi.FileArchive("../dist/lambda.zip"), zip_sha256=sha256_zip.stdout
-    )
 
 
 def create_lambda_layer(resource_prefix: str) -> aws.lambda_.LayerVersion:
@@ -92,9 +57,9 @@ def create_lambda_layer(resource_prefix: str) -> aws.lambda_.LayerVersion:
         f"{resource_prefix}-cleanup-layer",
         dir=f"../dist/{dist_folder}",
         create=(
-            "rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py r"
+            "rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py fetcher"
         ),
-        update="rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py r",
+        update="rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py fetcher",
         triggers=[
             pulumi.FileAsset("../app/poetry.lock"),
             copy_libs.stdout,

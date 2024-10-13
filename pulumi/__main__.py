@@ -1,7 +1,7 @@
 """An AWS Python Pulumi program"""
 
+import pulumi
 import pulumi_cloudflare
-from lambda_utils import create_lambda_layer, create_lambda_zip
 from pulumi_aws import (
     apigatewayv2,
     cloudwatch,
@@ -12,9 +12,9 @@ from pulumi_aws import (
     scheduler,
     secretsmanager,
 )
-from telegram_provider import Webhook
 
-import pulumi
+from lambda_utils import create_lambda_layer
+from telegram_provider import Webhook
 
 RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
@@ -158,14 +158,12 @@ bot_role = iam.Role(
 )
 
 lambda_layer = create_lambda_layer(RESOURCES_PREFIX)
-lambda_zip = create_lambda_zip(RESOURCES_PREFIX)
 fetcher_lambda = lambda_.Function(
     f"{RESOURCES_PREFIX}-fetcher",
     code=pulumi.FileArchive("./dummy.zip"),
     name=f"{RESOURCES_PREFIX}-fetcher",
     role=fetcher_role.arn,
     handler="bootstrap",
-    # source_code_hash=lambda_zip.zip_sha256,
     runtime=lambda_.Runtime.CUSTOM_AL2023,
     environment={
         "variables": {
@@ -179,11 +177,10 @@ fetcher_lambda = lambda_.Function(
 
 bot_lambda = lambda_.Function(
     f"{RESOURCES_PREFIX}-bot",
-    code=lambda_zip.zip_path,
+    code=pulumi.FileArchive("./dummy.zip"),
     name=f"{RESOURCES_PREFIX}-bot",
     role=bot_role.arn,
     handler="erfiume_bot.handler",
-    source_code_hash=lambda_zip.zip_sha256,
     layers=[lambda_layer.arn],
     runtime=lambda_.Runtime.PYTHON3D12,
     environment={

@@ -1,0 +1,19 @@
+name: Rust CI
+on:
+  pull_request:
+    paths:
+      - app/fetcher/**
+      - .github/workflows/lambda-deploy.yml
+
+concurrency:
+  group: ghas-erfiume-lambda-deploy-${{ github.ref }}
+
+jobs:
+  rust-ci:
+    permissions:
+      actions: read
+      security-events: write
+      contents: read
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.1.0
+    with:
+      working-directory: ./app/fetcher
