@@ -6,9 +6,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import pulumi
 import pulumi_aws as aws
 from pulumi_command import local
+
+import pulumi
 
 
 @dataclass
@@ -36,7 +37,7 @@ def create_lambda_zip(resource_prefix: str) -> LambdaZip:
 
     local.run(
         dir=f"../dist/{dist_folder}",
-        command=f"""rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py; \
+        command=f"""rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py r; \
             zip -q -r -D -X -9 -A ../{output_file} .""",
     )
 
@@ -91,9 +92,9 @@ def create_lambda_layer(resource_prefix: str) -> aws.lambda_.LayerVersion:
         f"{resource_prefix}-cleanup-layer",
         dir=f"../dist/{dist_folder}",
         create=(
-            "rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py"
+            "rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py r"
         ),
-        update="rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py",
+        update="rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py r",
         triggers=[
             pulumi.FileAsset("../app/poetry.lock"),
             copy_libs.stdout,

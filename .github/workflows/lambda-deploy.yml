@@ -11,14 +11,14 @@ concurrency:
   group: ghas-erfiume-lambda-deploy-${{ github.ref }}
 
 jobs:
-  rust-ci:
-    permissions:
-      actions: read
-      security-events: write
-      contents: read
-    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.0.4
-    with:
-      working-directory: ./app/r
+  #   rust-ci:
+  #     permissions:
+  #       actions: read
+  #       security-events: write
+  #       contents: read
+  #     uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.0.4
+  #     with:
+  #       working-directory: ./app/r
 
   lambda-deploy:
     needs: rust-ci
