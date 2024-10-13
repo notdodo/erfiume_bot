@@ -6,10 +6,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pulumi
 import pulumi_aws as aws
 from pulumi_command import local
-
-import pulumi
 
 
 @dataclass
