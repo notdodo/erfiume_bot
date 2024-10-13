@@ -58,7 +58,7 @@ jobs:
       - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
         # v4.0.2
         with:
-          path: ${{ github.workspace }}/.pulumi/plugins
+          path: ~/.pulumi/plugins
           key: python-3.12-pulumi-${{ hashFiles('**/poetry.lock') }}
           restore-keys: |
             python-3.12-pulumi-
