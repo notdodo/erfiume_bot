@@ -1,0 +1,29 @@
+[tasks.clippy]
+dependencies = ["dev-clippy", "gha-clippy"]
+
+[tasks.gha-clippy]
+condition = { profiles = ["gha"] }
+command = "cargo"
+args = [
+    "clippy",
+    "--all-targets",
+    "--all-features",
+    "--message-format=json",
+    "--",
+    "-D",
+    "warnings",
+]
+
+
+[tasks.dev-clippy]
+condition = { profiles = ["dev"] }
+command = "cargo"
+args = [
+    "clippy",
+    "--all-targets",
+    "--all-features",
+    "${@}",
+    "--",
+    "-D",
+    "warnings",
+]

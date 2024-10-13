@@ -4,7 +4,7 @@ on:
     branches:
       - main
     paths:
-      - app/r/**
+      - app/fetcher/**
       - .github/workflows/lambda-deploy.yml
 
 concurrency:
@@ -16,11 +16,12 @@ jobs:
       actions: read
       security-events: write
       contents: read
-    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust_ci
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.1.0
     with:
       working-directory: ./app/fetcher
 
   lambda-deploy:
+    needs: rust-ci
     name: Deploy Lambda
     runs-on: ubuntu-latest
     permissions:
@@ -57,7 +58,7 @@ jobs:
           repo: cargo-lambda/cargo-lambda
           platform: linux
           arch: x86_64
-      - name: deploy lambda
+      - name: Build and deploy Lambda
         run: |
           cargo lambda build --release
           cargo lambda deploy
