@@ -1,5 +1,7 @@
 use anyhow::Result;
 use aws_config::BehaviorVersion;
+use aws_sdk_dynamodb::error::SdkError;
+use aws_sdk_dynamodb::operation::update_item::UpdateItemError;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use futures::StreamExt;
@@ -166,53 +168,72 @@ async fn put_station_into_dynamodb(
     client: &DynamoDbClient,
     station: &Station,
     table_name: &str,
-) -> Result<(), BoxError> {
-    let mut item = std::collections::HashMap::new();
+) -> Result<()> {
+    let new_timestamp = station.timestamp.unwrap_or_default();
+    let new_value = station.value.unwrap_or_default();
 
-    item.insert(
-        "idstazione".to_string(),
+    let mut expression_attribute_values = std::collections::HashMap::new();
+    expression_attribute_values.insert(
+        ":new_timestamp".to_string(),
+        AttributeValue::N(new_timestamp.to_string()),
+    );
+    expression_attribute_values.insert(
+        ":new_value".to_string(),
+        AttributeValue::N(new_value.to_string()),
+    );
+    expression_attribute_values.insert(
+        ":idstazione".to_string(),
         AttributeValue::S(station.idstazione.clone()),
     );
-    item.insert(
-        "ordinamento".to_string(),
+    expression_attribute_values.insert(
+        ":ordinamento".to_string(),
         AttributeValue::N(station.ordinamento.to_string()),
     );
-    item.insert(
-        "nomestaz".to_string(),
-        AttributeValue::S(station.nomestaz.clone()),
-    );
-    item.insert("lon".to_string(), AttributeValue::S(station.lon.clone()));
-    item.insert("lat".to_string(), AttributeValue::S(station.lat.clone()));
-    item.insert(
-        "soglia1".to_string(),
+    expression_attribute_values.insert(":lon".to_string(), AttributeValue::S(station.lon.clone()));
+    expression_attribute_values.insert(":lat".to_string(), AttributeValue::S(station.lat.clone()));
+    expression_attribute_values.insert(
+        ":soglia1".to_string(),
         AttributeValue::N(station.soglia1.to_string()),
     );
-    item.insert(
-        "soglia2".to_string(),
+    expression_attribute_values.insert(
+        ":soglia2".to_string(),
         AttributeValue::N(station.soglia2.to_string()),
     );
-    item.insert(
-        "soglia3".to_string(),
+    expression_attribute_values.insert(
+        ":soglia3".to_string(),
         AttributeValue::N(station.soglia3.to_string()),
     );
-    if let Some(value) = station.value {
-        item.insert("value".to_string(), AttributeValue::N(value.to_string()));
-    }
-    if let Some(timestamp) = station.timestamp {
-        item.insert(
-            "timestamp".to_string(),
-            AttributeValue::N(timestamp.to_string()),
-        );
-    }
 
-    client
-        .put_item()
+    let mut expression_attribute_names = std::collections::HashMap::new();
+    expression_attribute_names.insert("#tsp".to_string(), "timestamp".to_string());
+    expression_attribute_names.insert("#vl".to_string(), "value".to_string());
+
+    let update_expression = "SET #tsp = :new_timestamp, #vl = :new_value, idstazione = :idstazione, ordinamento = :ordinamento, lon = :lon, lat = :lat, soglia1 = :soglia1, soglia2 = :soglia2, soglia3 = :soglia3";
+
+    let condition_expression = "attribute_not_exists(#tsp) OR :new_timestamp > #tsp";
+
+    let result = client
+        .update_item()
         .table_name(table_name)
-        .set_item(Some(item))
+        .key("nomestaz", AttributeValue::S(station.nomestaz.clone()))
+        .update_expression(update_expression)
+        .set_expression_attribute_values(Some(expression_attribute_values))
+        .set_expression_attribute_names(Some(expression_attribute_names))
+        .condition_expression(condition_expression)
         .send()
-        .await?;
+        .await;
 
-    Ok(())
+    match result {
+        Ok(_) => Ok(()),
+        Err(SdkError::ServiceError(err)) => {
+            if let UpdateItemError::ConditionalCheckFailedException(_) = err.err() {
+                Err(anyhow::Error::new(err.into_err()))
+            } else {
+                Ok(())
+            }
+        }
+        Err(err) => Err(err.into()),
+    }
 }
 
 async fn process_station(
@@ -251,11 +272,12 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
         .collect()
         .await;
 
-    let mut successful_updates = 0;
+    let successful_updates = process_results.iter().filter(|res| res.is_ok()).count();
     for result in process_results {
-        match result {
-            Ok(_) => successful_updates += 1,
-            Err(e) => error!(error = %e, "Error processing station: {:?}", e),
+        if let Err(e) = result {
+            if !e.to_string().contains("ConditionalCheckFailedException") {
+                error!(error = %e, "Error processing station: {:?}", e);
+            }
         }
     }
 

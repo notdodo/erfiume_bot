@@ -5,7 +5,6 @@ Module to handle interactions with storage (DynamoDB).
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from decimal import Decimal
 from os import getenv
 from typing import TYPE_CHECKING, Self
 
@@ -57,54 +56,6 @@ class AsyncDynamoDB:
     ) -> None:
         """Close the client on exit."""
         await self.dynamodb.__aexit__(exc_type, exc_val, exc_tb)
-
-    async def check_and_update_stazioni(self, station: Stazione) -> None:
-        """
-        Check if the station data in DynamoDB is outdated compared to the given station object.
-        If outdated or non-existent, update it with the new data.
-        """
-        try:
-            response = await self.table.get_item(
-                Key={"nomestaz": station.nomestaz},
-                ProjectionExpression="#tsp",
-                ExpressionAttributeNames={"#tsp": "timestamp"},
-            )
-
-            # Get the latest timestamp from the DynamoDB response
-            latest_timestamp = (
-                int(response["Item"].get("timestamp"))  # type: ignore[arg-type]
-                if "Item" in response
-                else 0
-            )
-
-            # If the provided station has newer data or the record doesn't exist, update DynamoDB
-            if station.timestamp > latest_timestamp:
-                await self.table.update_item(
-                    Key={"nomestaz": station.nomestaz},
-                    UpdateExpression="SET #ts = :new_timestamp, #vl = :new_value",
-                    ExpressionAttributeValues={
-                        ":new_timestamp": station.timestamp,
-                        ":new_value": (
-                            Decimal(str(station.value))
-                            if station.value is not None
-                            else Decimal(str(UNKNOWN_VALUE))
-                        ),
-                    },
-                    ExpressionAttributeNames={
-                        "#ts": "timestamp",
-                        "#vl": "value",
-                    },
-                )
-            elif not response["Item"]:
-                await self.table.put_item(Item=station.to_dict())
-        except ClientError as e:
-            logger.exception(
-                "Error while checking or updating station %s: %s", station.nomestaz, e
-            )
-            raise
-        except Exception as e:
-            logger.exception("Unexpected error: %s", e)
-            raise
 
     async def get_matching_station(self, station_name: str) -> Stazione | None:
         """
