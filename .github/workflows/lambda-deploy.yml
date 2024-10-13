@@ -11,17 +11,17 @@ concurrency:
   group: ghas-erfiume-lambda-deploy-${{ github.ref }}
 
 jobs:
-    rust-ci:
-      permissions:
-        actions: read
-        security-events: write
-        contents: read
-      uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust_ci
-      with:
-        working-directory: ./app/fetcher
+  rust-ci:
+    permissions:
+      actions: read
+      security-events: write
+      contents: read
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust_ci
+    with:
+      working-directory: ./app/fetcher
 
   lambda-deploy:
-    # name: Deploy Lambda
+    name: Deploy Lambda
     runs-on: ubuntu-latest
     permissions:
       contents: read
