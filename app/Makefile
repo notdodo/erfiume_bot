@@ -4,13 +4,13 @@ build-layer-zip:
 	poetry install --only main --sync
 	cd ..; mkdir -p ./dist/lambda-layer/python
 	cd ..; cp -r -p ./app/.venv/lib ./dist/lambda-layer/python/
-	cd ../dist/lambda-layer/python; rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py r
+	cd ../dist/lambda-layer/python; rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py fetcher
 	cd ../dist/lambda-layer/python; zip -q -r -D -X -9 -A ../../lambda-layer.zip ../
 
 build-lambda-zip: build-layer-zip
 	cd ..; mkdir -p ./dist/lambda-package/
 	cd ..; cp -r -p ./app/ ./dist/lambda-package/
-	cd ../dist/lambda-package/; rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py r
+	cd ../dist/lambda-package/; rm -rf .venv .mypy_cache .ruff_cache .env Makefile poetry.lock pyproject.toml standalone.py fetcher
 	cd ../dist/lambda-package/; zip -q -r -D -X -9 -A ../lambda.zip .
 
 format: ## Format repository code
