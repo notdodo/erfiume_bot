@@ -64,6 +64,5 @@ jobs:
           OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
           OPENSSL_DIR: /usr
         run: |
-          sudo find / -iname libssl*
           cargo lambda build --release
           cargo lambda deploy erfiume-fetcher
