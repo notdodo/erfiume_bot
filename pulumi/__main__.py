@@ -166,11 +166,11 @@ fetcher_lambda = lambda_.Function(
     role=fetcher_role.arn,
     handler="erfiume_fetcher.handler",
     source_code_hash=lambda_zip.zip_sha256,
-    layers=[lambda_layer.arn],
-    runtime=lambda_.Runtime.PYTHON3D12,
+    runtime=lambda_.Runtime.CUSTOM_AL2,
     environment={
         "variables": {
             "ENVIRONMENT": pulumi.get_stack(),
+            "RUST_LOG": "info",
         },
     },
     memory_size=1024,

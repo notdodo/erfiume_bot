@@ -22,7 +22,7 @@ jobs:
 
   lambda-deploy:
     needs: rust-ci
-    name: Pulumi Up
+    name: Deploy Lambda
     runs-on: ubuntu-latest
     defaults:
       run:
