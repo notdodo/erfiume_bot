@@ -61,5 +61,6 @@ jobs:
           arch: x86_64 # Other valid options for linux: 'aarch64'
       - name: deploy lambda
         run: |
+          sudo apt-get install pkg-config libssl-dev
           cargo lambda build
           cargo lambda deploy --region eu-west-1 erfiume-fetcher
