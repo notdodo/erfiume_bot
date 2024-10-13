@@ -60,6 +60,8 @@ jobs:
           platform: linux # Other valid options: 'windows' or 'darwin'
           arch: x86_64 # Other valid options for linux: 'aarch64'
       - name: deploy lambda
+        env:
+          OPENSSL_DIR: /usr
         run: |
           cargo lambda build --release
           cargo lambda deploy erfiume-fetcher
