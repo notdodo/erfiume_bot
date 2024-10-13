@@ -50,17 +50,14 @@ jobs:
       - name: Install Zig toolchain
         uses: korandoru/setup-zig@v1
         with:
-          # Note: make sure you are using a recent version of zig (the one below isn't kept in sync with new releases)
           zig-version: master
       - name: Install Cargo Lambda
         uses: jaxxstorm/action-install-gh-release@v1.12.0
         with:
           repo: cargo-lambda/cargo-lambda
-          # Note: make sure you are using a recent version of cargo-lambda (the one below isn't kept in sync with new releases)
-          platform: linux # Other valid options: 'windows' or 'darwin'
-          arch: x86_64 # Other valid options for linux: 'aarch64'
+          platform: linux
+          arch: x86_64
       - name: deploy lambda
         run: |
-          cargo add openssl -F vendored
           cargo lambda build --release
-          cargo lambda deploy erfiume-fetcher
+          cargo lambda deploy --binary-name r erfiume-fetcher
