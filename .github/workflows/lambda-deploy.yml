@@ -12,6 +12,9 @@ concurrency:
 
 jobs:
   rust-ci:
+    permissions:
+      actions: read
+      security-events: write
     uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.0.4
 
   lambda-deploy:
