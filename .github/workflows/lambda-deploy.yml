@@ -61,8 +61,8 @@ jobs:
           arch: x86_64 # Other valid options for linux: 'aarch64'
       - name: deploy lambda
         env:
-          OPENSSL_DIR: /usr/lib/x86_64-linux-gnu
           OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
+          OPENSSL_DIR: /usr
         run: |
           sudo find / -iname libssl*
           cargo lambda build --release
