@@ -21,8 +21,7 @@ jobs:
   #       working-directory: ./app/r
 
   lambda-deploy:
-    needs: rust-ci
-    name: Deploy Lambda
+    # name: Deploy Lambda
     runs-on: ubuntu-latest
     defaults:
       run:
