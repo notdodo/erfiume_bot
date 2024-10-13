@@ -62,6 +62,7 @@ jobs:
       - name: deploy lambda
         env:
           OPENSSL_DIR: /usr/lib/x86_64-linux-gnu
+          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
         run: |
           sudo find / -iname libssl*
           cargo lambda build --release
