@@ -61,6 +61,5 @@ jobs:
           arch: x86_64 # Other valid options for linux: 'aarch64'
       - name: deploy lambda
         run: |
-          cargo add reqwest -F rustls-tls
-          cargo lambda build
-          cargo lambda deploy --region eu-west-1 erfiume-fetcher
+          cargo lambda build --release
+          cargo lambda deploy erfiume-fetcher
