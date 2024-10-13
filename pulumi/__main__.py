@@ -202,7 +202,7 @@ scheduler.Schedule(
         mode="FLEXIBLE",
         maximum_window_in_minutes=5,
     ),
-    schedule_expression=f"rate({SYNC_MINUTES_RATE_EMERGENCY if EMERGENCY else SYNC_MINUTES_RATE_MEDIUM} minutes)",
+    schedule_expression=f"rate({SYNC_MINUTES_RATE_EMERGENCY if EMERGENCY else SYNC_MINUTES_RATE_NORMAL} minutes)",
     schedule_expression_timezone="Europe/Rome",
     target=scheduler.ScheduleTargetArgs(
         arn=fetcher_lambda.arn,
