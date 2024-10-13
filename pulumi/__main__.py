@@ -171,7 +171,7 @@ fetcher_lambda = lambda_.Function(
             "RUST_LOG": "info",
         },
     },
-    memory_size=1024,
+    memory_size=768,
     timeout=20,
 )
 
