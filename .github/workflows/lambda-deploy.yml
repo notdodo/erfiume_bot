@@ -46,6 +46,7 @@ jobs:
         with:
           cache-on-failure: true
           cache-all-crates: true
+          workspaces: ./app/r
       - name: Install Zig toolchain
         uses: korandoru/setup-zig@v1
         with:
@@ -60,4 +61,4 @@ jobs:
           arch: x86_64 # Other valid options for linux: 'aarch64'
       - name: deploy lambda
         run: |
-          cargo lambda deploy --name erfiume-fetcher
+          cargo lambda deploy --region eu-west-1 erfiume-fetcher
