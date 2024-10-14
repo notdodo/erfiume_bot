@@ -68,8 +68,8 @@ jobs:
           role-to-assume: arn:aws:iam::841162699174:role/erfiume-oidc-write
           aws-region: eu-west-1
           retry-max-attempts: 2
-      - uses: aws-actions/aws-secretsmanager-get-secrets@4e95aaf6ba8028772f5384971d4fedccfaab8621
-        # v2.0.6
+      - uses: aws-actions/aws-secretsmanager-get-secrets@1d6311ab61b4856de027ff508aac818ddc1e141b
+        # v2.0.7
         with:
           secret-ids: CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-write
       - uses: pulumi/actions@c7fad9e2f0b79653172b36538b8b34b3c0291952
