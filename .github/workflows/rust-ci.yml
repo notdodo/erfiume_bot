@@ -14,6 +14,6 @@ jobs:
       actions: read
       security-events: write
       contents: read
-    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.1.0
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@gitleaks-v0.0.3
     with:
       working-directory: ./app/fetcher
