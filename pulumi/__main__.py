@@ -20,7 +20,7 @@ RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
 SYNC_MINUTES_RATE_MEDIUM = 2 * 60  # Every two hours
 SYNC_MINUTES_RATE_EMERGENCY = 20
-EMERGENCY = False
+EMERGENCY = True
 CUSTOM_DOMAIN_NAME = "erfiume.thedodo.xyz"
 
 stazioni_table = dynamodb.Table(
