@@ -331,3 +331,46 @@ pub fn stations() -> Vec<String> {
     ];
     stations.iter().map(|s| s.to_string()).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_station_message_with_unknown_value() {
+        let station = Stazione {
+            idstazione: "/id/".to_string(),
+            timestamp: 1729454542656,
+            ordinamento: 1,
+            nomestaz: "Cesena".to_string(),
+            lon: "lon".to_string(),
+            lat: "lat".to_string(),
+            soglia1: 1.0,
+            soglia2: 2.0,
+            soglia3: 3.0,
+            value: UNKNOWN_VALUE,
+        };
+        let expected = "Stazione: Cesena\nValore: non disponibile \nSoglia Gialla: 1\nSoglia Arancione: 2\nSoglia Rossa: 3\nUltimo rilevamento: 20-10-2024 22:02".to_string();
+
+        assert_eq!(station.create_station_message(), expected);
+    }
+
+    #[test]
+    fn create_station_message() {
+        let station = Stazione {
+            idstazione: "/id/".to_string(),
+            timestamp: 1729454542656,
+            ordinamento: 1,
+            nomestaz: "Cesena".to_string(),
+            lon: "lon".to_string(),
+            lat: "lat".to_string(),
+            soglia1: 1.0,
+            soglia2: 2.0,
+            soglia3: 3.0,
+            value: 2.2,
+        };
+        let expected = "Stazione: Cesena\nValore: 2.2 🟠\nSoglia Gialla: 1\nSoglia Arancione: 2\nSoglia Rossa: 3\nUltimo rilevamento: 20-10-2024 22:02".to_string();
+
+        assert_eq!(station.create_station_message(), expected);
+    }
+}

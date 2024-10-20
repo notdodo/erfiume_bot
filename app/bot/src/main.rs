@@ -1,18 +1,20 @@
-use dptree::deps;
+use aws_config::BehaviorVersion;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use lambda_runtime::{service_fn, Error as LambdaError, LambdaEvent};
 use serde_json::{json, Value};
 use station::search::get_station;
 use teloxide::{
-    prelude::*,
-    types::{LinkPreviewOptions, Me, ParseMode},
+    dispatching::{HandlerExt, UpdateFilterExt},
+    dptree::deps,
+    payloads::SendMessageSetters,
+    prelude::{dptree, Bot, Requester, Update},
+    respond,
+    types::{LinkPreviewOptions, Me, Message, ParseMode},
     utils::command::BotCommands,
 };
 use tracing::{info, instrument};
-mod station;
-use aws_config::BehaviorVersion;
-use aws_sdk_dynamodb::Client as DynamoDbClient;
-
 use tracing_subscriber::EnvFilter;
+mod station;
 
 #[derive(BotCommands, Clone)]
 #[command(rename_rule = "lowercase")]
@@ -65,36 +67,20 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
         .branch(
             dptree::entry()
                 .filter_command::<BaseCommand>()
-                .endpoint(simple_commands_handler),
+                .endpoint(base_commands_handler),
         )
         .branch(dptree::endpoint(|msg: Message, bot: Bot| async move {
-            let shared_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
-            let dynamodb_client = DynamoDbClient::new(&shared_config);
-            let message = msg.text().unwrap();
-            let text = match get_station(
-                &dynamodb_client,
-                message.to_string(),
-                "Stazioni",
-            )
-            .await
-            {
-                Ok(Some(item)) => {
-                    if item.nomestaz != message {
-                        format!("{}\nSe non è la stazione corretta prova ad affinare la ricerca.", item.create_station_message())
-                    }else {
-                        item.create_station_message().to_string()
-                    }
-                }
-                Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca.\nInserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico\nAd esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'.\nSe non sai quale cercare prova con /stazioni".to_string()
-            };
-            let mut message = text.clone();
-            if fastrand::choose_multiple(0..10, 1)[0] == 8 {
-                message = format!("{}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0", text);
-            }
-            if fastrand::choose_multiple(0..50, 1)[0] == 8 {
-                message = format!("{}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot", text);
-            }
-            bot.send_message(msg.chat.id, message).await?;
+            let text = message_handler(&msg);
+            bot.send_message(msg.chat.id, escape_markdown_v2(&text.await.unwrap()))
+                .link_preview_options(LinkPreviewOptions {
+                    is_disabled: false,
+                    url: None,
+                    prefer_small_media: true,
+                    prefer_large_media: false,
+                    show_above_text: false,
+                })
+                .parse_mode(ParseMode::MarkdownV2)
+                .await?;
             respond(())
         }));
 
@@ -127,7 +113,7 @@ fn escape_markdown_v2(text: &str) -> String {
         .replace("!", "\\!")
 }
 
-async fn simple_commands_handler(
+async fn base_commands_handler(
     bot: Bot,
     msg: Message,
     cmd: BaseCommand,
@@ -168,4 +154,34 @@ async fn simple_commands_handler(
         .await?;
 
     Ok(())
+}
+
+async fn message_handler(message: &Message) -> Result<String, teloxide::RequestError> {
+    let shared_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+    let dynamodb_client = DynamoDbClient::new(&shared_config);
+    let msg = message.text().unwrap();
+    let text = match get_station(
+                &dynamodb_client,
+                msg.to_string(),
+                "Stazioni",
+            )
+            .await
+            {
+                Ok(Some(item)) => {
+                    if item.nomestaz != msg {
+                        format!("{}\nSe non è la stazione corretta prova ad affinare la ricerca.", item.create_station_message())
+                    }else {
+                        item.create_station_message().to_string()
+                    }
+                }
+                Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca.\nInserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico\nAd esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'.\nSe non sai quale cercare prova con /stazioni".to_string()
+            };
+    let mut message = text.clone();
+    if fastrand::choose_multiple(0..10, 1)[0] == 8 {
+        message = format!("{}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0", text);
+    }
+    if fastrand::choose_multiple(0..50, 1)[0] == 8 {
+        message = format!("{}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot", text);
+    }
+    Ok(message)
 }
