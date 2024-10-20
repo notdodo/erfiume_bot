@@ -85,10 +85,7 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
                         item.create_station_message().to_string()
                     }
                 }
-                Err(_) | Ok(None) => format!("Nessuna stazione trovata con la parola di ricerca '{}'. \n
-                            Inserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico \n
-                            Ad esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'. \n
-                            Se non sai quale cercare prova con /stazioni", message),
+                Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca.\nInserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico\nAd esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'.\nSe non sai quale cercare prova con /stazioni".to_string()
             };
             let mut message = text.clone();
             if fastrand::choose_multiple(0..10, 1)[0] == 8 {
