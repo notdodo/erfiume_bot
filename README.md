@@ -1,6 +1,8 @@
 # erfiume_bot <a href="https://www.buymeacoffee.com/d0d0" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy Me A Coffee" style="height: 25px !important;width: 130px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
 [![Pulumi Up](https://github.com/notdodo/erfiume_bot/actions/workflows/pulumi-up.yml/badge.svg)](https://github.com/notdodo/erfiume_bot/actions/workflows/pulumi-up.yml)
+[![Deploy Bot Lambda](https://github.com/notdodo/erfiume_bot/actions/workflows/bot-deploy.yml/badge.svg)](https://github.com/notdodo/erfiume_bot/actions/workflows/bot-deploy.yml)
+[![Deploy Fetcher Lambda](https://github.com/notdodo/erfiume_bot/actions/workflows/fetcher-deploy.yml/badge.svg)](https://github.com/notdodo/erfiume_bot/actions/workflows/fetcher-deploy.yml)
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/58bb5033-87e0-4794-99f7-ddc1a3fd65b4" width="400px"/>
@@ -24,8 +26,8 @@ The bot can be used in both private or group chats, responding to specific stati
 
 The bot consists of two main components:
 
-1. **User interaction**: the code in `./app/erfiume_bot.py` is triggered by a Telegram webhook that starts an AWS Lambda function when a user interacts with the bot.
-2. **Stations data update**: the code in `./app/erfiume_fetcher.py` runs on a Lambda function via an EventBridge scheduler, updating the data from the stations. This data is then used by the bot to answer to messages.
+1. **User interaction**: the code in `./app/bot` is triggered by a Telegram webhook that starts an AWS Lambda function when a user interacts with the bot.
+2. **Stations data update**: the code in `./app/fetcher` runs on a Lambda function via an EventBridge scheduler, updating the data from the stations. This data is then used by the bot to answer to messages.
 
 ![](./assets/erfiume.png)
 
@@ -41,7 +43,7 @@ The bot consists of two main components:
 
 ## Features
 
-### Telegram Bot (`./app/erfiume_bot.py`)
+### Telegram Bot (`./app/bot`)
 
 The bot responds to Telegram messages via the main Lambda function and can:
 
@@ -51,11 +53,11 @@ The bot responds to Telegram messages via the main Lambda function and can:
 
 What it cannot do:
 
-- read non-command messaged in groups or supergroups
+- read non-command messages in groups or supergroups
 - provide [inline support](https://telegram.org/blog/inline-bots)
 - support mentions
 
-### Data fetcher (`./app/erfiume_fetcher.py`)
+### Data fetcher (`./app/fetcher`)
 
 This Lambda function is scheduled to fetch data from the APIs on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) and update or create station data in a DynamoDB table. A station refers to a sensor placed on a bridge or river that monitors the water level.
 
