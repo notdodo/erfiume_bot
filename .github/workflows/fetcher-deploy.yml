@@ -1,4 +1,4 @@
-name: Deploy Lambda
+name: Deploy Fetcher Lambda
 on:
   push:
     branches:
@@ -8,10 +8,10 @@ on:
       - .github/workflows/lambda-deploy.yml
 
 concurrency:
-  group: ghas-erfiume-lambda-deploy-${{ github.ref }}
+  group: ghas-erfiume-fetcher-lambda-deploy-${{ github.ref }}
 
 jobs:
-  rust-ci:
+  rust-ci-fetcher:
     permissions:
       actions: read
       security-events: write
@@ -20,8 +20,8 @@ jobs:
     with:
       working-directory: ./app/fetcher
 
-  lambda-deploy:
-    needs: rust-ci
+  lambda-fetcher-deploy:
+    needs: rust-ci-fetcher
     name: Deploy Lambda
     runs-on: ubuntu-latest
     permissions:
