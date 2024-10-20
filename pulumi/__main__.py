@@ -171,7 +171,7 @@ fetcher_lambda = lambda_.Function(
             "RUST_LOG": "info",
         },
     },
-    memory_size=768,
+    memory_size=512,
     timeout=20,
 )
 
@@ -184,11 +184,12 @@ bot_lambda = lambda_.Function(
     runtime=lambda_.Runtime.CUSTOM_AL2023,
     environment={
         "variables": {
+            "RUST_LOG": "info",
             "ENVIRONMENT": pulumi.get_stack(),
             "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
         },
     },
-    memory_size=512,
+    memory_size=128,
     timeout=10,
 )
 
