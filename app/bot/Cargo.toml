@@ -15,7 +15,7 @@ lambda_runtime = "0.13.0"
 openssl = { version = "0.10.68", features = ["vendored"] }
 serde = "1.0.210"
 serde_dynamo = "4.2.14"
-serde_json = "1.0.131"
+serde_json = "1.0.132"
 teloxide = { version = "0.13.0", features = ["macros"] }
 tokio = { version = "1.40.0", features = ["macros"] }
 tracing = "0.1.40"
