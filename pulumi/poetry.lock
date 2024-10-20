@@ -605,13 +605,13 @@ six = ">=1.12,<2.0"
 
 [[package]]
 name = "pulumi-aws"
-version = "6.56.0"
+version = "6.56.1"
 description = "A Pulumi package for creating and managing Amazon Web Services (AWS) cloud resources."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pulumi_aws-6.56.0-py3-none-any.whl", hash = "sha256:312255dd9aa687b09c07f71a8704c186687a232e2d9d17b0605d2580e0d64c95"},
-    {file = "pulumi_aws-6.56.0.tar.gz", hash = "sha256:3aef6bc0912560c962c78c300278ff8b564375b6fad92bf91782708fceb590a4"},
+    {file = "pulumi_aws-6.56.1-py3-none-any.whl", hash = "sha256:6bb23824a2d11bb5011752d3d707e6640204d08713f813fbb874c6a87161d702"},
+    {file = "pulumi_aws-6.56.1.tar.gz", hash = "sha256:16f3af995d66ac8488465377e1a6d5ab30c8b2346a50e06f80355e9a13f3e6cd"},
 ]
 
 [package.dependencies]
@@ -621,18 +621,18 @@ semver = ">=2.8.1"
 
 [[package]]
 name = "pulumi-cloudflare"
-version = "5.40.1"
+version = "5.41.0"
 description = "A Pulumi package for creating and managing Cloudflare cloud resources."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pulumi_cloudflare-5.40.1-py3-none-any.whl", hash = "sha256:4302ba1cc57e5195b6027abfbb2e93ab0b3e42c009eff3249f307c957597357d"},
-    {file = "pulumi_cloudflare-5.40.1.tar.gz", hash = "sha256:9dc0907ea71f3cf1dc00c8562d054b723a6890e993da23cc8705e289302334df"},
+    {file = "pulumi_cloudflare-5.41.0-py3-none-any.whl", hash = "sha256:08b0d4d4350f1bd1d6688358d813c45ae84637ee2b400f90002fdc7415659a9b"},
+    {file = "pulumi_cloudflare-5.41.0.tar.gz", hash = "sha256:2b59ae15e66a52a026cda9000f55ba48e88e7175fee62f030275f40d9a86e3c1"},
 ]
 
 [package.dependencies]
 parver = ">=0.2.1"
-pulumi = ">=3.0.0,<4.0.0"
+pulumi = ">=3.136.0,<4.0.0"
 semver = ">=2.8.1"
 
 [[package]]
@@ -1033,4 +1033,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "fd7fe4e55e7774f22e41887da5b08720a2ade8e43075cc1e6d4c00ee34520679"
+content-hash = "7855c76ddfb680db7fdeaa15e9cce0c5a5dbc08b8fb443d9d28f281d7d953846"
