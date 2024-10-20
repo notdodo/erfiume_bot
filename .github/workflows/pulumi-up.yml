@@ -5,7 +5,6 @@ on:
       - main
     paths:
       - pulumi/**
-      - app/**
       - .github/workflows/pulumi-up.yml
 
 concurrency:
