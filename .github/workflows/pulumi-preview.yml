@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   python-ci-pulumi:
-    uses: notdodo/github-actions/.github/workflows/python-ci.yml@python-ci-v0.0.4
+    uses: notdodo/github-actions/.github/workflows/python-ci.yml@rust-ci-v0.1.1
     with:
       poetry-version: latest
       python-version: 3.12
