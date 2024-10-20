@@ -100,7 +100,6 @@ fn escape_markdown_v2(text: &str) -> String {
         .replace("(", "\\(")
         .replace(")", "\\)")
         .replace("~", "\\~")
-        .replace("`", "\\`")
         .replace(">", "\\>")
         .replace("#", "\\#")
         .replace("+", "\\+")
@@ -134,7 +133,7 @@ async fn base_commands_handler(
         BaseCommand::Stazioni => station::stations().join("\n"),
         BaseCommand::Info => {
             let info = "Bot Telegram che permette di leggere i livello idrometrici dei fiumi dell'Emilia Romagna \
-                              I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagn.i.\n\n\
+                              I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagna.it\n\n\
                               Il progetto è completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
                               Per donazioni per mantenere il servizio attivo: buymeacoffee.com/d0d0\n\n\
                               Inizia con /start o /stazioni";
