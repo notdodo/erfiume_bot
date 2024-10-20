@@ -48,10 +48,19 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
     let bot = Bot::from_env();
     let me: Me = bot.get_me().await?;
     info!("{:?}", event.payload);
-    let outer_json: Value = serde_json::from_value(event.payload.get("body").unwrap().clone())?;
 
-    let inner_json_str = outer_json.as_str();
-    let update: Update = serde_json::from_str(inner_json_str.unwrap())?;
+    let outer_json: Value = serde_json::from_value(
+        event
+            .payload
+            .get("body")
+            .ok_or_else(|| LambdaError::from("Missing 'body' in event payload"))?
+            .clone(),
+    )?;
+    let inner_json_str = outer_json
+        .as_str()
+        .ok_or_else(|| LambdaError::from("Expected 'body' to be a string"))?;
+    let update: Update = serde_json::from_str(inner_json_str)?;
+
     let handler = Update::filter_message()
         .branch(
             dptree::entry()
@@ -59,7 +68,7 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
                 .endpoint(simple_commands_handler),
         )
         .branch(dptree::endpoint(|msg: Message, bot: Bot| async move {
-            let shared_config = aws_config::defaults(BehaviorVersion::latest()).load().await;
+            let shared_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
             let dynamodb_client = DynamoDbClient::new(&shared_config);
             let message = msg.text().unwrap();
             let stations = station::stations();
@@ -69,7 +78,6 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
                     &s.replace(" ", "").to_lowercase(),
                 )
             });
-            info!("{:?}", closest_station);
             let text = match get_station(
                 &dynamodb_client,
                 closest_station.unwrap().to_string(),
@@ -94,17 +102,32 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
         }));
 
     handler.dispatch(deps![me, bot, update]).await;
-    // Dispatcher::builder(bot, handler)
-    //     .default_handler(|upd| async move {
-    //         info!("Unhandled update: {:?}", upd);
-    //     })
-    //     .build()
-    //     .dispatch()
-    //     .await;
     Ok(json!({
         "message": "Lambda executed successfully",
         "statusCode": 200,
     }))
+}
+
+fn escape_markdown_v2(text: &str) -> String {
+    text.replace("\\", "\\\\")
+        .replace("_", "\\_")
+        .replace("*", "\\*")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+        .replace("(", "\\(")
+        .replace(")", "\\)")
+        .replace("~", "\\~")
+        .replace("`", "\\`")
+        .replace(">", "\\>")
+        .replace("#", "\\#")
+        .replace("+", "\\+")
+        .replace("-", "\\-")
+        .replace("=", "\\=")
+        .replace("|", "\\|")
+        .replace("{", "\\{")
+        .replace("}", "\\}")
+        .replace(".", "\\.")
+        .replace("!", "\\!")
 }
 
 async fn simple_commands_handler(
@@ -116,41 +139,34 @@ async fn simple_commands_handler(
         BaseCommand::Help => BaseCommand::descriptions().to_string(),
         BaseCommand::Start => {
             if msg.chat.is_group() || msg.chat.is_supergroup() {
-                format!("Ciao {}\\! Scrivete il nome di una stazione da monitorare \\(e\\.g\\. `Cesena` o `/S\\. Carlo`\\) 
+                format!("Ciao {}! Scrivete il nome di una stazione da monitorare (e.g. /Cesena o `/S. Carlo`) 
                         o cercatene una con /stazioni",
                         msg.chat.title().unwrap_or(""))
             } else {
-                format!("Ciao @{}\\! Scrivi il nome di una stazione da monitorare \\(e\\.g\\. `Cesena` o `/S\\. Carlo`\\) \
+                format!("Ciao @{}! Scrivi il nome di una stazione da monitorare (e.g. `Cesena` o `/S. Carlo`) \
                         o cercane una con /stazioni",
                         msg.chat.username().unwrap_or(msg.chat.first_name().unwrap_or("")))
             }
         }
-        BaseCommand::Stazioni => {
-            let markdown_station: Vec<String> = station::stations()
-                .iter_mut()
-                .map(|station| station.replace(".", "\\."))
-                .collect();
-            markdown_station.join("\n")
-        }
+        BaseCommand::Stazioni => station::stations().join("\n"),
         BaseCommand::Info => {
             let info = "Bot Telegram che permette di leggere i livello idrometrici dei fiumi dell'Emilia Romagna \
-                              I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo\\.regione\\.emilia\\-romagna\\.it\\.\n\n\
-                              Il progetto è completamente open\\-source \\(https://github\\.com/notdodo/erfiume\\_bot\\)\\.\n\
-                              Per donazioni per mantenere il servizio attivo: buymeacoffee\\.com/d0d0\n\n\
+                              I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagn.i.\n\n\
+                              Il progetto è completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
+                              Per donazioni per mantenere il servizio attivo: buymeacoffee.com/d0d0\n\n\
                               Inizia con /start o /stazioni";
             info.to_string()
         }
     };
 
-    let link_preview_options = LinkPreviewOptions {
-        is_disabled: true,
-        url: None,
-        prefer_small_media: false,
-        prefer_large_media: false,
-        show_above_text: false,
-    };
-    bot.send_message(msg.chat.id, text)
-        .link_preview_options(link_preview_options)
+    bot.send_message(msg.chat.id, escape_markdown_v2(&text))
+        .link_preview_options(LinkPreviewOptions {
+            is_disabled: true,
+            url: None,
+            prefer_small_media: false,
+            prefer_large_media: false,
+            show_above_text: false,
+        })
         .parse_mode(ParseMode::MarkdownV2)
         .await?;
 

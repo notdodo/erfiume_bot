@@ -242,8 +242,16 @@ async fn process_station(
     station: Station,
     table_name: &str,
 ) -> Result<(), BoxError> {
-    let station = fetch_station_data(client, station).await?;
-    put_station_into_dynamodb(dynamodb_client, &station, table_name).await?;
+    let station = fetch_station_data(client, station.clone())
+        .await
+        .map_err(|e| {
+            error!(
+                "Error fetching data for station {}: {:?}",
+                station.nomestaz, e
+            );
+            e
+        });
+    put_station_into_dynamodb(dynamodb_client, &station?, table_name).await?;
 
     Ok(())
 }
@@ -260,7 +268,7 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     let latest_timestamp = fetch_latest_time(&http_client).await?;
     let stations = fetch_stations(&http_client, latest_timestamp).await?;
 
-    let concurrency_limit = 100;
+    let concurrency_limit = 50;
 
     let process_futures = stations
         .clone()

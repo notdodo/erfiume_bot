@@ -34,9 +34,10 @@ The bot consists of two main components:
 - **Pulumi** for IaC
 - **AWS Lambda** for main code execution environment
 - **DynamoDB** for storing station data
-- **httpx** for asynchronously fetching data from the stations
-- **asyncio** for managing asynchronous tasks in the Lambdas
-- **thefuzz** for performing fuzzy search on station names
+- **EventBridge Scheduler** to trigger the syncing from Allerta Meteo
+- **teloxide** to manage Telegram inputs
+- **tokio** for managing asynchronous tasks in the Lambdas
+- **Levenshtein Distance** for performing fuzzy search on station names from user input
 
 ## Features
 
