@@ -180,15 +180,15 @@ bot_lambda = lambda_.Function(
     code=pulumi.FileArchive("./dummy.zip"),
     name=f"{RESOURCES_PREFIX}-bot",
     role=bot_role.arn,
-    handler="erfiume_bot.handler",
-    layers=[lambda_layer.arn],
-    runtime=lambda_.Runtime.PYTHON3D12,
+    handler="bootstrap",
+    runtime=lambda_.Runtime.CUSTOM_AL2023,
     environment={
         "variables": {
             "ENVIRONMENT": pulumi.get_stack(),
+            "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
         },
     },
-    memory_size=768,
+    memory_size=512,
     timeout=10,
 )
 
