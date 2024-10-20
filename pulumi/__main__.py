@@ -13,7 +13,6 @@ from pulumi_aws import (
     secretsmanager,
 )
 
-from lambda_utils import create_lambda_layer
 from telegram_provider import Webhook
 
 RESOURCES_PREFIX = "erfiume"
@@ -157,7 +156,6 @@ bot_role = iam.Role(
     ],
 )
 
-lambda_layer = create_lambda_layer(RESOURCES_PREFIX)
 fetcher_lambda = lambda_.Function(
     f"{RESOURCES_PREFIX}-fetcher",
     code=pulumi.FileArchive("./dummy.zip"),
