@@ -97,7 +97,14 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
                             Ad esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'. \n
                             Se non sai quale cercare prova con /stazioni".to_string(),
             };
-            bot.send_message(msg.chat.id, text).await?;
+            let mut message = text.clone();
+            if fastrand::choose_multiple(0..10, 1)[0] == 8 {
+                message = format!("{}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0", text);
+            }
+            if fastrand::choose_multiple(0..50, 1)[0] == 8 {
+                message = format!("{}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot", text);
+            }
+            bot.send_message(msg.chat.id, message).await?;
             respond(())
         }));
 
@@ -159,15 +166,7 @@ async fn simple_commands_handler(
         }
     };
 
-    let mut message = text.clone();
-    if fastrand::choose_multiple(0..10, 1)[0] == 8 {
-        message = format!("{}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0", text);
-    }
-    if fastrand::choose_multiple(0..50, 1)[0] == 8 {
-        message = format!("{}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot", text);
-    }
-
-    bot.send_message(msg.chat.id, escape_markdown_v2(&message))
+    bot.send_message(msg.chat.id, escape_markdown_v2(&text))
         .link_preview_options(LinkPreviewOptions {
             is_disabled: true,
             url: None,
