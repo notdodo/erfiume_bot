@@ -1,4 +1,4 @@
-pub mod fuzzy;
+pub mod search;
 
 use chrono::{DateTime, TimeZone};
 use chrono_tz::Europe::Rome;

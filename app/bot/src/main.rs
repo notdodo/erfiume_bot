@@ -1,7 +1,7 @@
 use dptree::deps;
 use lambda_runtime::{service_fn, Error as LambdaError, LambdaEvent};
 use serde_json::{json, Value};
-use station::fuzzy::get_station;
+use station::search::get_station;
 use teloxide::{
     prelude::*,
     types::{LinkPreviewOptions, Me, ParseMode},
@@ -71,28 +71,21 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
             let shared_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
             let dynamodb_client = DynamoDbClient::new(&shared_config);
             let message = msg.text().unwrap();
-            let stations = station::stations();
-            let closest_station = stations.iter().min_by_key(|&s| {
-                edit_distance::edit_distance(
-                    &message.to_lowercase(),
-                    &s.replace(" ", "").to_lowercase(),
-                )
-            });
             let text = match get_station(
                 &dynamodb_client,
-                closest_station.unwrap().to_string(),
+                message.to_string(),
                 "Stazioni",
             )
             .await
             {
-                Ok(item) => {
+                Ok(Some(item)) => {
                     if item.nomestaz != message {
                         format!("{}\nSe non è la stazione corretta prova ad affinare la ricerca.", item.create_station_message())
                     }else {
                         item.create_station_message().to_string()
                     }
                 }
-                Err(_) => "Nessuna stazione trovata con la parola di ricerca. \n
+                Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca. \n
                             Inserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico \n
                             Ad esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'. \n
                             Se non sai quale cercare prova con /stazioni".to_string(),
