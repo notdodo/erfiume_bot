@@ -707,6 +707,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "edit-distance",
+ "fastrand",
  "lambda_runtime",
  "openssl",
  "serde",
