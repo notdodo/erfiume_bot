@@ -10,7 +10,6 @@ from pulumi_aws import (
     iam,
     lambda_,
     scheduler,
-    secretsmanager,
 )
 
 from telegram_provider import Webhook
@@ -19,7 +18,7 @@ RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
 SYNC_MINUTES_RATE_MEDIUM = 2 * 60  # Every two hours
 SYNC_MINUTES_RATE_EMERGENCY = 20
-EMERGENCY = True
+EMERGENCY = False
 CUSTOM_DOMAIN_NAME = "erfiume.thedodo.xyz"
 
 stazioni_table = dynamodb.Table(
@@ -50,13 +49,6 @@ chats_table = dynamodb.Table(
         attribute_name="ttl",
         enabled=True,
     ),
-)
-
-telegram_token_secret = secretsmanager.Secret(
-    f"{RESOURCES_PREFIX}-telegram-bot-token",
-    name="telegram-bot-token",
-    description="The Telegram Bot token for erfiume_bot",
-    recovery_window_in_days=7,
 )
 
 fetcher_role = iam.Role(
@@ -140,15 +132,6 @@ bot_role = iam.Role(
                             "dynamodb:PutItem",
                         ],
                         "Resources": [chats_table.arn],
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Actions": [
-                            "secretsmanager:GetSecretValue",
-                        ],
-                        "Resources": [
-                            telegram_token_secret.arn,
-                        ],
                     },
                 ],
             ).json,

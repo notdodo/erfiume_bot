@@ -1,4 +1,4 @@
-pub mod search;
+pub(crate) mod search;
 
 use chrono::{DateTime, TimeZone};
 use chrono_tz::Europe::Rome;
