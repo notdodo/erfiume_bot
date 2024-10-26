@@ -15,7 +15,7 @@ jobs:
       actions: read
       security-events: write
       contents: read
-    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.1.1
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.1.2
     with:
       working-directory: ./app/fetcher
 
@@ -24,6 +24,6 @@ jobs:
       actions: read
       security-events: write
       contents: read
-    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.1.1
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.1.2
     with:
       working-directory: ./app/bot
