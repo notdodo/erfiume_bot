@@ -6,7 +6,7 @@ use super::{stations, Stazione, UNKNOWN_VALUE};
 
 fn fuzzy_search(search: &str) -> Option<String> {
     let stations = stations();
-    let closest_match = stations
+    stations
         .iter()
         .map(|s: &String| {
             (
@@ -19,9 +19,7 @@ fn fuzzy_search(search: &str) -> Option<String> {
         })
         .filter(|(_, score)| *score < 4)
         .min_by_key(|(_, score)| *score)
-        .map(|(station, _)| station.clone()); // Map to String and clone the station name
-
-    closest_match
+        .map(|(station, _)| station.clone())
 }
 
 pub async fn get_station(
@@ -174,5 +172,22 @@ mod tests {
         let expected = Some("Cesena".to_string());
 
         assert_eq!(fuzzy_search(&message), expected);
+    }
+
+    #[test]
+    fn parse_string_field_yields_correct_value() {
+        let expected = "this is a string".to_string();
+        let item = HashMap::from([("field".to_string(), AttributeValue::S(expected.clone()))]);
+        assert_eq!(parse_string_field(&item, "field").unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_optional_number_field_yields_correct_value() {
+        let expected = 4;
+        let item = HashMap::from([("field".to_string(), AttributeValue::N(expected.to_string()))]);
+        assert_eq!(
+            parse_optional_number_field::<i16>(&item, "field").unwrap(),
+            Some(expected)
+        );
     }
 }
