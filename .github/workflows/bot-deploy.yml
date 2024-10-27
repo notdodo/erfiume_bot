@@ -5,7 +5,7 @@ on:
       - main
     paths:
       - app/bot/**
-      - .github/workflows/lambda-deploy.yml
+      - .github/workflows/bot-deploy.yml
 
 concurrency:
   group: ghas-erfiume-bot-lambda-deploy-${{ github.ref }}
