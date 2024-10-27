@@ -5,7 +5,7 @@ on:
       - main
     paths:
       - app/fetcher/**
-      - .github/workflows/lambda-deploy.yml
+      - .github/workflows/fetcher-deploy.yml
 
 concurrency:
   group: ghas-erfiume-fetcher-lambda-deploy-${{ github.ref }}
