@@ -674,13 +674,13 @@ six = ">=1.12,<2.0"
 
 [[package]]
 name = "pulumi-aws"
-version = "6.56.1"
+version = "6.57.0"
 description = "A Pulumi package for creating and managing Amazon Web Services (AWS) cloud resources."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pulumi_aws-6.56.1-py3-none-any.whl", hash = "sha256:6bb23824a2d11bb5011752d3d707e6640204d08713f813fbb874c6a87161d702"},
-    {file = "pulumi_aws-6.56.1.tar.gz", hash = "sha256:16f3af995d66ac8488465377e1a6d5ab30c8b2346a50e06f80355e9a13f3e6cd"},
+    {file = "pulumi_aws-6.57.0-py3-none-any.whl", hash = "sha256:5d4eb464c90fa2b2cbba52dae5f98e7070f401598955269e0861c3590847371c"},
+    {file = "pulumi_aws-6.57.0.tar.gz", hash = "sha256:bf389f35647fa4110de580fdfba0442d3432c65ab4009a5b1c4ad241903fcf65"},
 ]
 
 [package.dependencies]
@@ -690,13 +690,13 @@ semver = ">=2.8.1"
 
 [[package]]
 name = "pulumi-cloudflare"
-version = "5.41.0"
+version = "5.42.0"
 description = "A Pulumi package for creating and managing Cloudflare cloud resources."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pulumi_cloudflare-5.41.0-py3-none-any.whl", hash = "sha256:08b0d4d4350f1bd1d6688358d813c45ae84637ee2b400f90002fdc7415659a9b"},
-    {file = "pulumi_cloudflare-5.41.0.tar.gz", hash = "sha256:2b59ae15e66a52a026cda9000f55ba48e88e7175fee62f030275f40d9a86e3c1"},
+    {file = "pulumi_cloudflare-5.42.0-py3-none-any.whl", hash = "sha256:e8c7bda2cb327fd1f6984b4315baa610bb3ea82e1c1aa9131e86f6f88a1b953c"},
+    {file = "pulumi_cloudflare-5.42.0.tar.gz", hash = "sha256:432103316073cc1924f1c14dd85d823683ea779a63f5e3fb78e9d41a55fb746e"},
 ]
 
 [package.dependencies]
@@ -1102,4 +1102,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "59b713829536f328b311eeca0adbe2bd60a36a218d355318e263c24e2e44e011"
+content-hash = "ea389c3c6c41d93e6f9cd6b139cd66f0ef1fa650510cfab2bed29de210b980e3"
