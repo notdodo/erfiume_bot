@@ -64,7 +64,7 @@ where
 {
     struct TimestampVisitor;
 
-    impl<'de> Visitor<'de> for TimestampVisitor {
+    impl Visitor<'_> for TimestampVisitor {
         type Value = u64;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
