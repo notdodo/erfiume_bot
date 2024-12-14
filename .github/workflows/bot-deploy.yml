@@ -22,3 +22,5 @@ jobs:
       working-directory: ./app/bot
       deploy-lambda: true
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-write
+      egress-policy-allowlist: >
+        ziglang.org:443
