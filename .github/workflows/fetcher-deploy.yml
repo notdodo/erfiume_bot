@@ -26,3 +26,4 @@ jobs:
         sts.eu-west-1.amazonaws.com:443
         lambda.eu-west-1.amazonaws.com:443
         ziglang.org:443
+        pkg.machengine.org:443
