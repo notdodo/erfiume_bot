@@ -17,16 +17,8 @@ jobs:
       security-events: write
       contents: read
       id-token: write
-    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@notdodo-patch-1
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.0.2
     with:
       working-directory: ./app/fetcher
       deploy-lambda: true
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-write
-      egress-policy-allowlist: >
-        sts.eu-west-1.amazonaws.com:443
-        lambda.eu-west-1.amazonaws.com:443
-        ziglang.org:443
-        pkg.machengine.org:443
-        zigmirror.hryx.net:443
-        zig.linus.dev:443
-        fs.liujiacai.net:443
