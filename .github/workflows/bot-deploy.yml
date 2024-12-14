@@ -17,11 +17,8 @@ jobs:
       security-events: write
       contents: read
       id-token: write
-    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.0.2
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.0.3
     with:
       working-directory: ./app/bot
       deploy-lambda: true
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-write
-      egress-policy-allowlist: >
-        ziglang.org:443
-        objects.githubusercontent.com:443
