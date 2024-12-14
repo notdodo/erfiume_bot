@@ -27,3 +27,4 @@ jobs:
         lambda.eu-west-1.amazonaws.com:443
         ziglang.org:443
         pkg.machengine.org:443
+        zigmirror.hryx.net:443
