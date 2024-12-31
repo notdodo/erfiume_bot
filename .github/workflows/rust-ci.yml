@@ -30,6 +30,10 @@ jobs:
               - app/bot/**
             ci:
               - .github/workflows/rust-ci.yml
+    outputs:
+      fetcher_any_changed: ${{ steps.changed-files.outputs.fetcher_any_changed }}
+      bot_any_changed: ${{ steps.changed-files.outputs.bot_any_changed }}
+      ci_any_changed: ${{ steps.changed-files.outputs.ci_any_changed }}
 
   rust-ci-fetcher:
     needs: changed-files
