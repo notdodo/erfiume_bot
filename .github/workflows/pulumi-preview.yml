@@ -68,6 +68,7 @@ jobs:
         # v1.0.0
         with:
           organization: notdodo
+          # kics-scan ignore-line
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:notdodo
       - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
