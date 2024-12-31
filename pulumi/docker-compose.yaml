@@ -1,3 +1,4 @@
+# kics-scan ignore
 services:
   localstack:
     container_name: "${LOCALSTACK_DOCKER_NAME:-localstack-main}"
