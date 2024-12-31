@@ -10,7 +10,7 @@ concurrency:
   group: ghas-erfiume-ci-${{ github.ref }}
 
 jobs:
-  changed_files:
+  changed-files:
     runs-on: ubuntu-latest
     name: Check changed-files
     steps:
@@ -32,23 +32,23 @@ jobs:
               - .github/workflows/rust-ci.yml
 
   rust-ci-fetcher:
-    needs: changed_files
+    needs: changed-files
     permissions:
       actions: read
       security-events: write
       contents: read
-    if: needs.changed_files.outputs.fetcher_any_changed == 'true' || needs.changed_files.outputs.ci_any_changed == 'true'
+    if: needs.changed-files.outputs.fetcher_any_changed == 'true' || needs.changed-files.outputs.ci_any_changed == 'true'
     uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.0.3
     with:
       working-directory: ./app/fetcher
 
   rust-ci-bot:
-    needs: changed_files
+    needs: changed-files
     permissions:
       actions: read
       security-events: write
       contents: read
-    if: needs.changed_files.outputs.bot_any_changed == 'true' || needs.changed_files.outputs.ci_any_changed == 'true'
+    if: needs.changed-files.outputs.bot_any_changed == 'true' || needs.changed-files.outputs.ci_any_changed == 'true'
     uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.0.3
     with:
       working-directory: ./app/bot
