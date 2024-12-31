@@ -18,22 +18,14 @@ updates:
       pulumi-dev:
         dependency-type: "development"
   - package-ecosystem: cargo
-    directory: /app/fetcher
+    directories:
+      - /app/fetcher
+      - /app/bot
     schedule:
       interval: monthly
       time: "12:00"
       day: wednesday
     groups:
-      fetcher:
-        patterns:
-          - "*"
-  - package-ecosystem: cargo
-    directory: /app/bot
-    schedule:
-      interval: monthly
-      time: "12:00"
-      day: wednesday
-    groups:
-      bot:
+      cargo:
         patterns:
           - "*"
