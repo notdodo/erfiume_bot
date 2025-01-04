@@ -1,4 +1,4 @@
-name: Infrastructure Security Scan (local repository)
+name: Infrastructure Security Scan
 on:
   push:
     branches:
@@ -8,9 +8,9 @@ on:
       - main
 
 concurrency:
-  group: ghas-kics-${{ github.ref }}
+  group: ghas-infra-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   infra-scan:
-    uses: notdodo/github-actions/.github/workflows/infra-security-scan.yml@infra-scan-v0.0.1
+    uses: notdodo/github-actions/.github/workflows/infra-security-scan.yml@infra-scan-v0.0.2
