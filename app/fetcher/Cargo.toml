@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.95"
-aws-config = "1.5.12"
-aws-sdk-dynamodb = "1.57.0"
+aws-config = "1.5.13"
+aws-sdk-dynamodb = "1.58.0"
 futures = "0.3.31"
 lambda_runtime = "0.13.0"
 openssl = { version = "0.10.66", features = [
