@@ -6,4 +6,6 @@ on:
 
 jobs:
   cleanup:
-    uses: notdodo/github-actions/.github/workflows/clean-branch-cache.yml@cleanup-v0.0.0
+    uses: notdodo/github-actions/.github/workflows/clean-branch-cache.yml@cleanup-v0
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
