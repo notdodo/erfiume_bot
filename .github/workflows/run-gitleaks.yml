@@ -4,4 +4,6 @@ on:
 
 jobs:
   gitleaks:
-    uses: notdodo/github-actions/.github/workflows/gitleaks.yml@gitleaks-v0.0.2
+    uses: notdodo/github-actions/.github/workflows/gitleaks.yml@gitleaks-v0
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
