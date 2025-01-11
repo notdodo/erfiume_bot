@@ -26,7 +26,7 @@ class _TelegramWebhookProvider(ResourceProvider):
 
     def create(self, props: dict[str, Any]) -> CreateResult:
         response = requests.post(
-            f"https://api.telegram.org/bot{props["token"]}/setWebhook",
+            f"https://api.telegram.org/bot{props['token']}/setWebhook",
             json={
                 "url": props["url"],
                 "allowed_updates": props["react_on"],
@@ -44,7 +44,7 @@ class _TelegramWebhookProvider(ResourceProvider):
         props: dict[str, Any],
     ) -> ReadResult:
         response = requests.get(
-            f"https://api.telegram.org/bot{props["token"]}/getWebhookInfo",
+            f"https://api.telegram.org/bot{props['token']}/getWebhookInfo",
             timeout=10,
         )
 
@@ -59,7 +59,7 @@ class _TelegramWebhookProvider(ResourceProvider):
         newInputs: dict[str, Any],  # noqa: N803
     ) -> UpdateResult:
         response = requests.post(
-            f"https://api.telegram.org/bot{newInputs["token"]}/setWebhook",
+            f"https://api.telegram.org/bot{newInputs['token']}/setWebhook",
             json={
                 "url": newInputs["url"],
                 "allowed_updates": newInputs["react_on"],
