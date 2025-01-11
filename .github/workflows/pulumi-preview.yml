@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   python-ci-pulumi:
-    uses: notdodo/github-actions/.github/workflows/python-ci.yml@python-ci-v0.0.3
+    uses: notdodo/github-actions/.github/workflows/python-ci.yml@python-ci-v0
     with:
       working-directory: "./pulumi"
 
@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         # v4.2.2
         with:
-          fetch-depth: 0
+          persist-credentials: false
       - run: |
           echo "PULUMI_HOME=${GITHUB_WORKSPACE}/.pulumi" >> $GITHUB_ENV
           echo "POETRY_PATH=$([ -f poetry.lock ] && echo ./pulumi || realpath -s --relative-to=${GITHUB_WORKSPACE} ../)" >> $GITHUB_ENV

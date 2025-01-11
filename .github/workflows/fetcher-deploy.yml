@@ -17,7 +17,7 @@ jobs:
       security-events: write
       contents: read
       id-token: write
-    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0.0.3
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0
     with:
       working-directory: ./app/fetcher
       deploy-lambda: true
