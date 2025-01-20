@@ -68,8 +68,6 @@ jobs:
         with:
           path: ${{ env.PULUMI_HOME }}/plugins
           key: python-3.12-pulumi-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            python-3.12-pulumi-
       - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         # v4.0.2
         with:
