@@ -8,9 +8,9 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
-pulumi-aws = "^6.66.3"
+pulumi-aws = "^6.67.0"
 pulumi-command = "^1.0.1"
-pulumi-cloudflare = "^5.48.0"
+pulumi-cloudflare = "^5.49.0"
 requests = "^2.32.3"
 diagrams = "^0.24.1"
 
