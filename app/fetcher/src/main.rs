@@ -4,6 +4,7 @@ use aws_sdk_dynamodb::error::SdkError;
 use aws_sdk_dynamodb::operation::update_item::UpdateItemError;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
+use futures::StreamExt;
 use lambda_runtime::{service_fn, Error as LambdaError, LambdaEvent};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -12,7 +13,6 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fmt;
 use std::time::Duration;
-use tokio::task;
 use tracing::{error, instrument};
 use tracing_subscriber::EnvFilter;
 
@@ -271,16 +271,18 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     let latest_timestamp = fetch_latest_time(&http_client).await?;
     let stations = fetch_stations(&http_client, latest_timestamp).await?;
 
-    let process_futures = stations.into_iter().map(|station| {
-        let http_client = http_client.clone();
-        let dynamodb_client = dynamodb_client.clone();
-        task::spawn(async move {
-            process_station(&http_client, &dynamodb_client, station, "Stazioni").await
-        })
-    });
+    let concurrency_limit = 50;
 
-    let process_results = futures::future::join_all(process_futures).await;
-    let stations_processed = process_results.len();
+    let process_futures = stations
+        .clone()
+        .into_iter()
+        .map(|station| process_station(&http_client, &dynamodb_client, station, "Stazioni"));
+
+    let process_results: Vec<_> = futures::stream::iter(process_futures)
+        .buffer_unordered(concurrency_limit)
+        .collect()
+        .await;
+
     let successful_updates = process_results.iter().filter(|res| res.is_ok()).count();
     for result in process_results {
         if let Err(e) = result {
@@ -292,7 +294,7 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
 
     Ok(json!({
         "message": "Lambda executed successfully",
-        "stations_processed": stations_processed,
+        "stations_processed": stations.len(),
         "stations_updated": successful_updates,
         "statusCode": 200,
     }))
