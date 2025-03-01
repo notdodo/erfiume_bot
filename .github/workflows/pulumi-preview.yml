@@ -39,8 +39,8 @@ jobs:
         # v5.4.0
         with:
           python-version: 3.13
-      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
-        # v4.2.0
+      - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
+        # v4.2.2
         with:
           path: ~/.local
           key: poetry-latest
@@ -51,8 +51,8 @@ jobs:
           virtualenvs-in-project: true
           installer-parallel: true
       - id: cache-deps
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
-        # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
+        # v4.2.2
         with:
           path: |
             ${{ env.POETRY_PATH }}/.venv
@@ -69,23 +69,23 @@ jobs:
           # kics-scan ignore-line
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:notdodo
-      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
-        # v4.2.0
+      - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
+        # v4.2.2
         with:
           path: ${{ env.PULUMI_HOME }}/plugins
           key: python-3.12-pulumi-${{ hashFiles('**/poetry.lock') }}
-      - uses: aws-actions/configure-aws-credentials@4fc4975a852c8cd99761e2de1f4ba73402e44dd9
-        # v4.0.3
+      - uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722
+        # v4.1.0
         with:
           role-to-assume: arn:aws:iam::841162699174:role/erfiume-oidc-read
           aws-region: eu-west-1
           retry-max-attempts: 2
-      - uses: aws-actions/aws-secretsmanager-get-secrets@1d6311ab61b4856de027ff508aac818ddc1e141b
-        # v2.0.7
+      - uses: aws-actions/aws-secretsmanager-get-secrets@fbd65ea98e018858715f591f03b251f02b2316cb
+        # v2.0.8
         with:
           secret-ids: CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-only
-      - uses: pulumi/actions@13b8b7177d6fb736766875dac9b78aab07bd785f
-        # v6.0.1
+      - uses: pulumi/actions@3da56e6feff8f5db8b48d3a396bc10ef1f968088
+        # v6.1.0
         with:
           command: preview
           stack-name: notdodo/erfiume/production
