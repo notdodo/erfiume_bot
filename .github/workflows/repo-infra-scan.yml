@@ -4,12 +4,12 @@ on:
     branches:
       - main
     paths-ignore:
-      - "**.rs"
+      - "/app/**/**.rs"
   pull_request:
     branches:
       - main
     paths-ignore:
-      - "**.rs"
+      - "/app/**/**.rs"
 
 concurrency:
   group: ghas-infra-${{ github.ref }}
