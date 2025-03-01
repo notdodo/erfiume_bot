@@ -291,6 +291,7 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     }
 
     Ok(json!({
+        "message": "Lambda executed successfully",
         "stations_processed": stations_processed,
         "stations_updated": successful_updates,
         "statusCode": 200,
