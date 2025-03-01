@@ -3,9 +3,13 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "**.rs"
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - "**.rs"
 
 concurrency:
   group: ghas-infra-${{ github.ref }}
