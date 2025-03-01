@@ -709,13 +709,13 @@ semver = ">=2.8.1"
 
 [[package]]
 name = "pulumi-cloudflare"
-version = "5.49.0"
+version = "5.49.1"
 description = "A Pulumi package for creating and managing Cloudflare cloud resources."
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "pulumi_cloudflare-5.49.0-py3-none-any.whl", hash = "sha256:ab2a9dcba74096da47f7b0c21f0d9629a3328fb094a9a27e2a4a86a44e3a6f97"},
-    {file = "pulumi_cloudflare-5.49.0.tar.gz", hash = "sha256:c2124d253072b8b0db1894699b3a5a271861eddfaefbc22deb46379d61da1897"},
+    {file = "pulumi_cloudflare-5.49.1-py3-none-any.whl", hash = "sha256:c4271973a0b40dab94be738240638818f90255bc2d4812850220c0915e6084e0"},
+    {file = "pulumi_cloudflare-5.49.1.tar.gz", hash = "sha256:3631e13df964f35ada33efdc69bc4df64d8cdc8e09e237a6c9ed95ca0d9f18db"},
 ]
 
 [package.dependencies]
@@ -725,18 +725,18 @@ semver = ">=2.8.1"
 
 [[package]]
 name = "pulumi-command"
-version = "1.0.1"
+version = "1.0.2"
 description = "The Pulumi Command Provider enables you to execute commands and scripts either locally or remotely as part of the Pulumi resource model."
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 files = [
-    {file = "pulumi_command-1.0.1-py3-none-any.whl", hash = "sha256:672cdea9c0ced0f79ed47e578267a2b2160dcf88626dde34ee96f5524a003574"},
-    {file = "pulumi_command-1.0.1.tar.gz", hash = "sha256:58e123707956aa7a9be2ce89c009642539cde5d9fa02e1e10501662600894843"},
+    {file = "pulumi_command-1.0.2-py3-none-any.whl", hash = "sha256:c75424fe6a80b495bec33c19c8ae97240f38003eb35f865a78ff59425bf9531c"},
+    {file = "pulumi_command-1.0.2.tar.gz", hash = "sha256:17b4010149a62ebce85a35f412fca6f7f508a24e54ee43d73c900e27869cae3e"},
 ]
 
 [package.dependencies]
 parver = ">=0.2.1"
-pulumi = ">=3.0.0,<4.0.0"
+pulumi = ">=3.142.0,<4.0.0"
 semver = ">=2.8.1"
 
 [[package]]
@@ -1079,4 +1079,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "e90c4a91897b2661f072ee444428d68dfb9b871b92a837174868ed36b84a1db2"
+content-hash = "f883d9a370d70134f9668191dae472e9a740bd7eaf0e177e7ccc7a0c9a8bd808"
