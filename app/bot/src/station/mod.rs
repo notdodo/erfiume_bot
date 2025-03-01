@@ -2,6 +2,7 @@ pub(crate) mod search;
 
 use chrono::{DateTime, TimeZone};
 use chrono_tz::Europe::Rome;
+use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator};
 use serde::Deserialize;
 
 const UNKNOWN_VALUE: f64 = -9999.0;
@@ -329,7 +330,7 @@ pub fn stations() -> Vec<String> {
         "Vigolo Marchese",
         "Villanova",
     ];
-    stations.iter().map(|s| s.to_string()).collect()
+    stations.par_iter().map(|s| s.to_string()).collect()
 }
 
 #[cfg(test)]
