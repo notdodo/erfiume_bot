@@ -1,24 +1,23 @@
 use anyhow::{anyhow, Result};
 use aws_sdk_dynamodb::{types::AttributeValue, Client as DynamoDbClient};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator as _};
 use std::collections::HashMap;
+use strsim::jaro_winkler;
 
 use super::{stations, Stazione, UNKNOWN_VALUE};
 
 fn fuzzy_search(search: &str) -> Option<String> {
     let stations = stations();
+    let search_lower = search.to_lowercase();
     stations
-        .iter()
+        .par_iter()
         .map(|s: &String| {
-            (
-                s,
-                edit_distance::edit_distance(
-                    &search.to_lowercase(),
-                    &s.replace(" ", "").to_lowercase(),
-                ),
-            )
+            let s_normalized = s.replace(" ", "").to_lowercase();
+            let score = jaro_winkler(&search_lower, &s_normalized);
+            (s, score)
         })
-        .filter(|(_, score)| *score < 4)
-        .min_by_key(|(_, score)| *score)
+        .filter(|(_, score)| *score > 0.8) // Adjust the threshold as needed
+        .max_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap())
         .map(|(station, _)| station.clone())
 }
 

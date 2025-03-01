@@ -4,15 +4,16 @@ use aws_sdk_dynamodb::error::SdkError;
 use aws_sdk_dynamodb::operation::update_item::UpdateItemError;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use futures::StreamExt;
 use lambda_runtime::{service_fn, Error as LambdaError, LambdaEvent};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fmt;
 use std::time::Duration;
-use tracing::{error, info, instrument};
+use tokio::task;
+use tracing::{error, instrument};
 use tracing_subscriber::EnvFilter;
 
 type BoxError = Box<dyn StdError + Send + Sync>;
@@ -33,7 +34,7 @@ enum Entry {
         soglia2: f32,
         lat: String,
         soglia3: f32,
-        timestap: Option<u64>,
+        timestamp: Option<u64>,
     },
 }
 
@@ -129,7 +130,7 @@ async fn fetch_stations(
                 soglia2,
                 lat,
                 soglia3,
-                timestap: _,
+                timestamp: _,
             } => Some(Station {
                 idstazione,
                 ordinamento,
@@ -172,41 +173,43 @@ async fn put_station_into_dynamodb(
     let new_timestamp = station.timestamp.unwrap_or_default();
     let new_value = station.value.unwrap_or_default();
 
-    let mut expression_attribute_values = std::collections::HashMap::new();
-    expression_attribute_values.insert(
-        ":new_timestamp".to_string(),
-        AttributeValue::N(new_timestamp.to_string()),
-    );
-    expression_attribute_values.insert(
-        ":new_value".to_string(),
-        AttributeValue::N(new_value.to_string()),
-    );
-    expression_attribute_values.insert(
-        ":idstazione".to_string(),
-        AttributeValue::S(station.idstazione.clone()),
-    );
-    expression_attribute_values.insert(
-        ":ordinamento".to_string(),
-        AttributeValue::N(station.ordinamento.to_string()),
-    );
-    expression_attribute_values.insert(":lon".to_string(), AttributeValue::S(station.lon.clone()));
-    expression_attribute_values.insert(":lat".to_string(), AttributeValue::S(station.lat.clone()));
-    expression_attribute_values.insert(
-        ":soglia1".to_string(),
-        AttributeValue::N(station.soglia1.to_string()),
-    );
-    expression_attribute_values.insert(
-        ":soglia2".to_string(),
-        AttributeValue::N(station.soglia2.to_string()),
-    );
-    expression_attribute_values.insert(
-        ":soglia3".to_string(),
-        AttributeValue::N(station.soglia3.to_string()),
-    );
+    let expression_attribute_values = HashMap::from([
+        (
+            ":new_timestamp".to_string(),
+            AttributeValue::N(new_timestamp.to_string()),
+        ),
+        (
+            ":new_value".to_string(),
+            AttributeValue::N(new_value.to_string()),
+        ),
+        (
+            ":idstazione".to_string(),
+            AttributeValue::S(station.idstazione.clone()),
+        ),
+        (
+            ":ordinamento".to_string(),
+            AttributeValue::N(station.ordinamento.to_string()),
+        ),
+        (":lon".to_string(), AttributeValue::S(station.lon.clone())),
+        (":lat".to_string(), AttributeValue::S(station.lat.clone())),
+        (
+            ":soglia1".to_string(),
+            AttributeValue::N(station.soglia1.to_string()),
+        ),
+        (
+            ":soglia2".to_string(),
+            AttributeValue::N(station.soglia2.to_string()),
+        ),
+        (
+            ":soglia3".to_string(),
+            AttributeValue::N(station.soglia3.to_string()),
+        ),
+    ]);
 
-    let mut expression_attribute_names = std::collections::HashMap::new();
-    expression_attribute_names.insert("#tsp".to_string(), "timestamp".to_string());
-    expression_attribute_names.insert("#vl".to_string(), "value".to_string());
+    let expression_attribute_names = HashMap::from([
+        ("#tsp".to_string(), "timestamp".to_string()),
+        ("#vl".to_string(), "value".to_string()),
+    ]);
 
     let update_expression = "SET #tsp = :new_timestamp, #vl = :new_value, idstazione = :idstazione, ordinamento = :ordinamento, lon = :lon, lat = :lat, soglia1 = :soglia1, soglia2 = :soglia2, soglia3 = :soglia3";
 
@@ -268,18 +271,16 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     let latest_timestamp = fetch_latest_time(&http_client).await?;
     let stations = fetch_stations(&http_client, latest_timestamp).await?;
 
-    let concurrency_limit = 50;
+    let process_futures = stations.into_iter().map(|station| {
+        let http_client = http_client.clone();
+        let dynamodb_client = dynamodb_client.clone();
+        task::spawn(async move {
+            process_station(&http_client, &dynamodb_client, station, "Stazioni").await
+        })
+    });
 
-    let process_futures = stations
-        .clone()
-        .into_iter()
-        .map(|station| process_station(&http_client, &dynamodb_client, station, "Stazioni"));
-
-    let process_results: Vec<_> = futures::stream::iter(process_futures)
-        .buffer_unordered(concurrency_limit)
-        .collect()
-        .await;
-
+    let process_results = futures::future::join_all(process_futures).await;
+    let stations_processed = process_results.len();
     let successful_updates = process_results.iter().filter(|res| res.is_ok()).count();
     for result in process_results {
         if let Err(e) = result {
@@ -289,14 +290,8 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
         }
     }
 
-    info!(
-        successful_updates = successful_updates,
-        total_stations = stations.len(),
-        "Finished processing stations"
-    );
     Ok(json!({
-        "message": "Lambda executed successfully",
-        "stations_processed": stations.len(),
+        "stations_processed": stations_processed,
         "stations_updated": successful_updates,
         "statusCode": 200,
     }))
