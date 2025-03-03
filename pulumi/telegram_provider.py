@@ -74,7 +74,14 @@ class _TelegramWebhookProvider(ResourceProvider):
 
 class Webhook(Resource):
     """
-    Pulumi dynamic resource.
+    A Pulumi dynamic resource to create a Telegram Webhook
+
+    :param name [str]: The name of the webhook to create.
+    :param token [str | Output[str]]: Telegram token to use.
+    :param url [str | Output[str]]: The url called by the webhook
+    :param react_on [list[str] | None]: List actions that trigger the webhook.
+    :param authorization_token [str | Output[str] | None]: pre-shared secret to authenticate telegram calls with target url
+    :param opts [pulumi.ResourceOptions | None]: Pulumi resource options for the custom resource.
     """
 
     def __init__(  # noqa: PLR0913
@@ -86,6 +93,9 @@ class Webhook(Resource):
         authorization_token: str | pulumi.Output[str] | None = None,
         opts: ResourceOptions | None = None,
     ):
+        """
+        Initialize the Webhook class.
+        """
         if not react_on:
             react_on = ["message", "inline_query"]
         super().__init__(
