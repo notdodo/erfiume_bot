@@ -3,7 +3,11 @@ name = "erfiume-pulumi"
 version = "0.1.0"
 description = ""
 authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
+keywords = ["erfiume", "telegram", "fiumi"]
 readme = "README.md"
+repository = "https://github.com/notdodo/erfiume"
+homepage = "https://github.com/notdodo/erfiume"
+documentation = "https://github.com/notdodo/erfiume/blob/main/README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
@@ -16,7 +20,7 @@ diagrams = "^0.24.1"
 
 [tool.poetry.group.dev.dependencies]
 awscli-local = "^0.22.0"
-mypy = {extras = ["faster-cache"], version = "^1.15.0"}
+mypy = { extras = ["faster-cache"], version = "^1.15.0" }
 ruff = "^0.9.9"
 pydantic = "^2.10.6"
 types-requests = "^2.32.0.20250301"
@@ -25,10 +29,10 @@ types-requests = "^2.32.0.20250301"
 output-format = "github"
 
 [tool.ruff.lint]
-select = ["ALL"]
-ignore = ["D2", "D4", "ANN", "COM812", "ISC001", "D107"]
 fixable = ["ALL"]
 unfixable = []
+select = ["ALL"]
+ignore = ["D2", "D4", "ANN", "COM812", "ISC001", "ERA001"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -49,6 +53,7 @@ pretty = true
 show_error_codes = true
 show_error_context = true
 implicit_reexport = true
+namespace_packages = true
 
 [tool.pylint."MESSAGES CONTROL"]
 persistent = "no"

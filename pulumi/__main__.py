@@ -5,13 +5,13 @@ import pulumi_cloudflare
 from pulumi_aws import (
     apigatewayv2,
     cloudwatch,
-    dynamodb,
     get_caller_identity,
     iam,
     lambda_,
     scheduler,
 )
 
+from er_fiume import Stations, TableAttribute, TableAttributeType
 from telegram_provider import Webhook
 
 RESOURCES_PREFIX = "erfiume"
@@ -21,34 +21,31 @@ SYNC_MINUTES_RATE_EMERGENCY = 20
 EMERGENCY = False
 CUSTOM_DOMAIN_NAME = "erfiume.thedodo.xyz"
 
-stazioni_table = dynamodb.Table(
-    f"{RESOURCES_PREFIX}-stazioni",
-    name="Stazioni",
-    billing_mode="PAY_PER_REQUEST",
+er_stations_table = Stations(
+    name="EmiliaRomanga-Stations",
     hash_key="nomestaz",
-    attributes=[
-        dynamodb.TableAttributeArgs(
-            name="nomestaz",
-            type="S",
-        ),
-    ],
+    attributes=[TableAttribute(name="nomestaz", type=TableAttributeType.STRING)],
 )
 
-chats_table = dynamodb.Table(
-    f"{RESOURCES_PREFIX}-users",
+m_stations_table = Stations(
+    name="Marche-Stations",
+    hash_key="nomestaz",
+    attributes=[TableAttribute(name="nomestaz", type=TableAttributeType.STRING)],
+)
+
+stazioni_table = Stations(
+    name="Stazioni",
+    hash_key="nomestaz",
+    attributes=[TableAttribute(name="nomestaz", type=TableAttributeType.STRING)],
+    opts=pulumi.ResourceOptions(aliases=[pulumi.Alias(name="erfiume-stazioni")]),
+)
+
+chats_table = Stations(
     name="Chats",
-    billing_mode="PAY_PER_REQUEST",
     hash_key="id",
-    attributes=[
-        dynamodb.TableAttributeArgs(
-            name="id",
-            type="N",
-        ),
-    ],
-    ttl=dynamodb.TableTtlArgs(
-        attribute_name="ttl",
-        enabled=True,
-    ),
+    attributes=[TableAttribute(name="id", type=TableAttributeType.NUMBER)],
+    ttl="ttl",
+    opts=pulumi.ResourceOptions(aliases=[pulumi.Alias(name="erfiume-users")]),
 )
 
 fetcher_role = iam.Role(
