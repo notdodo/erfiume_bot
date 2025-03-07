@@ -1,7 +1,7 @@
 """An AWS Python Pulumi program"""
 
+import pulumi
 import pulumi_cloudflare
-from er_fiume import LambdaRole, Stations, TableAttribute, TableAttributeType
 from pulumi_aws import (
     apigatewayv2,
     cloudwatch,
@@ -10,9 +10,9 @@ from pulumi_aws import (
     lambda_,
     scheduler,
 )
-from telegram_provider import Webhook
 
-import pulumi
+from er_fiume import LambdaRole, Stations, TableAttribute, TableAttributeType
+from telegram_provider import Webhook
 
 RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
