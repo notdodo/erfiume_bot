@@ -44,7 +44,7 @@ def format_resource_name(name: str, resource: Resource | None = None) -> str | N
     if VALIDATING_REGEX.match(name):
         return name.lower().replace(" ", "-").replace("_", "-")
     pulumi_error(
-        "Invalid repository name. Only alphanumeric, '.', '-' and '_' are allowed.",
+        f"Invalid resource name {name}. Only alphanumeric, '.', '-' and '_' are allowed.",
         resource,
     )
     return None

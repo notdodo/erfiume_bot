@@ -276,7 +276,7 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     let process_futures = stations
         .clone()
         .into_iter()
-        .map(|station| process_station(&http_client, &dynamodb_client, station, "Stazioni"));
+        .map(|station| process_station(&http_client, &dynamodb_client, station, "EmiliaRomagna-Stations"));
 
     let process_results: Vec<_> = futures::stream::iter(process_futures)
         .buffer_unordered(concurrency_limit)

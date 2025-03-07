@@ -74,7 +74,7 @@ pub(crate) async fn message_handler(
     let text = match station::search::get_station(
                 &dynamodb_client,
                 text.to_string(),
-                "Stazioni",
+                "EmiliaRomagna-Stations",
             )
             .await
             {
