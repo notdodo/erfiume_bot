@@ -1,7 +1,7 @@
 """An AWS Python Pulumi program"""
 
-import pulumi
 import pulumi_cloudflare
+from er_fiume import LambdaRole, Stations, TableAttribute, TableAttributeType
 from pulumi_aws import (
     apigatewayv2,
     cloudwatch,
@@ -10,9 +10,9 @@ from pulumi_aws import (
     lambda_,
     scheduler,
 )
-
-from er_fiume import Stations, TableAttribute, TableAttributeType
 from telegram_provider import Webhook
+
+import pulumi
 
 RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
@@ -22,7 +22,7 @@ EMERGENCY = False
 CUSTOM_DOMAIN_NAME = "erfiume.thedodo.xyz"
 
 er_stations_table = Stations(
-    name="EmiliaRomanga-Stations",
+    name="EmiliaRomagna-Stations",
     hash_key="nomestaz",
     attributes=[TableAttribute(name="nomestaz", type=TableAttributeType.STRING)],
 )
@@ -37,7 +37,6 @@ stazioni_table = Stations(
     name="Stazioni",
     hash_key="nomestaz",
     attributes=[TableAttribute(name="nomestaz", type=TableAttributeType.STRING)],
-    opts=pulumi.ResourceOptions(aliases=[pulumi.Alias(name="erfiume-stazioni")]),
 )
 
 chats_table = Stations(
@@ -45,94 +44,45 @@ chats_table = Stations(
     hash_key="id",
     attributes=[TableAttribute(name="id", type=TableAttributeType.NUMBER)],
     ttl="ttl",
-    opts=pulumi.ResourceOptions(aliases=[pulumi.Alias(name="erfiume-users")]),
 )
 
-fetcher_role = iam.Role(
-    f"{RESOURCES_PREFIX}-fetcher",
+fetcher_role = LambdaRole(
     name=f"{RESOURCES_PREFIX}-fetcher",
-    assume_role_policy=iam.get_policy_document(
-        statements=[
-            {
-                "Effect": "Allow",
-                "Principals": [
-                    {
-                        "Type": "Service",
-                        "Identifiers": ["lambda.amazonaws.com"],
-                    }
-                ],
-                "Actions": ["sts:AssumeRole"],
-            }
-        ]
-    ).json,
-    managed_policy_arns=[
-        "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-    ],
-    inline_policies=[
-        iam.RoleInlinePolicyArgs(
-            name="FetcherRole",
-            policy=iam.get_policy_document_output(
-                statements=[
-                    {
-                        "Effect": "Allow",
-                        "Actions": [
-                            "dynamodb:PutItem",
-                            "dynamodb:Query",
-                            "dynamodb:UpdateItem",
-                            "dynamodb:GetItem",
-                        ],
-                        "Resources": [stazioni_table.arn],
-                    }
-                ],
-            ).json,
-        )
+    path=f"/{RESOURCES_PREFIX}/",
+    permissions=[
+        {
+            "Effect": "Allow",
+            "Actions": [
+                "dynamodb:PutItem",
+                "dynamodb:Query",
+                "dynamodb:UpdateItem",
+                "dynamodb:GetItem",
+            ],
+            "Resources": [stazioni_table.arn],
+        }
     ],
 )
 
-bot_role = iam.Role(
-    f"{RESOURCES_PREFIX}-bot",
+bot_role = LambdaRole(
     name=f"{RESOURCES_PREFIX}-bot",
-    assume_role_policy=iam.get_policy_document(
-        statements=[
-            {
-                "Effect": "Allow",
-                "Principals": [
-                    {
-                        "Type": "Service",
-                        "Identifiers": ["lambda.amazonaws.com"],
-                    }
-                ],
-                "Actions": ["sts:AssumeRole"],
-            }
-        ]
-    ).json,
-    managed_policy_arns=[
-        "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-    ],
-    inline_policies=[
-        iam.RoleInlinePolicyArgs(
-            name="BotRole",
-            policy=iam.get_policy_document_output(
-                statements=[
-                    {
-                        "Effect": "Allow",
-                        "Actions": [
-                            "dynamodb:Query",
-                            "dynamodb:UpdateItem",
-                            "dynamodb:GetItem",
-                        ],
-                        "Resources": [stazioni_table.arn, chats_table.arn],
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Actions": [
-                            "dynamodb:PutItem",
-                        ],
-                        "Resources": [chats_table.arn],
-                    },
-                ],
-            ).json,
-        )
+    path=f"/{RESOURCES_PREFIX}/",
+    permissions=[
+        {
+            "Effect": "Allow",
+            "Actions": [
+                "dynamodb:Query",
+                "dynamodb:UpdateItem",
+                "dynamodb:GetItem",
+            ],
+            "Resources": [stazioni_table.arn, chats_table.arn],
+        },
+        {
+            "Effect": "Allow",
+            "Actions": [
+                "dynamodb:PutItem",
+            ],
+            "Resources": [chats_table.arn],
+        },
     ],
 )
 
