@@ -33,12 +33,6 @@ m_stations_table = Stations(
     attributes=[TableAttribute(name="nomestaz", type=TableAttributeType.STRING)],
 )
 
-stazioni_table = Stations(
-    name="Stazioni",
-    hash_key="nomestaz",
-    attributes=[TableAttribute(name="nomestaz", type=TableAttributeType.STRING)],
-)
-
 chats_table = Stations(
     name="Chats",
     hash_key="id",
@@ -58,7 +52,7 @@ fetcher_role = LambdaRole(
                 "dynamodb:UpdateItem",
                 "dynamodb:GetItem",
             ],
-            "Resources": [stazioni_table.arn],
+            "Resources": [er_stations_table.arn, m_stations_table.arn],
         }
     ],
 )
@@ -74,7 +68,7 @@ bot_role = LambdaRole(
                 "dynamodb:UpdateItem",
                 "dynamodb:GetItem",
             ],
-            "Resources": [stazioni_table.arn, chats_table.arn],
+            "Resources": [er_stations_table.arn, m_stations_table.arn, chats_table.arn],
         },
         {
             "Effect": "Allow",
