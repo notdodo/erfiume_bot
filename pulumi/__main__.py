@@ -2,16 +2,15 @@
 
 import pulumi
 import pulumi_cloudflare
-from pulumi_aws import (
-    apigatewayv2,
-    cloudwatch,
-    get_caller_identity,
-    iam,
-    lambda_,
-    scheduler,
-)
+from pulumi_aws import apigatewayv2, cloudwatch, lambda_, scheduler
 
-from er_fiume import LambdaRole, Stations, TableAttribute, TableAttributeType
+from er_fiume import (
+    GenericRole,
+    LambdaRole,
+    Stations,
+    TableAttribute,
+    TableAttributeType,
+)
 from telegram_provider import Webhook
 
 RESOURCES_PREFIX = "erfiume"
@@ -115,6 +114,22 @@ bot_lambda = lambda_.Function(
     timeout=10,
 )
 
+
+scheduler_role = GenericRole(
+    name=f"{RESOURCES_PREFIX}-fetcher-scheduler",
+    path=f"/{RESOURCES_PREFIX}/",
+    for_services=["scheduler.amazonaws.com"],
+    permissions=[
+        {
+            "Effect": "Allow",
+            "Actions": [
+                "lambda:InvokeFunction",
+            ],
+            "Resources": [fetcher_lambda.arn],
+        }
+    ],
+)
+
 scheduler.Schedule(
     f"{RESOURCES_PREFIX}-fetcher",
     name=f"{RESOURCES_PREFIX}-fetcher",
@@ -126,47 +141,7 @@ scheduler.Schedule(
     schedule_expression_timezone="Europe/Rome",
     target=scheduler.ScheduleTargetArgs(
         arn=fetcher_lambda.arn,
-        role_arn=iam.Role(
-            f"{RESOURCES_PREFIX}-fetcher-scheduler",
-            name=f"{RESOURCES_PREFIX}-fetcher-scheduler",
-            assume_role_policy=iam.get_policy_document(
-                statements=[
-                    {
-                        "Effect": "Allow",
-                        "Principals": [
-                            {
-                                "Type": "Service",
-                                "Identifiers": ["scheduler.amazonaws.com"],
-                            }
-                        ],
-                        "Actions": ["sts:AssumeRole"],
-                        "conditions": [
-                            {
-                                "Test": "StringEquals",
-                                "Variable": "aws:SourceAccount",
-                                "Values": [f"{get_caller_identity().account_id}"],
-                            }
-                        ],
-                    }
-                ]
-            ).json,
-            inline_policies=[
-                iam.RoleInlinePolicyArgs(
-                    name="DynamoDBStazioniRW",
-                    policy=iam.get_policy_document_output(
-                        statements=[
-                            {
-                                "Effect": "Allow",
-                                "Actions": [
-                                    "lambda:InvokeFunction",
-                                ],
-                                "Resources": [fetcher_lambda.arn],
-                            }
-                        ],
-                    ).json,
-                )
-            ],
-        ).arn,
+        role_arn=scheduler_role.arn,
     ),
 )
 
