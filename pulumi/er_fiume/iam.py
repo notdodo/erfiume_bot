@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pulumi_aws import get_caller_identity, iam
-
 import pulumi
+from pulumi_aws import get_caller_identity, iam
 
 from .helpers import format_resource_name
 
