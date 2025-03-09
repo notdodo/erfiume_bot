@@ -71,7 +71,9 @@ class LambdaRole(pulumi.ComponentResource):
                     ).json,
                 )
             ],
-            opts=opts,
+            opts=pulumi.ResourceOptions.merge(
+                pulumi.ResourceOptions(parent=self), opts
+            ),
         )
         self.arn = self.role.arn
         self.register_outputs({"lambdarole": self.role})
@@ -137,7 +139,9 @@ class GenericRole(pulumi.ComponentResource):
                     ).json,
                 )
             ],
-            opts=opts,
+            opts=pulumi.ResourceOptions.merge(
+                pulumi.ResourceOptions(parent=self), opts
+            ),
         )
         self.arn = self.role.arn
         self.register_outputs({"iamrole": self.role})

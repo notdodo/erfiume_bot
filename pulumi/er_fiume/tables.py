@@ -81,7 +81,9 @@ class Stations(pulumi.ComponentResource):
                 for attr in self.attributes
             ],
             ttl=ttl_attribute,
-            opts=opts,
+            opts=pulumi.ResourceOptions.merge(
+                pulumi.ResourceOptions(parent=self), opts
+            ),
         )
 
         self.arn = self.table.arn
