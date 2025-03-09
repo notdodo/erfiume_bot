@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pulumi
 from pulumi_aws import get_caller_identity, iam
+
+import pulumi
 
 from .helpers import format_resource_name
 
@@ -101,7 +102,7 @@ class GenericRole(pulumi.ComponentResource):
         """
         self.name = name
         self.resource_name = f"{format_resource_name(name, self)}-role"
-        super().__init__("notdodo:erfiume:LambdaRole", self.name, {}, opts)
+        super().__init__("notdodo:erfiume:IAMRole", self.name, {}, opts)
         path = path or "/"
 
         self.role = iam.Role(
@@ -119,7 +120,7 @@ class GenericRole(pulumi.ComponentResource):
                             }
                         ],
                         "Actions": ["sts:AssumeRole"],
-                        "conditions": [
+                        "Condition": [
                             {
                                 "Test": "StringEquals",
                                 "Variable": "aws:SourceAccount",
@@ -140,4 +141,4 @@ class GenericRole(pulumi.ComponentResource):
             opts=opts,
         )
         self.arn = self.role.arn
-        self.register_outputs({"lambdarole": self.role})
+        self.register_outputs({"iamrole": self.role})
