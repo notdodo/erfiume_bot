@@ -5,16 +5,16 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.96"
-aws-config = "1.5.17"
-aws-sdk-dynamodb = "1.66.0"
+aws-config = "1.6.0"
+aws-sdk-dynamodb = "1.69.0"
 futures = "0.3.31"
 lambda_runtime = "0.13.0"
 openssl = { version = "0.10.71", features = [
     "vendored",
 ] } # Needed only for cargo lambda build
-reqwest = { version = "0.12.12", features = ["json"] }
+reqwest = { version = "0.12.14", features = ["json"] }
 serde = "1.0.218"
 serde_json = "1.0.139"
-tokio = { version = "1.43.0", features = ["macros"] }
+tokio = { version = "1.44.1", features = ["macros"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
