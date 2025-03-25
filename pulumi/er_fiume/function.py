@@ -5,9 +5,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from pulumi_aws import lambda_
-
 import pulumi
+from pulumi_aws import lambda_
 
 from .helpers import format_resource_name
 
