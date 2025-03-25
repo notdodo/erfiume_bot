@@ -79,7 +79,7 @@ pub(crate) async fn message_handler(
             .await
             {
                 Ok(Some(item)) => {
-                    if item.nomestaz != text {
+                    if item.nomestaz.to_lowercase() != text.to_lowercase() {
                         format!("{}\nSe non è la stazione corretta prova ad affinare la ricerca.", item.create_station_message())
                     }else {
                         item.create_station_message().to_string()
