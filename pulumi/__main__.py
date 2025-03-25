@@ -4,6 +4,7 @@ import pulumi
 import pulumi_cloudflare
 from pulumi_aws import apigatewayv2, cloudwatch, lambda_, scheduler
 
+import er_fiume
 from er_fiume import (
     GenericRole,
     LambdaRole,
@@ -79,41 +80,30 @@ bot_role = LambdaRole(
     ],
 )
 
-fetcher_lambda = lambda_.Function(
-    f"{RESOURCES_PREFIX}-fetcher",
-    code=pulumi.FileArchive("./dummy.zip"),
+fetcher_lambda = er_fiume.Function(
     name=f"{RESOURCES_PREFIX}-fetcher",
-    role=fetcher_role.arn,
-    handler="bootstrap",
-    runtime=lambda_.Runtime.CUSTOM_AL2023,
-    environment={
-        "variables": {
-            "ENVIRONMENT": pulumi.get_stack(),
-            "RUST_LOG": "info",
-        },
-    },
-    memory_size=512,
+    role=fetcher_role,
+    code_runtime=er_fiume.FunctionRuntime.RUST,
+    memory=512,
     timeout=20,
-)
-
-bot_lambda = lambda_.Function(
-    f"{RESOURCES_PREFIX}-bot",
-    code=pulumi.FileArchive("./dummy.zip"),
-    name=f"{RESOURCES_PREFIX}-bot",
-    role=bot_role.arn,
-    handler="bootstrap",
-    runtime=lambda_.Runtime.CUSTOM_AL2023,
-    environment={
-        "variables": {
-            "RUST_LOG": "info",
-            "ENVIRONMENT": pulumi.get_stack(),
-            "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
-        },
+    variables={
+        "ENVIRONMENT": pulumi.get_stack(),
+        "RUST_LOG": "info",
     },
-    memory_size=128,
-    timeout=10,
 )
 
+bot_lambda = er_fiume.Function(
+    name=f"{RESOURCES_PREFIX}-bot",
+    role=bot_role,
+    code_runtime=er_fiume.FunctionRuntime.RUST,
+    memory=128,
+    timeout=10,
+    variables={
+        "RUST_LOG": "info",
+        "ENVIRONMENT": pulumi.get_stack(),
+        "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
+    },
+)
 
 scheduler_role = GenericRole(
     name=f"{RESOURCES_PREFIX}-fetcher-scheduler",

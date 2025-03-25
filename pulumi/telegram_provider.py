@@ -84,7 +84,7 @@ class Webhook(Resource):
     :param opts [pulumi.ResourceOptions | None]: Pulumi resource options for the custom resource.
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         name: str,
         token: str | pulumi.Output[str],
