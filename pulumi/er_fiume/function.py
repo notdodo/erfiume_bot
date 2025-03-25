@@ -5,8 +5,9 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-import pulumi
 from pulumi_aws import lambda_
+
+import pulumi
 
 from .helpers import format_resource_name
 
@@ -52,7 +53,7 @@ class Function(pulumi.ComponentResource):
 
         self.function = lambda_.Function(
             self.resource_name,
-            code=pulumi.FileArchive("./dummy.zip"),
+            code=pulumi.FileArchive("./er_fiume/dummy.zip"),
             name=self.name,
             role=role.arn if role else None,
             handler="bootstrap",

@@ -4,8 +4,9 @@ import pulumi
 import pulumi_cloudflare
 from pulumi_aws import apigatewayv2, cloudwatch, lambda_, scheduler
 
-import er_fiume
 from er_fiume import (
+    Function,
+    FunctionRuntime,
     GenericRole,
     LambdaRole,
     Stations,
@@ -80,10 +81,10 @@ bot_role = LambdaRole(
     ],
 )
 
-fetcher_lambda = er_fiume.Function(
+fetcher_lambda = Function(
     name=f"{RESOURCES_PREFIX}-fetcher",
     role=fetcher_role,
-    code_runtime=er_fiume.FunctionRuntime.RUST,
+    code_runtime=FunctionRuntime.RUST,
     memory=512,
     timeout=20,
     variables={
@@ -92,10 +93,10 @@ fetcher_lambda = er_fiume.Function(
     },
 )
 
-bot_lambda = er_fiume.Function(
+bot_lambda = Function(
     name=f"{RESOURCES_PREFIX}-bot",
     role=bot_role,
-    code_runtime=er_fiume.FunctionRuntime.RUST,
+    code_runtime=FunctionRuntime.RUST,
     memory=128,
     timeout=10,
     variables={
