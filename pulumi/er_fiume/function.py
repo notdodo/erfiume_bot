@@ -52,7 +52,7 @@ class Function(pulumi.ComponentResource):
 
         self.function = lambda_.Function(
             self.resource_name,
-            code=pulumi.FileArchive("./dummy.zip"),
+            code=pulumi.FileArchive("./er_fiume/dummy.zip"),
             name=self.name,
             role=role.arn if role else None,
             handler="bootstrap",
