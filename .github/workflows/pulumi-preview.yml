@@ -35,8 +35,8 @@ jobs:
           echo "PULUMI_HOME=${GITHUB_WORKSPACE}/.pulumi" >> $GITHUB_ENV
           echo "POETRY_PATH=$([ -f poetry.lock ] && echo ./pulumi || realpath -s --relative-to=${GITHUB_WORKSPACE} ../)" >> $GITHUB_ENV
         working-directory: ./pulumi
-      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
-        # v5.4.0
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55
+        # v5.5.0
         with:
           python-version: 3.13
       - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
