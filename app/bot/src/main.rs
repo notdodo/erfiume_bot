@@ -34,7 +34,8 @@ async fn main() -> Result<(), LambdaError> {
 async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     let bot = Bot::from_env();
     let me: Me = bot.get_me().await?;
-    info!("{:?}", event.payload);
+    info!("{:?}", event);
+    info!("{:?}", event.payload.to_string());
 
     let outer_json: Value = serde_json::from_value(
         event
