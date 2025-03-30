@@ -30,7 +30,7 @@ pub(crate) async fn base_commands_handler(
         BaseCommand::Help => BaseCommand::descriptions().to_string(),
         BaseCommand::Start => {
             if msg.chat.is_group() || msg.chat.is_supergroup() {
-                format!("Ciao {}! Scrivete il nome di una stazione da monitorare (e.g. `/Cesena@erfiume_bot` o `/Borello@erfiume_bot`) 
+                format!("Ciao {}! Scrivete il nome di una stazione da monitorare (e.g. `/Cesena@erfiume_bot` o `/Borello@erfiume_bot`) \
                         o cercatene una con /stazioni@erfiume_bot",
                         msg.chat.title().unwrap_or(""))
             } else {
