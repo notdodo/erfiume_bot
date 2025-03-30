@@ -1,8 +1,7 @@
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use teloxide::{
-    payloads::SendMessageSetters,
-    prelude::{Bot, Requester},
-    types::{LinkPreviewOptions, Message, ParseMode},
+    prelude::Bot,
+    types::{LinkPreviewOptions, Message},
     utils::command::BotCommands,
 };
 
@@ -23,8 +22,8 @@ pub(crate) enum BaseCommand {
 }
 
 pub(crate) async fn base_commands_handler(
-    bot: Bot,
-    msg: Message,
+    bot: &Bot,
+    msg: &Message,
     cmd: BaseCommand,
 ) -> Result<(), teloxide::RequestError> {
     let text = match cmd {
@@ -51,16 +50,19 @@ pub(crate) async fn base_commands_handler(
         }
     };
 
-    bot.send_message(msg.chat.id, utils::escape_markdown_v2(&text))
-        .link_preview_options(LinkPreviewOptions {
+    utils::send_message(
+        bot,
+        msg,
+        LinkPreviewOptions {
             is_disabled: true,
             url: None,
             prefer_small_media: false,
             prefer_large_media: false,
             show_above_text: false,
-        })
-        .parse_mode(ParseMode::MarkdownV2)
-        .await?;
+        },
+        &text,
+    )
+    .await?;
 
     Ok(())
 }
@@ -115,18 +117,7 @@ pub(crate) async fn message_handler(
             text
         );
     }
-    if let Some(thread_id) = msg.thread_id {
-        bot.send_message(msg.chat.id, utils::escape_markdown_v2(&message))
-            .link_preview_options(link_preview_options)
-            .message_thread_id(thread_id)
-            .parse_mode(ParseMode::MarkdownV2)
-            .await?;
-    } else {
-        bot.send_message(msg.chat.id, utils::escape_markdown_v2(&message))
-            .link_preview_options(link_preview_options)
-            .parse_mode(ParseMode::MarkdownV2)
-            .await?;
-    }
+    utils::send_message(bot, msg, link_preview_options, &message).await?;
 
     Ok(())
 }
