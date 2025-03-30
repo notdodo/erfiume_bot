@@ -22,8 +22,8 @@ diagrams = "^0.24.1"
 awscli-local = "^0.22.0"
 mypy = { extras = ["faster-cache"], version = "^1.15.0" }
 ruff = "^0.11.2"
-pydantic = "^2.10.6"
-types-requests = "^2.32.0.20250301"
+pydantic = "^2.11.1"
+types-requests = "^2.32.0.20250328"
 
 [tool.ruff]
 output-format = "github"
