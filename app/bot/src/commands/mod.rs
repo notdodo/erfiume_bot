@@ -31,8 +31,8 @@ pub(crate) async fn base_commands_handler(
         BaseCommand::Help => BaseCommand::descriptions().to_string(),
         BaseCommand::Start => {
             if msg.chat.is_group() || msg.chat.is_supergroup() {
-                format!("Ciao {}! Scrivete il nome di una stazione da monitorare (e.g. /Cesena o `/S. Carlo`) 
-                        o cercatene una con /stazioni",
+                format!("Ciao {}! Scrivete il nome di una stazione da monitorare (e.g. `/Cesena@erfiume_bot` o `/Borello@erfiume_bot`) 
+                        o cercatene una con /stazioni@erfiume_bot",
                         msg.chat.title().unwrap_or(""))
             } else {
                 format!("Ciao @{}! Scrivi il nome di una stazione da monitorare (e.g. `Cesena` o `/S. Carlo`) \
@@ -70,13 +70,21 @@ pub(crate) async fn message_handler(
     msg: &Message,
     dynamodb_client: DynamoDbClient,
 ) -> Result<(), teloxide::RequestError> {
+    let link_preview_options = LinkPreviewOptions {
+        is_disabled: false,
+        url: None,
+        prefer_small_media: true,
+        prefer_large_media: false,
+        show_above_text: false,
+    };
+
     let Some(text) = msg.text() else {
         return Ok(()); // Do nothing if the message has no text
     };
 
     let text = match station::search::get_station(
         &dynamodb_client,
-        text.to_string(),
+        text.to_string().replace("@erfiume_bot", "").replace("/", ""),
         "EmiliaRomagna-Stations",
     )
     .await
@@ -107,17 +115,18 @@ pub(crate) async fn message_handler(
             text
         );
     }
-
-    bot.send_message(msg.chat.id, utils::escape_markdown_v2(&message))
-        .link_preview_options(LinkPreviewOptions {
-            is_disabled: false,
-            url: None,
-            prefer_small_media: true,
-            prefer_large_media: false,
-            show_above_text: false,
-        })
-        .parse_mode(ParseMode::MarkdownV2)
-        .await?;
+    if let Some(thread_id) = msg.thread_id {
+        bot.send_message(msg.chat.id, utils::escape_markdown_v2(&message))
+            .link_preview_options(link_preview_options)
+            .message_thread_id(thread_id)
+            .parse_mode(ParseMode::MarkdownV2)
+            .await?;
+    } else {
+        bot.send_message(msg.chat.id, utils::escape_markdown_v2(&message))
+            .link_preview_options(link_preview_options)
+            .parse_mode(ParseMode::MarkdownV2)
+            .await?;
+    }
 
     Ok(())
 }
