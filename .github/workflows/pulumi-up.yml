@@ -56,8 +56,8 @@ jobs:
             python-3.12-poetry
       - run: poetry install
         if: steps.cache-deps.outputs.cache-hit != 'true'
-      - uses: pulumi/auth-actions@80dec0d5e009a11565cbf87d9ef9103fc7d24198
-        # v1.0.0
+      - uses: pulumi/auth-actions@1c89817aab0c66407723cdef72b05266e7376640
+        # v1.0.1
         with:
           organization: notdodo
           # kics-scan ignore-line
