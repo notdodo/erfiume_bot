@@ -69,31 +69,45 @@ pub(crate) async fn message_handler(
     bot: &Bot,
     msg: &Message,
     dynamodb_client: DynamoDbClient,
-) -> Result<teloxide::prelude::Message, teloxide::RequestError> {
-    let text = msg.text().unwrap();
+) -> Result<(), teloxide::RequestError> {
+    let Some(text) = msg.text() else {
+        return Ok(()); // Do nothing if the message has no text
+    };
+
     let text = match station::search::get_station(
-                &dynamodb_client,
-                text.to_string(),
-                "EmiliaRomagna-Stations",
-            )
-            .await
-            {
-                Ok(Some(item)) => {
-                    if item.nomestaz.to_lowercase() != text.to_lowercase() {
-                        format!("{}\nSe non è la stazione corretta prova ad affinare la ricerca.", item.create_station_message())
-                    }else {
-                        item.create_station_message().to_string()
-                    }
-                }
-                Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca.\nInserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico\nAd esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'.\nSe non sai quale cercare prova con /stazioni".to_string()
-            };
+        &dynamodb_client,
+        text.to_string(),
+        "EmiliaRomagna-Stations",
+    )
+    .await
+    {
+        Ok(Some(item)) => {
+            if item.nomestaz.to_lowercase() != text.to_lowercase() {
+                format!(
+                    "{}\nSe non è la stazione corretta prova ad affinare la ricerca.",
+                    item.create_station_message()
+                )
+            } else {
+                item.create_station_message().to_string()
+            }
+        }
+        Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca.\nInserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico\nAd esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'.\nSe non sai quale cercare prova con /stazioni".to_string(),
+    };
+
     let mut message = text.clone();
     if fastrand::choose_multiple(0..10, 1)[0] == 8 {
-        message = format!("{}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0", text);
+        message = format!(
+            "{}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0",
+            text
+        );
     }
     if fastrand::choose_multiple(0..50, 1)[0] == 8 {
-        message = format!("{}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot", text);
+        message = format!(
+            "{}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot",
+            text
+        );
     }
+
     bot.send_message(msg.chat.id, utils::escape_markdown_v2(&message))
         .link_preview_options(LinkPreviewOptions {
             is_disabled: false,
@@ -103,5 +117,7 @@ pub(crate) async fn message_handler(
             show_above_text: false,
         })
         .parse_mode(ParseMode::MarkdownV2)
-        .await
+        .await?;
+
+    Ok(())
 }
