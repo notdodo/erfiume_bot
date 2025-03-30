@@ -22,8 +22,8 @@ pub(crate) enum BaseCommand {
 }
 
 pub(crate) async fn base_commands_handler(
-    bot: &Bot,
-    msg: &Message,
+    bot: Bot,
+    msg: Message,
     cmd: BaseCommand,
 ) -> Result<(), teloxide::RequestError> {
     let text = match cmd {
@@ -51,8 +51,8 @@ pub(crate) async fn base_commands_handler(
     };
 
     utils::send_message(
-        bot,
-        msg,
+        &bot,
+        &msg,
         LinkPreviewOptions {
             is_disabled: true,
             url: None,
