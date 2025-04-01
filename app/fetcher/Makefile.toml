@@ -42,7 +42,7 @@ args = [
 ]
 
 [tasks.check]
-condition = { profiles = ["dev"] }
+condition = { profiles = ["development"] }
 dependencies = ["format", "test", "clippy"]
 
 [tasks.check-ci]
