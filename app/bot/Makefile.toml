@@ -1,8 +1,23 @@
-[tasks.clippy]
-dependencies = ["dev-clippy", "gha-clippy"]
 
-[tasks.gha-clippy]
-condition = { profiles = ["gha"] }
+[tasks.clean]
+command = "cargo"
+args = ["clean"]
+
+[tasks.format]
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.test]
+command = "cargo"
+args = ["test"]
+
+[tasks.update]
+install_crate = "cargo-edit"
+command = "cargo"
+args = ["upgrade"]
+
+[tasks.clippy-ci]
 command = "cargo"
 args = [
     "clippy",
@@ -14,9 +29,7 @@ args = [
     "warnings",
 ]
 
-
-[tasks.dev-clippy]
-condition = { profiles = ["dev"] }
+[tasks.clippy]
 command = "cargo"
 args = [
     "clippy",
@@ -27,3 +40,11 @@ args = [
     "-D",
     "warnings",
 ]
+
+[tasks.check]
+condition = { profiles = ["dev"] }
+dependencies = ["format", "test", "clippy"]
+
+[tasks.check-ci]
+condition = { profiles = ["ci"] }
+dependencies = ["clippy-ci"]
