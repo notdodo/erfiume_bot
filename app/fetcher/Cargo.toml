@@ -9,7 +9,7 @@ aws-config = "1.6.1"
 aws-sdk-dynamodb = "1.71.0"
 futures = "0.3.31"
 lambda_runtime = "0.13.0"
-openssl = { version = "0.10.71", features = [
+openssl = { version = "0.10.72", features = [
     "vendored",
 ] } # Needed only for cargo lambda build
 reqwest = { version = "0.12.15", features = ["json"] }
