@@ -21,8 +21,8 @@ diagrams = "^0.24.1"
 [tool.poetry.group.dev.dependencies]
 awscli-local = "^0.22.0"
 mypy = { extras = ["faster-cache"], version = "^1.15.0" }
-ruff = "^0.11.2"
-pydantic = "^2.11.1"
+ruff = "^0.11.4"
+pydantic = "^2.11.3"
 types-requests = "^2.32.0.20250328"
 
 [tool.ruff]
