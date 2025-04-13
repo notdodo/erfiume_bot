@@ -1,6 +1,9 @@
 """An AWS Python Pulumi program"""
 
+import pulumi
 import pulumi_cloudflare
+from pulumi_aws import apigatewayv2, lambda_, scheduler
+
 from er_fiume import (
     Function,
     FunctionRuntime,
@@ -10,10 +13,7 @@ from er_fiume import (
     TableAttribute,
     TableAttributeType,
 )
-from pulumi_aws import apigatewayv2, cloudwatch, lambda_, scheduler
 from telegram_provider import Webhook
-
-import pulumi
 
 RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
@@ -41,49 +41,24 @@ chats_table = Stations(
     ttl="ttl",
 )
 
-fetcher_role = LambdaRole(
-    name=f"{RESOURCES_PREFIX}-fetcher",
-    path=f"/{RESOURCES_PREFIX}/",
-    permissions=[
-        {
-            "Effect": "Allow",
-            "Actions": [
-                "dynamodb:PutItem",
-                "dynamodb:Query",
-                "dynamodb:UpdateItem",
-                "dynamodb:GetItem",
-            ],
-            "Resources": [er_stations_table.arn, m_stations_table.arn],
-        }
-    ],
-)
-
-bot_role = LambdaRole(
-    name=f"{RESOURCES_PREFIX}-bot",
-    path=f"/{RESOURCES_PREFIX}/",
-    permissions=[
-        {
-            "Effect": "Allow",
-            "Actions": [
-                "dynamodb:Query",
-                "dynamodb:UpdateItem",
-                "dynamodb:GetItem",
-            ],
-            "Resources": [er_stations_table.arn, m_stations_table.arn, chats_table.arn],
-        },
-        {
-            "Effect": "Allow",
-            "Actions": [
-                "dynamodb:PutItem",
-            ],
-            "Resources": [chats_table.arn],
-        },
-    ],
-)
-
 fetcher_lambda = Function(
     name=f"{RESOURCES_PREFIX}-fetcher",
-    role=fetcher_role,
+    role=LambdaRole(
+        name=f"{RESOURCES_PREFIX}-fetcher",
+        path=f"/{RESOURCES_PREFIX}/",
+        permissions=[
+            {
+                "Effect": "Allow",
+                "Actions": [
+                    "dynamodb:PutItem",
+                    "dynamodb:Query",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:GetItem",
+                ],
+                "Resources": [er_stations_table.arn, m_stations_table.arn],
+            }
+        ],
+    ),
     code_runtime=FunctionRuntime.RUST,
     memory=512,
     timeout=20,
@@ -95,7 +70,32 @@ fetcher_lambda = Function(
 
 bot_lambda = Function(
     name=f"{RESOURCES_PREFIX}-bot",
-    role=bot_role,
+    role=LambdaRole(
+        name=f"{RESOURCES_PREFIX}-bot",
+        path=f"/{RESOURCES_PREFIX}/",
+        permissions=[
+            {
+                "Effect": "Allow",
+                "Actions": [
+                    "dynamodb:Query",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:GetItem",
+                ],
+                "Resources": [
+                    er_stations_table.arn,
+                    m_stations_table.arn,
+                    chats_table.arn,
+                ],
+            },
+            {
+                "Effect": "Allow",
+                "Actions": [
+                    "dynamodb:PutItem",
+                ],
+                "Resources": [chats_table.arn],
+            },
+        ],
+    ),
     code_runtime=FunctionRuntime.RUST,
     memory=128,
     timeout=10,
@@ -104,21 +104,6 @@ bot_lambda = Function(
         "ENVIRONMENT": pulumi.get_stack(),
         "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
     },
-)
-
-scheduler_role = GenericRole(
-    name=f"{RESOURCES_PREFIX}-fetcher-scheduler",
-    path=f"/{RESOURCES_PREFIX}/",
-    for_services=["scheduler.amazonaws.com"],
-    permissions=[
-        {
-            "Effect": "Allow",
-            "Actions": [
-                "lambda:InvokeFunction",
-            ],
-            "Resources": [fetcher_lambda.arn],
-        }
-    ],
 )
 
 scheduler.Schedule(
@@ -132,7 +117,20 @@ scheduler.Schedule(
     schedule_expression_timezone="Europe/Rome",
     target=scheduler.ScheduleTargetArgs(
         arn=fetcher_lambda.arn,
-        role_arn=scheduler_role.arn,
+        role_arn=GenericRole(
+            name=f"{RESOURCES_PREFIX}-fetcher-scheduler",
+            path=f"/{RESOURCES_PREFIX}/",
+            for_services=["scheduler.amazonaws.com"],
+            permissions=[
+                {
+                    "Effect": "Allow",
+                    "Actions": [
+                        "lambda:InvokeFunction",
+                    ],
+                    "Resources": [fetcher_lambda.arn],
+                }
+            ],
+        ).arn,
     ),
 )
 
