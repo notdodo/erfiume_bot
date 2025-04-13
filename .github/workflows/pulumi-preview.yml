@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   python-ci-pulumi:
+    permissions: {}
     uses: notdodo/github-actions/.github/workflows/python-ci.yml@python-ci-v0
     with:
       working-directory: "./pulumi"
