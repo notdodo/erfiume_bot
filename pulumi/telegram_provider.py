@@ -30,7 +30,7 @@ class _TelegramWebhookProvider(ResourceProvider):
             json={
                 "url": props["url"],
                 "allowed_updates": props["react_on"],
-                "secret_token": props[".authorization_token"],
+                "secret_token": props["authorization_token"],
             },
             timeout=10,
         )
@@ -50,7 +50,7 @@ class _TelegramWebhookProvider(ResourceProvider):
 
         if response.status_code != requests.codes.OK:
             raise requests.RequestException(response.text)
-        return ReadResult(id, response.json())
+        return ReadResult(id, response.json()["result"])
 
     def update(
         self,
