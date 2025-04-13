@@ -11,6 +11,8 @@ concurrency:
 
 jobs:
   changed-files:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     name: Check changed-files
     steps:

@@ -6,7 +6,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 import pulumi
-from pulumi_aws import lambda_
+from pulumi_aws import cloudwatch, lambda_
 
 from .helpers import format_resource_name
 
@@ -66,5 +66,16 @@ class Function(pulumi.ComponentResource):
                 pulumi.ResourceOptions(parent=self), opts
             ),
         )
+
+        cloudwatch.LogGroup(
+            self.resource_name,
+            log_group_class="STANDARD",
+            name=f"/aws/lambda/{self.name}",
+            retention_in_days=14,
+            opts=pulumi.ResourceOptions.merge(
+                pulumi.ResourceOptions(parent=self), opts
+            ),
+        )
+
         self.arn = self.function.arn
         self.register_outputs({"function": self.function})
