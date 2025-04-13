@@ -43,6 +43,11 @@ class _TelegramWebhookProvider(ResourceProvider):
         id: str,  # noqa: A002
         props: dict[str, Any],
     ) -> ReadResult:
+        token = props["token"]
+        if not token or not isinstance(token, str):
+            # During preview, the token might not be available
+            return ReadResult(id, props)
+
         response = requests.get(
             f"https://api.telegram.org/bot{props['token']}/getWebhookInfo",
             timeout=10,
