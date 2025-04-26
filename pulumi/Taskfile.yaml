@@ -1,0 +1,45 @@
+version: "3"
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+tasks:
+  default:
+    desc: Show available commands
+    cmds:
+      - task --list-all
+
+  install:
+    desc: Install Python dependencies
+    cmds:
+      - poetry install --no-root
+
+  format:
+    desc: Format repository code
+    cmds:
+      - poetry run ruff format
+      - poetry run ruff check --fix
+
+  format-check:
+    desc: Check the code format (without modifying)
+    cmds:
+      - poetry run ruff format --check
+
+  lint:
+    desc: Run lint checks
+    cmds:
+      - poetry run ruff check
+
+  type-check:
+    desc: Run static type checks
+    cmds:
+      - poetry run mypy .
+
+  check:
+    desc: Run formatting check, lint, and type checks
+    deps: [format-check, lint, type-check]
+
+  test:
+    desc: Run all tests
+    cmds:
+      - poetry run pytest
