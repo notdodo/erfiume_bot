@@ -186,9 +186,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-dynamodb"
-version = "1.72.0"
+version = "1.72.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "412cd587b03bacb2f7b94a5446cc77dee49a8fa848e636f9545df3aadbbfaf8b"
+checksum = "b14d5b5d6849d1caa7b404ea57cbe25ed8ba25c3c7d47f45bcbd5b51e098ceac"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -607,9 +607,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.40"
+version = "0.4.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
+checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
