@@ -43,6 +43,7 @@ jobs:
       actions: read
       security-events: write
       contents: read
+      id-token: write
     if: needs.changed-files.outputs.fetcher_any_changed == 'true' || needs.changed-files.outputs.ci_any_changed == 'true'
     uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0
     with:
@@ -54,6 +55,7 @@ jobs:
       actions: read
       security-events: write
       contents: read
+      id-token: write
     if: needs.changed-files.outputs.bot_any_changed == 'true' || needs.changed-files.outputs.ci_any_changed == 'true'
     uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0
     with:

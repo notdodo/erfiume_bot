@@ -1,14 +1,14 @@
 use anyhow::Result;
 use aws_config::BehaviorVersion;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_dynamodb::error::SdkError;
 use aws_sdk_dynamodb::operation::update_item::UpdateItemError;
 use aws_sdk_dynamodb::types::AttributeValue;
-use aws_sdk_dynamodb::Client as DynamoDbClient;
 use futures::StreamExt;
-use lambda_runtime::{service_fn, Error as LambdaError, LambdaEvent};
+use lambda_runtime::{Error as LambdaError, LambdaEvent, service_fn};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fmt;
@@ -112,7 +112,10 @@ async fn fetch_stations(
     client: &reqwest::Client,
     timestamp: i64,
 ) -> Result<Vec<Station>, BoxError> {
-    let url = format!("https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time={}", timestamp);
+    let url = format!(
+        "https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time={}",
+        timestamp
+    );
     let response = client.get(&url).send().await?;
     response.error_for_status_ref()?;
 
@@ -153,7 +156,10 @@ async fn fetch_station_data(
     client: &reqwest::Client,
     mut station: Station,
 ) -> Result<Station, BoxError> {
-    let url = format!("https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-time-series/?stazione={}&variabile=254,0,0/1,-,-,-/B13215", station.idstazione);
+    let url = format!(
+        "https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-time-series/?stazione={}&variabile=254,0,0/1,-,-,-/B13215",
+        station.idstazione
+    );
     let response = client.get(&url).send().await?;
     response.error_for_status_ref()?;
     let entries: Vec<StationData> = response.json().await?;

@@ -1,11 +1,11 @@
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use lambda_runtime::{service_fn, Error as LambdaError, LambdaEvent};
-use serde_json::{json, Value};
+use lambda_runtime::{Error as LambdaError, LambdaEvent, service_fn};
+use serde_json::{Value, json};
 use teloxide::{
     dispatching::{HandlerExt, UpdateFilterExt},
     dptree::deps,
-    prelude::{dptree, Bot, Requester, Update},
+    prelude::{Bot, Requester, Update, dptree},
     respond,
     types::{Me, Message},
 };
