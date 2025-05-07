@@ -13,7 +13,7 @@ package-mode = false
 [tool.poetry.dependencies]
 python = "^3.12"
 pulumi-aws = "^6.68.0"
-pulumi-command = "^1.0.2"
+pulumi-command = "^1.0.3"
 pulumi-cloudflare = "^5.49.1"
 requests = "^2.32.3"
 diagrams = "^0.24.1"
