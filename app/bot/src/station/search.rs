@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Result};
-use aws_sdk_dynamodb::{types::AttributeValue, Client as DynamoDbClient};
+use anyhow::{Result, anyhow};
+use aws_sdk_dynamodb::{Client as DynamoDbClient, types::AttributeValue};
 use std::collections::HashMap;
 use strsim::jaro_winkler;
 
-use super::{stations, Stazione, UNKNOWN_VALUE};
+use super::{Stazione, UNKNOWN_VALUE, stations};
 
 fn fuzzy_search(search: &str) -> Option<String> {
     let stations = stations();
@@ -110,28 +110,22 @@ where
     <T as std::str::FromStr>::Err: std::fmt::Display,
 {
     match item.get(field) {
-        Some(AttributeValue::N(n)) => {
-            if let Ok(value) = n.parse::<T>() {
-                Ok(Some(value))
-            } else {
-                Err(anyhow!(
-                    "Failed to parse '{}' field with value '{}' as number",
-                    field,
-                    n
-                ))
-            }
-        }
-        Some(AttributeValue::S(s)) => {
-            if let Ok(value) = s.parse::<T>() {
-                Ok(Some(value))
-            } else {
-                Err(anyhow!(
-                    "Failed to parse '{}' field with value '{}' as number",
-                    field,
-                    s
-                ))
-            }
-        }
+        Some(AttributeValue::N(n)) => match n.parse::<T>() {
+            Ok(value) => Ok(Some(value)),
+            _ => Err(anyhow!(
+                "Failed to parse '{}' field with value '{}' as number",
+                field,
+                n
+            )),
+        },
+        Some(AttributeValue::S(s)) => match s.parse::<T>() {
+            Ok(value) => Ok(Some(value)),
+            _ => Err(anyhow!(
+                "Failed to parse '{}' field with value '{}' as number",
+                field,
+                s
+            )),
+        },
         _ => Err(anyhow!("Invalid type for '{}' field", field)),
     }
 }

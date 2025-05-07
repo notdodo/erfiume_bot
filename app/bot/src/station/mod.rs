@@ -52,13 +52,7 @@ impl Stazione {
 
         format!(
             "Stazione: {}\nValore: {} {}\nSoglia Gialla: {}\nSoglia Arancione: {}\nSoglia Rossa: {}\nUltimo rilevamento: {}",
-            self.nomestaz,
-            value_str,
-            alarm,
-            yellow,
-            orange,
-            red,
-            timestamp_formatted
+            self.nomestaz, value_str, alarm, yellow, orange, red, timestamp_formatted
         )
     }
 }
