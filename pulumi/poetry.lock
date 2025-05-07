@@ -866,14 +866,14 @@ semver = ">=2.8.1"
 
 [[package]]
 name = "pulumi-command"
-version = "1.0.2"
+version = "1.0.3"
 description = "The Pulumi Command Provider enables you to execute commands and scripts either locally or remotely as part of the Pulumi resource model."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "pulumi_command-1.0.2-py3-none-any.whl", hash = "sha256:c75424fe6a80b495bec33c19c8ae97240f38003eb35f865a78ff59425bf9531c"},
-    {file = "pulumi_command-1.0.2.tar.gz", hash = "sha256:17b4010149a62ebce85a35f412fca6f7f508a24e54ee43d73c900e27869cae3e"},
+    {file = "pulumi_command-1.0.3-py3-none-any.whl", hash = "sha256:6317e9c97243ad329e9cd4ef81fd88c8109ada62dd2db7658b79f20d3e8ac5b8"},
+    {file = "pulumi_command-1.0.3.tar.gz", hash = "sha256:bcbaf067953e9570c36b076d2ecb9a5a4ab6cb7fa2bc0b3e231e265a4d6e4a79"},
 ]
 
 [package.dependencies]
@@ -1269,4 +1269,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "49e94fc34d6a4f63aea904ae09b568aceec888910ec9c2c7c1c32252f75efd8c"
+content-hash = "46d2bd1b97391c0104c66ba6875e4fc6e375364f63f76af2e1f0c6629f8ab3bd"
