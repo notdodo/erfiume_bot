@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.98"
 aws-config = "1.6.2"
-aws-sdk-dynamodb = "1.72.1"
+aws-sdk-dynamodb = "1.73.0"
 futures = "0.3.31"
 lambda_runtime = "0.13.0"
 openssl = { version = "0.10.72", features = [
@@ -15,6 +15,6 @@ openssl = { version = "0.10.72", features = [
 reqwest = { version = "0.12.15", features = ["json"] }
 serde = "1.0.219"
 serde_json = "1.0.140"
-tokio = { version = "1.44.2", features = ["macros"] }
+tokio = { version = "1.45.0", features = ["macros"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
