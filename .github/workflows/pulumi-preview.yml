@@ -85,8 +85,8 @@ jobs:
         # v2.0.9
         with:
           secret-ids: CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-only
-      - uses: pulumi/actions@9519177da243fd32cab35cdbf19cce1ab7472fcc
-        # v6.2.0
+      - uses: pulumi/actions@df5a93ad715135263c732ba288301bd044c383c0
+        # v6.3.0
         with:
           command: preview
           stack-name: notdodo/erfiume/production
