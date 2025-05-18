@@ -75,8 +75,8 @@ jobs:
         with:
           path: ${{ env.PULUMI_HOME }}/plugins
           key: python-3.12-pulumi-${{ hashFiles('**/poetry.lock') }}
-      - uses: aws-actions/configure-aws-credentials@f24d7193d98baebaeacc7e2227925dd47cc267f5
-        # v4.2.0
+      - uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df
+        # v4.2.1
         with:
           role-to-assume: arn:aws:iam::841162699174:role/erfiume-oidc-read
           aws-region: eu-west-1
@@ -85,8 +85,8 @@ jobs:
         # v2.0.9
         with:
           secret-ids: CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-only
-      - uses: pulumi/actions@9519177da243fd32cab35cdbf19cce1ab7472fcc
-        # v6.2.0
+      - uses: pulumi/actions@df5a93ad715135263c732ba288301bd044c383c0
+        # v6.3.0
         with:
           command: preview
           stack-name: notdodo/erfiume/production
