@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.98"
-aws-config = "1.6.2"
-aws-sdk-dynamodb = "1.73.0"
+aws-config = "1.6.3"
+aws-sdk-dynamodb = "1.75.0"
 chrono = "0.4.41"
 chrono-tz = "0.10.3"
 edit-distance = "2.1.3"
