@@ -14,7 +14,7 @@ package-mode = false
 python = "^3.12"
 pulumi-aws = "^6.68.0"
 pulumi-cloudflare = "^5.49.1"
-requests = "^2.32.3"
+requests = "^2.32.4"
 diagrams = "^0.24.1"
 
 [tool.poetry.group.dev.dependencies]
