@@ -164,13 +164,14 @@ gw_api_mapping = apigatewayv2.ApiMapping(
     stage="$default",
 )
 
-pulumi_cloudflare.Record(
+pulumi_cloudflare.DnsRecord(
     f"{RESOURCES_PREFIX}-api-gw-cname",
     name="erfiume",
     type="CNAME",
     zone_id="cec5bf01afed114303a536c264a1f394",
     proxied=True,
     content=gw_domain_name.domain_name_configuration.target_domain_name,
+    ttl=1,
 )
 
 telegram_authorization_token = pulumi.Config().require_secret(
