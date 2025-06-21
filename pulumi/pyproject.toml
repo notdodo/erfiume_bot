@@ -19,10 +19,10 @@ diagrams = "^0.24.1"
 
 [tool.poetry.group.dev.dependencies]
 awscli-local = "^0.22.0"
-mypy = { extras = ["faster-cache"], version = "^1.16.0" }
-ruff = "^0.11.12"
-pydantic = "^2.11.5"
-types-requests = "^2.32.0.20250515"
+mypy = { extras = ["faster-cache"], version = "^1.16.1" }
+ruff = "^0.12.0"
+pydantic = "^2.11.7"
+types-requests = "^2.32.4.20250611"
 
 [tool.ruff]
 output-format = "github"
