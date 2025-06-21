@@ -5,5 +5,6 @@ on:
 jobs:
   gitleaks:
     permissions:
+      contents: read
       pull-requests: write
     uses: notdodo/github-actions/.github/workflows/gitleaks.yml@gitleaks-v0
