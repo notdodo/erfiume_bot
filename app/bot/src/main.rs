@@ -61,7 +61,7 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
             respond(())
         }));
 
-    handler.dispatch(deps![me, bot, update]).await;
+    let _ = handler.dispatch(deps![me, bot, update]).await;
     Ok(json!({
         "message": "Lambda executed successfully",
         "statusCode": 200,
