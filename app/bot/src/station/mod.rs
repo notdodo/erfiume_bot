@@ -44,7 +44,7 @@ impl Stazione {
             alarm = "🟠";
         }
 
-        let mut value_str = format!("{}", value);
+        let mut value_str = format!("{value}");
         if value == UNKNOWN_VALUE {
             value_str = "non disponibile".to_string();
             alarm = "";
