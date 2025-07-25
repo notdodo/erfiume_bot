@@ -113,14 +113,12 @@ pub(crate) async fn message_handler(
     let mut message = text.clone();
     if fastrand::choose_multiple(0..10, 1)[0] == 8 {
         message = format!(
-            "{}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0",
-            text
+            "{text}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0",
         );
     }
     if fastrand::choose_multiple(0..50, 1)[0] == 8 {
         message = format!(
-            "{}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot",
-            text
+            "{text}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot"
         );
     }
     utils::send_message(bot, msg, link_preview_options, &message).await?;
