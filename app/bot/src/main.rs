@@ -9,10 +9,13 @@ use teloxide::{
     respond,
     types::{Me, Message},
 };
+use tokio::sync::OnceCell;
 use tracing::{info, instrument};
 use tracing_subscriber::EnvFilter;
 mod commands;
 mod station;
+
+static DYNAMO_DB_CLIENT: OnceCell<DynamoDbClient> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() -> Result<(), LambdaError> {
@@ -55,8 +58,14 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
                 .endpoint(commands::base_commands_handler),
         )
         .branch(dptree::endpoint(|msg: Message, bot: Bot| async move {
-            let shared_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
-            let dynamodb_client = DynamoDbClient::new(&shared_config);
+            let dynamodb_client = DYNAMO_DB_CLIENT
+                .get_or_init(|| async {
+                    DynamoDbClient::new(
+                        &aws_config::defaults(BehaviorVersion::latest()).load().await,
+                    )
+                })
+                .await
+                .clone();
             commands::message_handler(&bot, &msg, dynamodb_client).await?;
             respond(())
         }));

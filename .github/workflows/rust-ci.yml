@@ -9,7 +9,7 @@ concurrency:
   group: ghas-erfiume-ci-${{ github.ref }}
 
 jobs:
-  rust-ci-bot:
+  rust-ci:
     permissions:
       actions: read
       security-events: write
