@@ -1,8 +1,7 @@
 # erfiume_bot <a href="https://www.buymeacoffee.com/d0d0" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy Me A Coffee" style="height: 25px !important;width: 130px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
 [![Pulumi Up](https://github.com/notdodo/erfiume_bot/actions/workflows/pulumi-up.yml/badge.svg)](https://github.com/notdodo/erfiume_bot/actions/workflows/pulumi-up.yml)
-[![Deploy Bot Lambda](https://github.com/notdodo/erfiume_bot/actions/workflows/bot-deploy.yml/badge.svg)](https://github.com/notdodo/erfiume_bot/actions/workflows/bot-deploy.yml)
-[![Deploy Fetcher Lambda](https://github.com/notdodo/erfiume_bot/actions/workflows/fetcher-deploy.yml/badge.svg)](https://github.com/notdodo/erfiume_bot/actions/workflows/fetcher-deploy.yml)
+[![Deploy Bot](https://github.com/notdodo/erfiume_bot/actions/workflows/bot-deploy.yml/badge.svg)](https://github.com/notdodo/erfiume_bot/actions/workflows/bot-deploy.yml)
 
 ![Alt](https://repobeats.axiom.co/api/embed/35afc992da7617e96b55ad9a8765b0f06b50e3be.svg "Repobeats analytics image")
 
