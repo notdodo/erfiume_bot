@@ -14,7 +14,7 @@
 [`@erfiume_bot`](https://t.me/erfiume_bot) it's a Telegram bot that fetches the water levels of the rivers in Emilia Romagna. Data is retrieved from [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) APIs and periodically stored/updated in a DynamoDB table.
 The bot can be used in both private or group chats, responding to specific station names or commands.
 
-![Screenshot 2024-09-25 at 09 47 02](https://github.com/user-attachments/assets/f5bc07c1-fb6c-48be-b871-a9d6dd4aae82)
+![](https://github.com/user-attachments/assets/f5bc07c1-fb6c-48be-b871-a9d6dd4aae82)
 
 ## Basic commands:
 
