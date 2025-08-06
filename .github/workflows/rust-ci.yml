@@ -18,3 +18,5 @@ jobs:
     uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0
     with:
       working-directory: ./app/
+      egress-policy-allowlist: >
+        static.rust-lang.org:443
