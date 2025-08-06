@@ -50,13 +50,13 @@ tests-mypy = ["mypy (>=1.11.1) ; platform_python_implementation == \"CPython\" a
 
 [[package]]
 name = "awscli-local"
-version = "0.22.0"
+version = "0.22.1"
 description = "Thin wrapper around the \"aws\" command line interface for use with LocalStack"
 optional = false
 python-versions = "*"
 groups = ["dev"]
 files = [
-    {file = "awscli-local-0.22.0.tar.gz", hash = "sha256:3807cf2ee4bbdd4df4dfc8bef027f25bde523dcaf8119720f677ed95ebba66a4"},
+    {file = "awscli_local-0.22.1.tar.gz", hash = "sha256:24903da7de694e54fe74cfdb4ad0e1820555167097abc3a5da1850b8e8647b76"},
 ]
 
 [package.dependencies]
@@ -1270,4 +1270,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "d921b36a0e6ab64d7149f262e9b609c03506a5134a349006658b722a7fc9d318"
+content-hash = "2d47cf29c30b007a76c762a07bc21fed61f3ff0178f8e64da4e831e8c29b5b7b"
