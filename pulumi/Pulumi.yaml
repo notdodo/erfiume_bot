@@ -4,7 +4,3 @@ runtime:
   options:
     virtualenv: .venv
 description: A Telegram Bot to fetch rivers levels
-config:
-  pulumi:tags:
-    value:
-      pulumi:template: aws-python

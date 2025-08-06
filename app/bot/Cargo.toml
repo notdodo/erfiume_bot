@@ -1,23 +1,29 @@
 [package]
 name = "erfiume-bot"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
 
 [dependencies]
-anyhow = "1.0.98"
-aws-config = "1.8.1"
-aws-sdk-dynamodb = "1.82.0"
-chrono = "0.4.41"
-chrono-tz = "0.10.4"
-edit-distance = "2.1.3"
-fastrand = "2.3.0"
-lambda_runtime = "0.14.3"
-openssl = { version = "0.10.73", features = ["vendored"] }
-serde = "1.0.219"
-serde_dynamo = "4.2.14"
-serde_json = "1.0.142"
-strsim = "0.11.1"
-teloxide = { version = "0.17.0", features = ["macros"] }
-tokio = { version = "1.47.1", features = ["macros"] }
-tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
+anyhow.workspace = true
+aws-config.workspace = true
+aws-sdk-dynamodb.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+edit-distance.workspace = true
+fastrand.workspace = true
+lambda_runtime.workspace = true
+serde.workspace = true
+serde_dynamo.workspace = true
+serde_json.workspace = true
+strsim.workspace = true
+teloxide = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["macros"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[build-dependencies]
+openssl = { workspace = true, features = [
+    "vendored",
+] } # Needed only for cargo lambda build

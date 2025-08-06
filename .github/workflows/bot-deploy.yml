@@ -1,10 +1,10 @@
-name: Deploy Bot Lambda
+name: Deploy Lambdas
 on:
   push:
     branches:
       - main
     paths:
-      - app/bot/**
+      - app/**
       - .github/workflows/bot-deploy.yml
 
 concurrency:
@@ -19,6 +19,21 @@ jobs:
       id-token: write
     uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0
     with:
-      working-directory: ./app/bot
+      working-directory: ./app/
       deploy-lambda: true
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-write
+      binary-name: erfiume-bot
+
+  rust-ci-fetcher:
+    needs: [rust-ci-bot]
+    permissions:
+      actions: read
+      security-events: write
+      contents: read
+      id-token: write
+    uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0
+    with:
+      working-directory: ./app/
+      deploy-lambda: true
+      aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-write
+      binary-name: erfiume-fetcher
