@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fmt;
 use std::time::Duration;
+use tokio::sync::OnceCell;
 use tracing::{error, instrument};
 use tracing_subscriber::EnvFilter;
 
@@ -58,7 +59,6 @@ struct StationData {
     t: u64,
     v: Option<f32>,
 }
-
 fn deserialize_timestamp<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
@@ -86,6 +86,9 @@ where
 
     deserializer.deserialize_any(TimestampVisitor)
 }
+
+static DYNAMO_DB_CLIENT: OnceCell<DynamoDbClient> = OnceCell::const_new();
+static HTTP_CLIENT: OnceCell<reqwest::Client> = OnceCell::const_new();
 
 async fn fetch_latest_time(client: &reqwest::Client) -> Result<i64, BoxError> {
     let response = client
@@ -266,12 +269,21 @@ async fn process_station(
 
 #[instrument]
 async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
-    let http_client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()?;
-
-    let shared_config = aws_config::defaults(BehaviorVersion::latest()).load().await;
-    let dynamodb_client = DynamoDbClient::new(&shared_config);
+    let http_client = HTTP_CLIENT
+        .get_or_init(|| async {
+            reqwest::Client::builder()
+                .timeout(Duration::from_secs(10))
+                .build()
+                .expect("Failed to build reqwest client")
+        })
+        .await
+        .clone();
+    let dynamodb_client = DYNAMO_DB_CLIENT
+        .get_or_init(|| async {
+            DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await)
+        })
+        .await
+        .clone();
 
     let latest_timestamp = fetch_latest_time(&http_client).await?;
     let stations = fetch_stations(&http_client, latest_timestamp).await?;
