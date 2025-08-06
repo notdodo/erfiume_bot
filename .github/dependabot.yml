@@ -19,8 +19,7 @@ updates:
         dependency-type: "development"
   - package-ecosystem: cargo
     directories:
-      - /app/fetcher
-      - /app/bot
+      - /app
     schedule:
       interval: monthly
       time: "12:00"

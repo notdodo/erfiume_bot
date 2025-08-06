@@ -100,7 +100,7 @@ async fn fetch_latest_time(client: &reqwest::Client) -> Result<i64, BoxError> {
         if let Entry::TimeEntry { time } = entry {
             let timestamp = time
                 .parse::<i64>()
-                .map_err(|e| format!("Failed to parse 'time': {}", e))?;
+                .map_err(|e| format!("Failed to parse 'time': {e}"))?;
             return Ok(timestamp);
         }
     }
@@ -113,8 +113,7 @@ async fn fetch_stations(
     timestamp: i64,
 ) -> Result<Vec<Station>, BoxError> {
     let url = format!(
-        "https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time={}",
-        timestamp
+        "https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time={timestamp}"
     );
     let response = client.get(&url).send().await?;
     response.error_for_status_ref()?;
