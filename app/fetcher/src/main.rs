@@ -317,7 +317,7 @@ async fn main() -> Result<(), LambdaError> {
         .with_current_span(false) // Optional: Exclude span information
         .with_span_list(false) // Optional: Exclude span list
         .with_target(false) // Optional: Exclude target (module path)
-        .without_time() // AWS Lambda adds timestamps, so you can exclude them
+        .without_time()
         .init();
 
     let http_client = reqwest::Client::builder()
