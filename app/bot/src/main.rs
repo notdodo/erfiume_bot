@@ -7,15 +7,12 @@ use teloxide::{
     dptree::deps,
     prelude::{Bot, Requester, Update, dptree},
     respond,
-    types::{Me, Message},
+    types::Me,
 };
-use tokio::sync::OnceCell;
 use tracing::{info, instrument};
 use tracing_subscriber::EnvFilter;
 mod commands;
 mod station;
-
-static DYNAMO_DB_CLIENT: OnceCell<DynamoDbClient> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() -> Result<(), LambdaError> {
@@ -28,13 +25,21 @@ async fn main() -> Result<(), LambdaError> {
         .without_time()
         .init();
 
-    let func = service_fn(lambda_handler);
-    lambda_runtime::run(func).await?;
+    let dynamodb_client =
+        DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await);
+
+    lambda_runtime::run(service_fn(|event: LambdaEvent<Value>| async {
+        lambda_handler(&dynamodb_client, event).await
+    }))
+    .await?;
     Ok(())
 }
 
 #[instrument]
-async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
+async fn lambda_handler(
+    dynamodb_client: &DynamoDbClient,
+    event: LambdaEvent<Value>,
+) -> Result<Value, LambdaError> {
     let bot = Bot::from_env();
     let me: Me = bot.get_me().await?;
     info!("{:?}", event.payload);
@@ -57,16 +62,8 @@ async fn lambda_handler(event: LambdaEvent<Value>) -> Result<Value, LambdaError>
                 .filter_command::<commands::BaseCommand>()
                 .endpoint(commands::base_commands_handler),
         )
-        .branch(dptree::endpoint(|msg: Message, bot: Bot| async move {
-            let dynamodb_client = DYNAMO_DB_CLIENT
-                .get_or_init(|| async {
-                    DynamoDbClient::new(
-                        &aws_config::defaults(BehaviorVersion::latest()).load().await,
-                    )
-                })
-                .await
-                .clone();
-            commands::message_handler(&bot, &msg, dynamodb_client).await?;
+        .branch(dptree::endpoint(|msg, bot, dynamodb_client| async move {
+            commands::message_handler(&bot, &msg, &dynamodb_client).await?;
             respond(())
         }));
 
