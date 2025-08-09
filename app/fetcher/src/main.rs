@@ -235,9 +235,9 @@ async fn put_station_into_dynamodb(
         Ok(_) => Ok(()),
         Err(SdkError::ServiceError(err)) => {
             if let UpdateItemError::ConditionalCheckFailedException(_) = err.err() {
-                Err(anyhow::Error::new(err.into_err()))
+                Ok(()) // Skip silently: DynamoDB raise this error when the station exists and there's no new timestamp to update
             } else {
-                Ok(())
+                Err(anyhow::Error::new(err.into_err()))
             }
         }
         Err(err) => Err(err.into()),
@@ -294,9 +294,6 @@ async fn lambda_handler(
         if let Err(e) = result {
             error_count += 1;
             error!(error = %e, "Error processing station: {:?}", e);
-            if !e.to_string().contains("ConditionalCheckFailedException") {
-                error!(error = %e, "Error processing station: {:?}", e);
-            }
         }
     }
 
