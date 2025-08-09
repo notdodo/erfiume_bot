@@ -294,9 +294,6 @@ async fn lambda_handler(
         if let Err(e) = result {
             error_count += 1;
             error!(error = %e, "Error processing station: {:?}", e);
-            if !e.to_string().contains("ConditionalCheckFailedException") {
-                error!(error = %e, "Error processing station: {:?}", e);
-            }
         }
     }
 
