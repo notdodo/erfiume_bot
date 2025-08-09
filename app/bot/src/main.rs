@@ -25,11 +25,12 @@ async fn main() -> Result<(), LambdaError> {
         .without_time()
         .init();
 
-    let dynamodb_client =
-        DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await);
-
     lambda_runtime::run(service_fn(|event: LambdaEvent<Value>| async {
-        lambda_handler(&dynamodb_client, event).await
+        lambda_handler(
+            &DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await),
+            event,
+        )
+        .await
     }))
     .await?;
     Ok(())
@@ -67,7 +68,9 @@ async fn lambda_handler(
             respond(())
         }));
 
-    let _ = handler.dispatch(deps![me, bot, update]).await;
+    let _ = handler
+        .dispatch(deps![me, bot, update, dynamodb_client.clone()])
+        .await;
     Ok(json!({
         "message": "Lambda executed successfully",
         "statusCode": 200,
