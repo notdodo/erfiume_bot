@@ -6,6 +6,7 @@ use aws_sdk_dynamodb::operation::update_item::UpdateItemError;
 use aws_sdk_dynamodb::types::AttributeValue;
 use futures::StreamExt;
 use lambda_runtime::{Error as LambdaError, LambdaEvent, service_fn};
+use reqwest::Client;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Value, json};
@@ -13,7 +14,6 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fmt;
 use std::time::Duration;
-use tokio::sync::OnceCell;
 use tracing::{error, instrument};
 use tracing_subscriber::EnvFilter;
 
@@ -86,9 +86,6 @@ where
 
     deserializer.deserialize_any(TimestampVisitor)
 }
-
-static DYNAMO_DB_CLIENT: OnceCell<DynamoDbClient> = OnceCell::const_new();
-static HTTP_CLIENT: OnceCell<reqwest::Client> = OnceCell::const_new();
 
 async fn fetch_latest_time(client: &reqwest::Client) -> Result<i64, BoxError> {
     let response = client
@@ -248,7 +245,7 @@ async fn put_station_into_dynamodb(
 }
 
 async fn process_station(
-    client: &reqwest::Client,
+    client: &Client,
     dynamodb_client: &DynamoDbClient,
     station: Station,
     table_name: &str,
@@ -268,32 +265,19 @@ async fn process_station(
 }
 
 #[instrument]
-async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
-    let http_client = HTTP_CLIENT
-        .get_or_init(|| async {
-            reqwest::Client::builder()
-                .timeout(Duration::from_secs(10))
-                .build()
-                .expect("Failed to build reqwest client")
-        })
-        .await
-        .clone();
-    let dynamodb_client = DYNAMO_DB_CLIENT
-        .get_or_init(|| async {
-            DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await)
-        })
-        .await
-        .clone();
-
-    let latest_timestamp = fetch_latest_time(&http_client).await?;
-    let stations = fetch_stations(&http_client, latest_timestamp).await?;
-
-    let concurrency_limit = 50;
+async fn lambda_handler(
+    http_client: &Client,
+    dynamodb_client: &DynamoDbClient,
+    _: LambdaEvent<Value>,
+) -> Result<Value, LambdaError> {
+    let latest_timestamp = fetch_latest_time(http_client).await?;
+    let stations = fetch_stations(http_client, latest_timestamp).await?;
+    let concurrency_limit = 40;
 
     let process_futures = stations.clone().into_iter().map(|station| {
         process_station(
-            &http_client,
-            &dynamodb_client,
+            http_client,
+            dynamodb_client,
             station,
             "EmiliaRomagna-Stations",
         )
@@ -305,8 +289,11 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
         .await;
 
     let successful_updates = process_results.iter().filter(|res| res.is_ok()).count();
+    let mut error_count = 0;
     for result in process_results {
         if let Err(e) = result {
+            error_count += 1;
+            error!(error = %e, "Error processing station: {:?}", e);
             if !e.to_string().contains("ConditionalCheckFailedException") {
                 error!(error = %e, "Error processing station: {:?}", e);
             }
@@ -317,6 +304,7 @@ async fn lambda_handler(_: LambdaEvent<Value>) -> Result<Value, LambdaError> {
         "message": "Lambda executed successfully",
         "stations_processed": stations.len(),
         "stations_updated": successful_updates,
+        "errors": error_count,
         "statusCode": 200,
     }))
 }
@@ -332,7 +320,15 @@ async fn main() -> Result<(), LambdaError> {
         .without_time() // AWS Lambda adds timestamps, so you can exclude them
         .init();
 
-    let func = service_fn(lambda_handler);
-    lambda_runtime::run(func).await?;
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let dynamodb_client =
+        DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await);
+
+    lambda_runtime::run(service_fn(|event: LambdaEvent<Value>| async {
+        lambda_handler(&http_client, &dynamodb_client, event).await
+    }))
+    .await?;
     Ok(())
 }

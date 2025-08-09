@@ -76,7 +76,7 @@ pub(crate) async fn base_commands_handler(
 pub(crate) async fn message_handler(
     bot: &Bot,
     msg: &Message,
-    dynamodb_client: DynamoDbClient,
+    dynamodb_client: &DynamoDbClient,
 ) -> Result<(), teloxide::RequestError> {
     let link_preview_options = LinkPreviewOptions {
         is_disabled: false,
@@ -91,7 +91,7 @@ pub(crate) async fn message_handler(
     };
 
     let text = match station::search::get_station(
-        &dynamodb_client,
+         dynamodb_client,
         text.to_string().replace("@erfiume_bot", "").replace("/", ""),
         "EmiliaRomagna-Stations",
     )
