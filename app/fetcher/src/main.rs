@@ -1,91 +1,23 @@
 use anyhow::Result;
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use aws_sdk_dynamodb::error::SdkError;
-use aws_sdk_dynamodb::operation::update_item::UpdateItemError;
-use aws_sdk_dynamodb::types::AttributeValue;
 use futures::StreamExt;
 use lambda_runtime::{Error as LambdaError, LambdaEvent, service_fn};
 use reqwest::Client;
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Value, json};
-use std::collections::HashMap;
 use std::error::Error as StdError;
-use std::fmt;
 use std::time::Duration;
 use tracing::{error, instrument};
 use tracing_subscriber::EnvFilter;
 
+use crate::{
+    dynamodb::put_station_into_dynamodb,
+    station::{Entry, Station, StationData},
+};
+mod dynamodb;
+mod station;
+
 type BoxError = Box<dyn StdError + Send + Sync>;
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(untagged)]
-enum Entry {
-    TimeEntry {
-        time: String,
-    },
-    DataEntry {
-        idstazione: String,
-        ordinamento: i32,
-        nomestaz: String,
-        lon: String,
-        soglia1: f32,
-        value: Option<String>,
-        soglia2: f32,
-        lat: String,
-        soglia3: f32,
-        timestamp: Option<u64>,
-    },
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Station {
-    timestamp: Option<u64>,
-    idstazione: String,
-    ordinamento: i32,
-    nomestaz: String,
-    lon: String,
-    lat: String,
-    soglia1: f32,
-    soglia2: f32,
-    soglia3: f32,
-    value: Option<f32>,
-}
-
-#[derive(Debug, Deserialize)]
-struct StationData {
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    t: u64,
-    v: Option<f32>,
-}
-fn deserialize_timestamp<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct TimestampVisitor;
-
-    impl Visitor<'_> for TimestampVisitor {
-        type Value = u64;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a u64 or a string representing a u64")
-        }
-
-        fn visit_u64<E>(self, value: u64) -> Result<u64, E> {
-            Ok(value)
-        }
-
-        fn visit_str<E>(self, value: &str) -> Result<u64, E>
-        where
-            E: de::Error,
-        {
-            value.parse::<u64>().map_err(de::Error::custom)
-        }
-    }
-
-    deserializer.deserialize_any(TimestampVisitor)
-}
 
 async fn fetch_latest_time(client: &reqwest::Client) -> Result<i64, BoxError> {
     let response = client
@@ -168,80 +100,6 @@ async fn fetch_station_data(
     }
 
     Ok(station)
-}
-
-async fn put_station_into_dynamodb(
-    client: &DynamoDbClient,
-    station: &Station,
-    table_name: &str,
-) -> Result<()> {
-    let new_timestamp = station.timestamp.unwrap_or_default();
-    let new_value = station.value.unwrap_or_default();
-
-    let expression_attribute_values = HashMap::from([
-        (
-            ":new_timestamp".to_string(),
-            AttributeValue::N(new_timestamp.to_string()),
-        ),
-        (
-            ":new_value".to_string(),
-            AttributeValue::N(new_value.to_string()),
-        ),
-        (
-            ":idstazione".to_string(),
-            AttributeValue::S(station.idstazione.clone()),
-        ),
-        (
-            ":ordinamento".to_string(),
-            AttributeValue::N(station.ordinamento.to_string()),
-        ),
-        (":lon".to_string(), AttributeValue::S(station.lon.clone())),
-        (":lat".to_string(), AttributeValue::S(station.lat.clone())),
-        (
-            ":soglia1".to_string(),
-            AttributeValue::N(station.soglia1.to_string()),
-        ),
-        (
-            ":soglia2".to_string(),
-            AttributeValue::N(station.soglia2.to_string()),
-        ),
-        (
-            ":soglia3".to_string(),
-            AttributeValue::N(station.soglia3.to_string()),
-        ),
-    ]);
-
-    let expression_attribute_names = HashMap::from([
-        ("#tsp".to_string(), "timestamp".to_string()),
-        ("#vl".to_string(), "value".to_string()),
-    ]);
-
-    let update_expression = "SET #tsp = :new_timestamp, #vl = :new_value, idstazione = :idstazione, ordinamento = :ordinamento, lon = :lon, lat = :lat, soglia1 = :soglia1, soglia2 = :soglia2, soglia3 = :soglia3";
-
-    let condition_expression = "attribute_not_exists(#tsp) OR :new_timestamp > #tsp";
-
-    let result = client
-        .update_item()
-        .table_name(table_name)
-        .key("nomestaz", AttributeValue::S(station.nomestaz.clone()))
-        .update_expression(update_expression)
-        .set_expression_attribute_values(Some(expression_attribute_values))
-        .set_expression_attribute_names(Some(expression_attribute_names))
-        .condition_expression(condition_expression)
-        .send()
-        .await;
-
-    match result {
-        Ok(_) => Ok(()),
-        Err(SdkError::ServiceError(err)) => {
-            if let UpdateItemError::ConditionalCheckFailedException(_) = err.err() {
-                Ok(()) // Skip silently: DynamoDB raise this error when the station exists and there's no new timestamp to update
-            } else {
-                Err(anyhow::Error::new(err.into_err()))
-            }
-        }
-        Err(err) => Err(err.into()),
-    }
 }
 
 async fn process_station(
