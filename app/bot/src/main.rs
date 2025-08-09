@@ -14,6 +14,12 @@ use tracing_subscriber::EnvFilter;
 mod commands;
 mod station;
 
+struct AppState {
+    dynamodb_client: DynamoDbClient,
+    bot: Bot,
+    me: Me,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), LambdaError> {
     tracing_subscriber::fmt()
@@ -25,24 +31,29 @@ async fn main() -> Result<(), LambdaError> {
         .without_time()
         .init();
 
+    let bot = Bot::from_env();
+    let me = bot.get_me().await?;
+    let dynamodb_client =
+        DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await);
+
+    let app_state = AppState {
+        dynamodb_client,
+        bot,
+        me,
+    };
+
     lambda_runtime::run(service_fn(|event: LambdaEvent<Value>| async {
-        lambda_handler(
-            &DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await),
-            event,
-        )
-        .await
+        lambda_handler(&app_state, event).await
     }))
     .await?;
     Ok(())
 }
 
-#[instrument]
+#[instrument(skip(app_state))]
 async fn lambda_handler(
-    dynamodb_client: &DynamoDbClient,
+    app_state: &AppState,
     event: LambdaEvent<Value>,
 ) -> Result<Value, LambdaError> {
-    let bot = Bot::from_env();
-    let me: Me = bot.get_me().await?;
     info!("{:?}", event.payload);
 
     let outer_json: Value = serde_json::from_value(
@@ -69,7 +80,12 @@ async fn lambda_handler(
         }));
 
     let _ = handler
-        .dispatch(deps![me, bot, update, dynamodb_client.clone()])
+        .dispatch(deps![
+            app_state.me.clone(),
+            app_state.bot.clone(),
+            update,
+            app_state.dynamodb_client.clone()
+        ])
         .await;
     Ok(json!({
         "message": "Lambda executed successfully",
