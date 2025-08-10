@@ -13,6 +13,10 @@ pub struct EmiliaRomagna;
 
 #[allow(unused_variables)]
 impl Region for EmiliaRomagna {
+    fn name(&self) -> &'static str {
+        "Emilia-Romagna"
+    }
+
     fn dynamodb_table(&self) -> &'static str {
         "EmiliaRomagna-Stations"
     }
