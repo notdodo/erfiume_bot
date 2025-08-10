@@ -1,4 +1,7 @@
 use super::Region;
+use crate::{BoxError, dynamodb, station::Station};
+use dynamodb::DynamoDbClient;
+use reqwest::Client as HTTPClient;
 
 #[allow(dead_code)]
 pub struct EmiliaRomagna;
@@ -13,11 +16,11 @@ impl Region for EmiliaRomagna {
         "EmiliaRomagna-Stations"
     }
 
-    async fn fetch_station_data(
+    async fn fetch_stations_data(
         &self,
-        http_client: &reqwest::Client,
-        dynamodb_client: &crate::dynamodb::DynamoDbClient,
-    ) -> Result<crate::station::Station, crate::BoxError> {
+        http_client: &HTTPClient,
+        dynamodb_client: &DynamoDbClient,
+    ) -> Result<Station, BoxError> {
         todo!()
     }
 }

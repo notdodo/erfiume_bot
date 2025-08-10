@@ -8,7 +8,7 @@ pub trait Region {
     async fn name(&self) -> &'static str;
     async fn dynamodb_table(&self) -> &'static str;
 
-    async fn fetch_station_data(
+    async fn fetch_stations_data(
         &self,
         http_client: &HTTPClient,
         dynamodb_client: &DynamoDbClient,
