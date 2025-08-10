@@ -1,25 +1,23 @@
 use anyhow::Result;
 use aws_config::BehaviorVersion;
-use aws_sdk_dynamodb::Client as DynamoDbClient;
+use aws_sdk_dynamodb::Client as AWSClient;
+use dynamodb::DynamoDbClient;
 use futures::StreamExt;
 use lambda_runtime::{Error as LambdaError, LambdaEvent, service_fn};
-use reqwest::Client;
+use reqwest::Client as HTTPClient;
 use serde_json::{Value, json};
+use station::{Entry, Station, StationData};
 use std::error::Error as StdError;
 use std::time::Duration;
 use tracing::{error, instrument};
 use tracing_subscriber::EnvFilter;
-
-use crate::{
-    dynamodb::put_station_into_dynamodb,
-    station::{Entry, Station, StationData},
-};
 mod dynamodb;
+mod region;
 mod station;
 
 type BoxError = Box<dyn StdError + Send + Sync>;
 
-async fn fetch_latest_time(client: &reqwest::Client) -> Result<i64, BoxError> {
+async fn fetch_latest_time(client: &HTTPClient) -> Result<i64, BoxError> {
     let response = client
         .get("https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time=1726667100000")
         .send()
@@ -40,10 +38,7 @@ async fn fetch_latest_time(client: &reqwest::Client) -> Result<i64, BoxError> {
     Err("No 'TimeEntry' found in response".into())
 }
 
-async fn fetch_stations(
-    client: &reqwest::Client,
-    timestamp: i64,
-) -> Result<Vec<Station>, BoxError> {
+async fn fetch_stations(client: &HTTPClient, timestamp: i64) -> Result<Vec<Station>, BoxError> {
     let url = format!(
         "https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time={timestamp}"
     );
@@ -84,7 +79,7 @@ async fn fetch_stations(
 }
 
 async fn fetch_station_data(
-    client: &reqwest::Client,
+    client: &HTTPClient,
     mut station: Station,
 ) -> Result<Station, BoxError> {
     let url = format!(
@@ -103,10 +98,9 @@ async fn fetch_station_data(
 }
 
 async fn process_station(
-    client: &Client,
+    client: &HTTPClient,
     dynamodb_client: &DynamoDbClient,
     station: Station,
-    table_name: &str,
 ) -> Result<(), BoxError> {
     let station = fetch_station_data(client, station.clone())
         .await
@@ -117,14 +111,16 @@ async fn process_station(
             );
             e
         });
-    put_station_into_dynamodb(dynamodb_client, &station?, table_name).await?;
+    dynamodb_client
+        .put_station_into_dynamodb(&station?, "EmiliaRomagna-Stations")
+        .await?;
 
     Ok(())
 }
 
-#[instrument]
+#[instrument(skip(dynamodb_client))]
 async fn lambda_handler(
-    http_client: &Client,
+    http_client: &HTTPClient,
     dynamodb_client: &DynamoDbClient,
     _: LambdaEvent<Value>,
 ) -> Result<Value, LambdaError> {
@@ -132,14 +128,10 @@ async fn lambda_handler(
     let stations = fetch_stations(http_client, latest_timestamp).await?;
     let concurrency_limit = 40;
 
-    let process_futures = stations.clone().into_iter().map(|station| {
-        process_station(
-            http_client,
-            dynamodb_client,
-            station,
-            "EmiliaRomagna-Stations",
-        )
-    });
+    let process_futures = stations
+        .clone()
+        .into_iter()
+        .map(|station| process_station(http_client, dynamodb_client, station));
 
     let process_results: Vec<_> = futures::stream::iter(process_futures)
         .buffer_unordered(concurrency_limit)
@@ -154,10 +146,14 @@ async fn lambda_handler(
             error!(error = %e, "Error processing station: {:?}", e);
         }
     }
+    if error_count > 0 {
+        error!(%error_count, "Aborting Lambda execution due to errors");
+        return Err(anyhow::anyhow!("Processing failed for {} stations", error_count).into());
+    }
 
     Ok(json!({
         "message": "Lambda executed successfully",
-        "stations_processed": stations.len(),
+        "stations_found": stations.len(),
         "stations_updated": successful_updates,
         "errors": error_count,
         "statusCode": 200,
@@ -175,11 +171,12 @@ async fn main() -> Result<(), LambdaError> {
         .without_time()
         .init();
 
-    let http_client = reqwest::Client::builder()
+    let http_client = HTTPClient::builder()
         .timeout(Duration::from_secs(10))
         .build()?;
-    let dynamodb_client =
-        DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await);
+    let dynamodb_client = DynamoDbClient::new(AWSClient::new(
+        &aws_config::defaults(BehaviorVersion::latest()).load().await,
+    ));
 
     lambda_runtime::run(service_fn(|event: LambdaEvent<Value>| async {
         lambda_handler(&http_client, &dynamodb_client, event).await
