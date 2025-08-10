@@ -5,7 +5,6 @@ use dynamodb::DynamoDbClient;
 use lambda_runtime::{Error as LambdaError, LambdaEvent, service_fn};
 use reqwest::Client as HTTPClient;
 use serde_json::Value;
-use std::error::Error as StdError;
 use std::time::Duration;
 use tracing::instrument;
 use tracing_subscriber::EnvFilter;
@@ -15,8 +14,6 @@ mod dynamodb;
 mod region;
 mod station;
 
-type BoxError = Box<dyn StdError + Send + Sync>;
-
 #[instrument(skip(dynamodb_client))]
 async fn lambda_handler(
     http_client: &HTTPClient,
@@ -25,7 +22,9 @@ async fn lambda_handler(
 ) -> Result<Value, LambdaError> {
     let results = region::emilia_romagna::EmiliaRomagna
         .fetch_stations_data(http_client, dynamodb_client)
-        .await?;
+        .await
+        .map_err(|e| LambdaError::from(format!("{e}")))?;
+
     Ok(serde_json::to_value(results)?)
 }
 

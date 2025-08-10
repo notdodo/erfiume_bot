@@ -1,12 +1,11 @@
 use super::Region;
 use crate::{
-    BoxError, dynamodb,
-    region::RegionResult,
+    dynamodb,
+    region::{RegionError, RegionResult},
     station::{Entry, Station, StationData},
 };
 use dynamodb::DynamoDbClient;
 use futures::StreamExt;
-use lambda_runtime::Error as LambdaError;
 use reqwest::Client as HTTPClient;
 use tracing::error;
 
@@ -22,7 +21,7 @@ impl Region for EmiliaRomagna {
         &self,
         http_client: &HTTPClient,
         dynamodb_client: &DynamoDbClient,
-    ) -> Result<RegionResult, LambdaError> {
+    ) -> Result<RegionResult, RegionError> {
         let latest_timestamp = fetch_latest_time(http_client).await?;
         let stations = fetch_stations(http_client, latest_timestamp).await?;
         let stations_count = stations.len();
@@ -38,10 +37,9 @@ impl Region for EmiliaRomagna {
             .await;
 
         let successful_updates = process_results.iter().filter(|res| res.is_ok()).count();
-        let mut error_count = 0;
+        let error_count = process_results.iter().filter(|res| res.is_err()).count();
         for result in process_results {
             if let Err(e) = result {
-                error_count += 1;
                 error!(error = %e, "Error processing station: {:?}", e);
             }
         }
@@ -59,7 +57,7 @@ impl Region for EmiliaRomagna {
     }
 }
 
-async fn fetch_latest_time(client: &HTTPClient) -> Result<i64, BoxError> {
+async fn fetch_latest_time(client: &HTTPClient) -> Result<i64, RegionError> {
     let response = client
         .get("https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time=1726667100000")
         .send()
@@ -80,7 +78,7 @@ async fn fetch_latest_time(client: &HTTPClient) -> Result<i64, BoxError> {
     Err("No 'TimeEntry' found in response".into())
 }
 
-async fn fetch_stations(client: &HTTPClient, timestamp: i64) -> Result<Vec<Station>, BoxError> {
+async fn fetch_stations(client: &HTTPClient, timestamp: i64) -> Result<Vec<Station>, RegionError> {
     let url = format!(
         "https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time={timestamp}"
     );
@@ -123,7 +121,7 @@ async fn fetch_stations(client: &HTTPClient, timestamp: i64) -> Result<Vec<Stati
 async fn fetch_station_data(
     client: &HTTPClient,
     mut station: Station,
-) -> Result<Station, BoxError> {
+) -> Result<Station, RegionError> {
     let url = format!(
         "https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-time-series/?stazione={}&variabile=254,0,0/1,-,-,-/B13215",
         station.idstazione
@@ -144,7 +142,7 @@ async fn process_station(
     dynamodb_client: &DynamoDbClient,
     station: Station,
     table_name: &str,
-) -> Result<(), BoxError> {
+) -> Result<(), RegionError> {
     let station = fetch_station_data(client, station.clone())
         .await
         .map_err(|e| {
