@@ -21,7 +21,7 @@ The bot can be used in both private or group chats, responding to specific stati
 - `/start`
 - `/info`
 - `/stazioni`
-- `/<stazione_name>` where `<stazione_name>` is one the station reported on [Livello Idrometrico](https://allertameteo.regione.emilia-romagna.it/livello-idrometrico)
+- `/<station_name>` where `<station_name>` is one the station reported on [Livello Idrometrico](https://allertameteo.regione.emilia-romagna.it/livello-idrometrico)
 
 ## Architecture
 
@@ -66,9 +66,9 @@ The Lambda is scheduled to run once a day in "normal" mode, but in "emergency" m
 
 ## Repository Structure
 
-- **app/**: Contains the bot and fetcher code
-- **pulumi/**: IaC for the AWS infrastructure
+- **app/**: Contains the bot and fetcher code as single Rust workspace.
+- **pulumi/**: IaC for the AWS infrastructure.
 
 ## Disclaimer
 
-The accuracy and reliability of the data is entirely dependent on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/). `erfiume_bot` merely collects and displays the available data from that source.
+The accuracy and reliability of the data is entirely dependent on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/): `erfiume_bot` merely collects and displays the available data from that source.
