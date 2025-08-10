@@ -2,7 +2,7 @@ use crate::dynamodb;
 use dynamodb::DynamoDbClient;
 use reqwest::Client as HTTPClient;
 pub mod emilia_romagna;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 pub type RegionError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -15,7 +15,7 @@ pub trait Region {
     ) -> Result<RegionResult, RegionError>;
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct RegionResult {
     message: String,
     stations_found: usize,
