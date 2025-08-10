@@ -1,6 +1,8 @@
 use anyhow::Result;
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{
+    Deserialize, Deserializer, Serialize,
+    de::{self, Visitor},
+};
 use std::fmt;
 
 #[derive(Serialize, Deserialize, Debug)]

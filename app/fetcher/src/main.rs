@@ -2,30 +2,48 @@ use anyhow::Result;
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::Client as AWSClient;
 use dynamodb::DynamoDbClient;
+use futures::future::join_all;
 use lambda_runtime::{Error as LambdaError, LambdaEvent, service_fn};
+use region::{Region, Regions, emilia_romagna::EmiliaRomagna};
 use reqwest::Client as HTTPClient;
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::time::Duration;
 use tracing::instrument;
 use tracing_subscriber::EnvFilter;
-
-use crate::region::Region;
 mod dynamodb;
 mod region;
 mod station;
 
-#[instrument(skip(dynamodb_client))]
+#[instrument(skip(dynamodb_client, regions))]
 async fn lambda_handler(
     http_client: &HTTPClient,
     dynamodb_client: &DynamoDbClient,
+    regions: &[Regions],
     _: LambdaEvent<Value>,
 ) -> Result<Value, LambdaError> {
-    let results = region::emilia_romagna::EmiliaRomagna
-        .fetch_stations_data(http_client, dynamodb_client)
-        .await
-        .map_err(|e| LambdaError::from(format!("{e}")))?;
+    let futures = regions.iter().map(|region| {
+        let region_name = region.name();
+        async move {
+            match region
+                .fetch_stations_data(http_client, dynamodb_client)
+                .await
+            {
+                Ok(result) => json!({
+                    "region": region_name,
+                    "status": "ok",
+                    "result": result
+                }),
+                Err(e) => json!({
+                    "region": region_name,
+                    "status": "error",
+                    "error": e.to_string()
+                }),
+            }
+        }
+    });
+    let aggregated = join_all(futures).await;
 
-    Ok(serde_json::to_value(results)?)
+    Ok(json!({"regions": aggregated}))
 }
 
 #[tokio::main]
@@ -45,9 +63,10 @@ async fn main() -> Result<(), LambdaError> {
     let dynamodb_client = DynamoDbClient::new(AWSClient::new(
         &aws_config::defaults(BehaviorVersion::latest()).load().await,
     ));
+    let regions: Vec<Regions> = vec![Regions::EmiliaRomagna(EmiliaRomagna)];
 
     lambda_runtime::run(service_fn(|event: LambdaEvent<Value>| async {
-        lambda_handler(&http_client, &dynamodb_client, event).await
+        lambda_handler(&http_client, &dynamodb_client, &regions, event).await
     }))
     .await?;
     Ok(())
