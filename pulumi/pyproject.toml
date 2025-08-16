@@ -1,27 +1,39 @@
-[tool.poetry]
+[project]
 name = "erfiume-pulumi"
 version = "0.1.0"
 description = ""
-authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
-keywords = ["erfiume", "telegram", "fiumi"]
+authors = [
+    { name = "Edoardo Rosa", email = "6991986+notdodo@users.noreply.github.com" },
+]
+requires-python = ">3.12.0"
 readme = "README.md"
-repository = "https://github.com/notdodo/erfiume"
-homepage = "https://github.com/notdodo/erfiume"
-documentation = "https://github.com/notdodo/erfiume/blob/main/README.md"
-package-mode = false
+keywords = ["erfiume", "telegram", "fiumi"]
+dependencies = [
+    "pulumi-aws>=7.3.0,<8",
+    "pulumi-cloudflare>=6.4.1,<7",
+    "requests>=2.32.4,<3",
+    "diagrams>=0.24.1,<0.25",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-pulumi-aws = "^7.3.0"
-pulumi-cloudflare = "^6.4.1"
-requests = "^2.32.4"
-diagrams = "^0.24.1"
+[project.urls]
+Homepage = "https://github.com/notdodo/erfiume"
+Repository = "https://github.com/notdodo/erfiume"
+Documentation = "https://github.com/notdodo/erfiume/blob/main/README.md"
 
-[tool.poetry.group.dev.dependencies]
-mypy = { extras = ["faster-cache"], version = "^1.17.1" }
-ruff = "^0.12.7"
-pydantic = "^2.11.7"
-types-requests = "^2.32.4.20250611"
+[dependency-groups]
+dev = [
+    "mypy[faster-cache]>=1.17.1,<2",
+    "ruff>=0.12.7,<0.13",
+    "pydantic>=2.11.7,<3",
+    "types-requests>=2.32.4.20250611,<3",
+]
+
+[tool.uv]
+package = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.ruff]
 output-format = "github"
@@ -56,7 +68,3 @@ namespace_packages = true
 [tool.pylint."MESSAGES CONTROL"]
 persistent = "no"
 disable = ["fixme", "line-too-long"]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
