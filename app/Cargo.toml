@@ -9,7 +9,7 @@ description = "Bot per leggere i livelli idrometrici dei fiumi dell'Emilia Romag
 authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
 
 [workspace.dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 aws-config = "1.8.1"
 aws-sdk-dynamodb = "1.82.0"
 chrono = "0.4.41"
@@ -21,7 +21,7 @@ lambda_runtime = "0.14.3"
 openssl = { version = "0.10.73", features = [
     "vendored",
 ] } # Needed only for cargo lambda build
-reqwest = { version = "0.12.22", features = ["json"] }
+reqwest = { version = "0.12.23", features = ["json"] }
 serde = "1.0.219"
 serde_dynamo = "4.2.14"
 serde_json = "1.0.142"
