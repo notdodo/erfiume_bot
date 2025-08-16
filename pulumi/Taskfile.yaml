@@ -12,28 +12,28 @@ tasks:
   install:
     desc: Install Python dependencies
     cmds:
-      - poetry install --no-root
+      - uv sync
 
   format:
     desc: Format repository code
     cmds:
-      - poetry run ruff format
-      - poetry run ruff check --fix
+      - uv run ruff format
+      - uv run ruff check --fix
 
   format-check:
     desc: Check the code format (without modifying)
     cmds:
-      - poetry run ruff format --check
+      - uv run ruff format --check
 
   lint:
     desc: Run lint checks
     cmds:
-      - poetry run ruff check
+      - uv run ruff check
 
   type-check:
     desc: Run static type checks
     cmds:
-      - poetry run mypy .
+      - uv run mypy .
 
   check:
     desc: Run formatting check, lint, and type checks
@@ -42,4 +42,4 @@ tasks:
   test:
     desc: Run all tests
     cmds:
-      - poetry run pytest
+      - uv run pytest
