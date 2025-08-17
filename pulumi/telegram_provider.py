@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 import requests
 from pulumi.dynamic import (
     CreateResult,
+    DiffResult,
     ReadResult,
     Resource,
     ResourceProvider,
@@ -21,72 +22,128 @@ if TYPE_CHECKING:
     from pulumi import ResourceOptions
 
 
-class _TelegramWebhookProvider(ResourceProvider):
-    """Define how to interact with the Telegram API for the Webhook."""
+class _TelegramBotProvider(ResourceProvider):
+    """Provider to interact with the Telegram Bot APIs."""
 
-    def create(self, props: dict[str, Any]) -> CreateResult:
+    def _set_webhook(
+        self, token: str, url: str, react_on: list[str], secret_token: str | None
+    ) -> Any:
         response = requests.post(
-            f"https://api.telegram.org/bot{props['token']}/setWebhook",
+            f"https://api.telegram.org/bot{token}/setWebhook",
             json={
-                "url": props["url"],
-                "allowed_updates": props["react_on"],
-                "secret_token": props["authorization_token"],
+                "url": url,
+                "allowed_updates": react_on,
+                "secret_token": secret_token,
             },
             timeout=10,
         )
         if response.status_code != requests.codes.OK:
             raise requests.RequestException(response.text)
-        return CreateResult(id_="-")
+        return response.json()
+
+    def _delete_webhook(self, token: str) -> Any:
+        response = requests.post(
+            f"https://api.telegram.org/bot{token}/deleteWebhook",
+            timeout=10,
+        )
+        if response.status_code != requests.codes.OK:
+            raise requests.RequestException(response.text)
+        return response.json()
+
+    def create(self, props: dict[str, Any]) -> CreateResult:
+        self._set_webhook(
+            props["token"],
+            props["url"],
+            props["react_on"],
+            props.get("authorization_token"),
+        )
+        return CreateResult(id_="telegram-bot", outs=props)
 
     def read(
         self,
         id: str,  # noqa: A002
         props: dict[str, Any],
     ) -> ReadResult:
-        token = props["token"]
+        token = props.get("token")
         if not token or not isinstance(token, str):
             # During preview, the token might not be available
             return ReadResult(id, props)
 
         response = requests.get(
-            f"https://api.telegram.org/bot{props['token']}/getWebhookInfo",
+            f"https://api.telegram.org/bot{token}/getWebhookInfo",
             timeout=10,
         )
-
         if response.status_code != requests.codes.OK:
             raise requests.RequestException(response.text)
-        return ReadResult(id, response.json()["result"])
+
+        webhook_info = response.json()["result"]
+        bot_info_resp = requests.get(
+            f"https://api.telegram.org/bot{token}/getMe", timeout=10
+        )
+        bot_info = bot_info_resp.json()["result"] if bot_info_resp.ok else {}
+
+        props.update(
+            {
+                "webhook": webhook_info,
+                "bot_info": bot_info,
+            }
+        )
+
+        return ReadResult(id, props)
 
     def update(
         self,
         _id: str,
-        _oldInputs: dict[str, Any],  # noqa: N803
-        newInputs: dict[str, Any],  # noqa: N803
+        old: dict[str, Any],
+        new: dict[str, Any],
     ) -> UpdateResult:
-        response = requests.post(
-            f"https://api.telegram.org/bot{newInputs['token']}/setWebhook",
-            json={
-                "url": newInputs["url"],
-                "allowed_updates": newInputs["react_on"],
-                "secret_token": newInputs["authorization_token"],
-            },
-            timeout=10,
-        )
-        if response.status_code != requests.codes.OK:
-            raise requests.RequestException(response.text)
-        return UpdateResult(response.json())
+        # Reconfigure webhook if changed
+        if (
+            old.get("url") != new.get("url")
+            or old.get("react_on") != new.get("react_on")
+            or old.get("authorization_token") != new.get("authorization_token")
+        ):
+            self._set_webhook(
+                new["token"],
+                new["url"],
+                new["react_on"],
+                new.get("authorization_token"),
+            )
+
+        return UpdateResult(outs=new)
+
+    def delete(
+        self,
+        id: str,  # noqa: A002, ARG002
+        props: dict[str, Any],
+    ) -> None:
+        self._delete_webhook(props["token"])
+
+    def diff(
+        self,
+        id: str,  # noqa: A002, ARG002
+        old: dict[str, Any],
+        new: dict[str, Any],
+    ) -> DiffResult:
+        changes = False
+
+        for k in ["url", "react_on", "authorization_token"]:
+            if old.get(k) != new.get(k):
+                changes = True
+
+        return DiffResult(changes=changes, replaces=[])
 
 
-class Webhook(Resource):
+class TelegramBot(Resource):
     """
-    A Pulumi dynamic resource to create a Telegram Webhook
+    Pulumi dynamic resource to manage a Telegram Bot.
 
-    :param name [str]: The name of the webhook to create.
-    :param token [str | Output[str]]: Telegram token to use.
-    :param url [str | Output[str]]: The url called by the webhook
-    :param react_on [list[str] | None]: List actions that trigger the webhook.
-    :param authorization_token [str | Output[str] | None]: pre-shared secret to authenticate telegram calls with target url
-    :param opts [pulumi.ResourceOptions | None]: Pulumi resource options for the custom resource.
+    :param name [str]: Resource name
+    :param token [str | Output[str]]: Telegram bot token
+    :param url [str | Output[str]]: Webhook URL
+    :param react_on [list[str] | None]: List of updates the bot reacts to
+    :param authorization_token [str | Output[str] | None]: Optional secret token for webhook verification
+    :param opts [pulumi.ResourceOptions | None: Pulumi ResourceOptions
     """
 
     def __init__(
@@ -94,17 +151,16 @@ class Webhook(Resource):
         name: str,
         token: str | pulumi.Output[str],
         url: str | pulumi.Output[str],
-        react_on: list[str] | None,
+        react_on: list[str] | None = None,
         authorization_token: str | pulumi.Output[str] | None = None,
         opts: ResourceOptions | None = None,
     ):
-        """
-        Initialize the Webhook class.
-        """
+        """Create the TelegramBot resource"""
         if not react_on:
             react_on = ["message", "inline_query"]
+
         super().__init__(
-            _TelegramWebhookProvider(),
+            _TelegramBotProvider(),
             name,
             {
                 "token": token,
