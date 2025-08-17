@@ -13,7 +13,7 @@ from er_fiume import (
     TableAttribute,
     TableAttributeType,
 )
-from telegram_provider import Webhook
+from telegram_provider import TelegramBot
 
 RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
@@ -200,7 +200,7 @@ pulumi_cloudflare.Ruleset(
     ],
 )
 
-Webhook(
+TelegramBot(
     f"{RESOURCES_PREFIX}-apigateway-registration",
     token=pulumi.Config().require_secret("telegram-bot-token"),
     authorization_token=telegram_authorization_token,
