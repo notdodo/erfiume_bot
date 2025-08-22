@@ -5,6 +5,7 @@ improved from: https://github.com/omerholz/chatbot-example/blob/serverless-teleg
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -20,6 +21,33 @@ from pulumi.dynamic import (
 if TYPE_CHECKING:
     import pulumi
     from pulumi import ResourceOptions
+
+
+@dataclass
+class TelegramBotInfo:
+    """Answer from /getMe"""
+
+    id: str
+    is_bot: bool
+    first_name: str
+    username: str
+    can_join_grousp: bool
+    can_read_all_group_messages: bool
+    supports_inline_queries: bool
+    can_connect_to_business: bool
+    has_main_web_app: bool
+
+
+@dataclass
+class TelegramBotWebhookInfo:
+    """Answer from /getWebhookInfo"""
+
+    url: str
+    has_custom_certificate: bool
+    pending_update_count: int
+    max_connections: int
+    ip_address: str
+    allowed_updates: list[str]
 
 
 class _TelegramBotProvider(ResourceProvider):
@@ -76,11 +104,13 @@ class _TelegramBotProvider(ResourceProvider):
         if response.status_code != requests.codes.OK:
             raise requests.RequestException(response.text)
 
-        webhook_info = response.json()["result"]
+        webhook_info = TelegramBotWebhookInfo(**response.json()["result"])
         bot_info_resp = requests.get(
             f"https://api.telegram.org/bot{token}/getMe", timeout=10
         )
-        bot_info = bot_info_resp.json()["result"] if bot_info_resp.ok else {}
+        bot_info = TelegramBotInfo(
+            **bot_info_resp.json()["result"] if bot_info_resp.ok else {}
+        )
 
         props.update(
             {
