@@ -49,7 +49,6 @@ jobs:
           restore-keys: |
             python-3.13-venv
       - run: uv sync --locked --all-extras --dev
-        # if: steps.cache-deps.outputs.cache-hit != 'true'
       - uses: pulumi/auth-actions@1c89817aab0c66407723cdef72b05266e7376640
         # v1.0.1
         with:
