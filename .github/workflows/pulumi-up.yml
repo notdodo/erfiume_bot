@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: notdodo/github-actions/.github/workflows/pulumi-preview.yml@pulumi-v0
+    uses: notdodo/github-actions/.github/workflows/pulumi-up.yml@pulumi-v0
     with:
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-write
       aws-secrets-mapping: >
