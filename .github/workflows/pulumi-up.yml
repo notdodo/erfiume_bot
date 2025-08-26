@@ -29,4 +29,4 @@ jobs:
       aws-secrets-mapping: >
         CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-write
       stack-name: notdodo/erfiume/production
-      working-directory: "./pulumi"
+      working-directory: ./pulumi
