@@ -17,8 +17,8 @@ jobs:
     with:
       working-directory: "./pulumi"
 
-  pulumi-preview:
-    name: Pulumi Preview
+  pulumi-up:
+    name: Pulumi Up
     needs: [python-ci-pulumi]
     permissions:
       contents: read
