@@ -2,5 +2,6 @@ name: erfiume
 runtime:
   name: python
   options:
+    toolchain: uv
     virtualenv: .venv
 description: A Telegram Bot to fetch rivers levels
