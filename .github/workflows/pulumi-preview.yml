@@ -32,3 +32,4 @@ jobs:
       working-directory: "./pulumi"
       egress-policy-allowlist: >
         api.pulumi.com:443
+        sts.eu-west-1.amazonaws.com:443
