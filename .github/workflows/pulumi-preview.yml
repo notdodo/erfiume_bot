@@ -5,10 +5,6 @@ on:
       - pulumi/**
       - .github/workflows/pulumi-preview.yml
 
-concurrency:
-  group: ghas-erfiume-pulumi-preview-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   python-ci-pulumi:
     permissions: {}
