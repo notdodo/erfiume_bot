@@ -7,9 +7,6 @@ on:
       - pulumi/**
       - .github/workflows/pulumi-up.yml
 
-concurrency:
-  group: ghas-erfiume-pulumi-up-${{ github.ref }}
-
 jobs:
   python-ci-pulumi:
     permissions: {}
