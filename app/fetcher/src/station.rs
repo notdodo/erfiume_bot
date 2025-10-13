@@ -72,3 +72,25 @@ where
 
     deserializer.deserialize_any(TimestampVisitor)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_deserialize_timestamp_from_u64() {
+        let json_data = json!({"t": 123456789, "v": 42.0});
+        let s: StationData = serde_json::from_value(json_data).unwrap();
+        assert_eq!(s.t, 123456789);
+        assert_eq!(s.v, Some(42.0));
+    }
+
+    #[test]
+    fn test_deserialize_timestamp_from_string() {
+        let json_data = json!({"t": "987654321", "v": null});
+        let s: StationData = serde_json::from_value(json_data).unwrap();
+        assert_eq!(s.t, 987654321);
+        assert_eq!(s.v, None);
+    }
+}
