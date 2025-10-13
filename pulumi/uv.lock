@@ -152,10 +152,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "diagrams", specifier = ">=0.24.1,<0.25" },
-    { name = "pulumi-aws", specifier = ">=7.3.0,<8" },
-    { name = "pulumi-cloudflare", specifier = ">=6.4.1,<7" },
-    { name = "requests", specifier = ">=2.32.4,<3" },
+    { name = "diagrams", specifier = ">=0.24.1" },
+    { name = "pulumi-aws", specifier = ">=7.3.0" },
+    { name = "pulumi-cloudflare", specifier = ">=6.4.1" },
+    { name = "requests", specifier = ">=2.32.4" },
 ]
 
 [package.metadata.requires-dev]
