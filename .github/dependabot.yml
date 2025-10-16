@@ -5,13 +5,11 @@ updates:
     schedule:
       interval: monthly
       time: "12:00"
-      day: wednesday
   - package-ecosystem: pip
     directory: /pulumi
     schedule:
       interval: monthly
       time: "12:00"
-      day: wednesday
     groups:
       pulumi:
         dependency-type: "production"
@@ -23,7 +21,6 @@ updates:
     schedule:
       interval: monthly
       time: "12:00"
-      day: wednesday
     groups:
       cargo:
         patterns:
