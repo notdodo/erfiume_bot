@@ -5,6 +5,8 @@ updates:
     schedule:
       interval: monthly
       time: "12:00"
+    cooldown:
+      default-days: 4
   - package-ecosystem: pip
     directory: /pulumi
     schedule:
@@ -15,6 +17,8 @@ updates:
         dependency-type: "production"
       pulumi-dev:
         dependency-type: "development"
+    cooldown:
+      default-days: 4
   - package-ecosystem: cargo
     directories:
       - /app
@@ -25,3 +29,5 @@ updates:
       cargo:
         patterns:
           - "*"
+    cooldown:
+      default-days: 4
