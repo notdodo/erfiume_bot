@@ -5,9 +5,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from pulumi_aws import cloudwatch, lambda_
-
 import pulumi
+from pulumi_aws import cloudwatch, lambda_
 
 from .helpers import format_resource_name
 
@@ -45,7 +44,7 @@ class Function(pulumi.ComponentResource):
         self,
         name: str,
         memory: int,
-        architecture: str | None = FunctionCPUArchitecture.X86,
+        architecture: FunctionCPUArchitecture = FunctionCPUArchitecture.X86,
         code_runtime: FunctionRuntime | None = FunctionRuntime.RUST,
         role: LambdaRole | None = None,
         variables: dict[str, str | pulumi.Output[str]] | None = None,
@@ -61,7 +60,7 @@ class Function(pulumi.ComponentResource):
 
         self.function = lambda_.Function(
             self.resource_name,
-            architectures=[architecture],
+            architectures=[architecture.value],
             code=pulumi.FileArchive("./er_fiume/dummy.zip"),
             name=self.name,
             role=role.arn if role else None,
