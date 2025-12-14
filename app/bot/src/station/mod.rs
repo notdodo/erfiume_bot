@@ -1,5 +1,4 @@
 pub(crate) mod search;
-
 use chrono::{DateTime, TimeZone};
 use chrono_tz::Europe::Rome;
 use serde::Deserialize;
@@ -8,7 +7,7 @@ const UNKNOWN_VALUE: f64 = -9999.0;
 
 #[derive(Deserialize)]
 #[allow(dead_code)]
-pub struct Stazione {
+pub struct Station {
     timestamp: i64,
     idstazione: String,
     ordinamento: i32,
@@ -21,7 +20,7 @@ pub struct Stazione {
     value: f64,
 }
 
-impl Stazione {
+impl Station {
     pub fn create_station_message(&self) -> String {
         let timestamp_secs = self.timestamp / 1000;
         let naive_datetime = DateTime::from_timestamp(timestamp_secs, 0).unwrap();
@@ -333,7 +332,7 @@ mod tests {
 
     #[test]
     fn create_station_message_with_unknown_value() {
-        let station = Stazione {
+        let station = Station {
             idstazione: "/id/".to_string(),
             timestamp: 1729454542656,
             ordinamento: 1,
@@ -352,7 +351,7 @@ mod tests {
 
     #[test]
     fn create_station_message() {
-        let station = Stazione {
+        let station = Station {
             idstazione: "/id/".to_string(),
             timestamp: 1729454542656,
             ordinamento: 1,

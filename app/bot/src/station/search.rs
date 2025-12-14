@@ -1,9 +1,8 @@
+use super::{Station, UNKNOWN_VALUE, stations};
 use anyhow::{Result, anyhow};
 use aws_sdk_dynamodb::{Client as DynamoDbClient, types::AttributeValue};
 use std::collections::HashMap;
 use strsim::jaro_winkler;
-
-use super::{Stazione, UNKNOWN_VALUE, stations};
 
 fn fuzzy_search(search: &str) -> Option<String> {
     let stations = stations();
@@ -24,7 +23,7 @@ pub async fn get_station(
     client: &DynamoDbClient,
     station_name: String,
     table_name: &str,
-) -> Result<Option<Stazione>> {
+) -> Result<Option<Station>> {
     if let Some(closest_match) = fuzzy_search(&station_name) {
         let result = client
             .get_item()
@@ -46,7 +45,7 @@ pub async fn get_station(
                 let soglia3 = parse_number_field::<f64>(&item, "soglia3")?;
                 let value = parse_optional_number_field(&item, "value")?.unwrap_or(UNKNOWN_VALUE);
 
-                Ok(Some(Stazione {
+                Ok(Some(Station {
                     timestamp,
                     idstazione,
                     ordinamento,

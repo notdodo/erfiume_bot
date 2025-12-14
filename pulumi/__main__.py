@@ -1,11 +1,9 @@
 """An AWS Python Pulumi program"""
 
-import pulumi
 import pulumi_cloudflare
-from pulumi_aws import apigatewayv2, lambda_, scheduler
-
 from er_fiume import (
     Function,
+    FunctionCPUArchitecture,
     FunctionRuntime,
     GenericRole,
     LambdaRole,
@@ -13,7 +11,10 @@ from er_fiume import (
     TableAttribute,
     TableAttributeType,
 )
+from pulumi_aws import apigatewayv2, lambda_, scheduler
 from telegram_provider import TelegramBot
+
+import pulumi
 
 RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
@@ -60,7 +61,8 @@ fetcher_lambda = Function(
         ],
     ),
     code_runtime=FunctionRuntime.RUST,
-    memory=512,
+    architecture=FunctionCPUArchitecture.ARM,
+    memory=384,
     timeout=20,
     variables={
         "ENVIRONMENT": pulumi.get_stack(),
@@ -97,6 +99,7 @@ bot_lambda = Function(
         ],
     ),
     code_runtime=FunctionRuntime.RUST,
+    architecture=FunctionCPUArchitecture.ARM,
     memory=128,
     timeout=10,
     variables={
