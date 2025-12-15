@@ -20,6 +20,13 @@ class FunctionRuntime(Enum):
     RUST = lambda_.Runtime.CUSTOM_AL2023
 
 
+class FunctionCPUArchitecture(Enum):
+    """The CPU arch of the function executing the code"""
+
+    ARM = "arm64"
+    X86 = "x86_64"
+
+
 class Function(pulumi.ComponentResource):
     """
     A Pulumi custom resource to create a Lambda function.
@@ -37,10 +44,11 @@ class Function(pulumi.ComponentResource):
         self,
         name: str,
         memory: int,
-        timeout: int | None = 3,
+        architecture: FunctionCPUArchitecture = FunctionCPUArchitecture.X86,
         code_runtime: FunctionRuntime | None = FunctionRuntime.RUST,
         role: LambdaRole | None = None,
         variables: dict[str, str | pulumi.Output[str]] | None = None,
+        timeout: int | None = 3,
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         """
@@ -52,6 +60,7 @@ class Function(pulumi.ComponentResource):
 
         self.function = lambda_.Function(
             self.resource_name,
+            architectures=[architecture.value],
             code=pulumi.FileArchive("./er_fiume/dummy.zip"),
             name=self.name,
             role=role.arn if role else None,

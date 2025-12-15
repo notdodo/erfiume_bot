@@ -23,6 +23,7 @@ jobs:
       deploy-lambda: true
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-write
       binary-name: erfiume-bot
+      lambda-arch: arm64
 
   rust-ci-fetcher:
     needs: [rust-ci-bot]
@@ -37,3 +38,4 @@ jobs:
       deploy-lambda: true
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-write
       binary-name: erfiume-fetcher
+      lambda-arch: arm64

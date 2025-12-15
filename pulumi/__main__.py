@@ -6,6 +6,7 @@ from pulumi_aws import apigatewayv2, lambda_, scheduler
 
 from er_fiume import (
     Function,
+    FunctionCPUArchitecture,
     FunctionRuntime,
     GenericRole,
     LambdaRole,
@@ -60,7 +61,8 @@ fetcher_lambda = Function(
         ],
     ),
     code_runtime=FunctionRuntime.RUST,
-    memory=512,
+    architecture=FunctionCPUArchitecture.ARM,
+    memory=384,
     timeout=20,
     variables={
         "ENVIRONMENT": pulumi.get_stack(),
@@ -97,6 +99,7 @@ bot_lambda = Function(
         ],
     ),
     code_runtime=FunctionRuntime.RUST,
+    architecture=FunctionCPUArchitecture.ARM,
     memory=128,
     timeout=10,
     variables={
