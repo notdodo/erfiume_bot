@@ -62,7 +62,7 @@ fetcher_lambda = Function(
     ),
     code_runtime=FunctionRuntime.RUST,
     architecture=FunctionCPUArchitecture.ARM,
-    memory=384,
+    memory=512,
     timeout=20,
     variables={
         "ENVIRONMENT": pulumi.get_stack(),
