@@ -5,7 +5,7 @@ improved from: https://github.com/omerholz/chatbot-example/blob/serverless-teleg
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -27,27 +27,29 @@ if TYPE_CHECKING:
 class TelegramBotInfo:
     """Answer from /getMe"""
 
+    can_connect_to_business: bool
+    can_join_groups: bool
+    can_read_all_group_messages: bool
+    first_name: str
+    has_main_web_app: bool
     id: str
     is_bot: bool
-    first_name: str
-    username: str
-    can_join_grousp: bool
-    can_read_all_group_messages: bool
     supports_inline_queries: bool
-    can_connect_to_business: bool
-    has_main_web_app: bool
+    username: str
 
 
 @dataclass
 class TelegramBotWebhookInfo:
     """Answer from /getWebhookInfo"""
 
-    url: str
-    has_custom_certificate: bool
-    pending_update_count: int
-    max_connections: int
-    ip_address: str
     allowed_updates: list[str]
+    has_custom_certificate: bool
+    ip_address: str
+    max_connections: int
+    pending_update_count: int
+    url: str
+    last_error_date: int | None = None
+    last_error_message: str | None = None
 
 
 class _TelegramBotProvider(ResourceProvider):
@@ -114,8 +116,8 @@ class _TelegramBotProvider(ResourceProvider):
 
         props.update(
             {
-                "webhook": webhook_info,
-                "bot_info": bot_info,
+                "webhook": asdict(webhook_info),
+                "bot_info": asdict(bot_info),
             }
         )
 
