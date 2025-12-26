@@ -89,7 +89,7 @@ class Table(pulumi.ComponentResource):
             global_secondary_indexes=self.global_secondary_indexes,
             ttl=ttl_attribute,
             opts=pulumi.ResourceOptions.merge(
-                pulumi.ResourceOptions(parent=self), opts
+                pulumi.ResourceOptions(parent=self, delete_before_replace=True), opts
             ),
         )
 
