@@ -68,7 +68,7 @@ pub(crate) async fn commands_handler(
         Command::Info => {
             let info = "Bot Telegram che permette di leggere i livello idrometrici dei fiumi dell'Emilia Romagna \
                               I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagna.it\n\n\
-                              Il progetto e' completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
+                              Il progetto è completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
                               Per donazioni per mantenere il servizio attivo: buymeacoffee.com/d0d0\n\n\
                               Inizia con /start o /stazioni";
             info.to_string()
@@ -76,7 +76,7 @@ pub(crate) async fn commands_handler(
         Command::ListaAvvisi => {
             let alerts_table_name = std::env::var("ALERTS_TABLE_NAME").unwrap_or_default();
             if alerts_table_name.is_empty() {
-                "Funzionalita' non disponibile al momento.".to_string()
+                "Funzionalità non disponibile al momento.".to_string()
             } else {
                 let chat_id = msg.chat.id.0;
                 let alerts = dynamo_alerts::list_active_alerts_for_chat(
@@ -113,7 +113,7 @@ pub(crate) async fn commands_handler(
 
             let alerts_table_name = std::env::var("ALERTS_TABLE_NAME").unwrap_or_default();
             if alerts_table_name.is_empty() {
-                "Funzionalita' non disponibile al momento.".to_string()
+                "Funzionalità non disponibile al momento.".to_string()
             } else {
                 let station_result = station::search::get_station(
                     &dynamodb_client,
@@ -167,7 +167,7 @@ pub(crate) async fn commands_handler(
 
             let alerts_table_name = std::env::var("ALERTS_TABLE_NAME").unwrap_or_default();
             if alerts_table_name.is_empty() {
-                "Funzionalita' non disponibile al momento.".to_string()
+                "Funzionalità non disponibile al momento.".to_string()
             } else {
                 let station_result = station::search::get_station(
                     &dynamodb_client,
@@ -217,7 +217,7 @@ pub(crate) async fn commands_handler(
                             &bot,
                             &msg,
                             link_preview_options,
-                            "Hai gia' impostato 3 avvisi. Per evitare spam, il limite e' 3.",
+                            "Hai già impostato 3 avvisi. Per evitare spam, il limite è 3.",
                         )
                         .await?;
                         return Ok(());
@@ -241,14 +241,14 @@ pub(crate) async fn commands_handler(
                         &bot,
                         &msg,
                         link_preview_options,
-                        "Errore nel salvataggio dell'avviso. Riprova piu' tardi.",
+                        "Errore nel salvataggio dell'avviso. Riprova più tardi.",
                     )
                     .await?;
                     return Ok(());
                 }
 
                 format!(
-                    "Ok! Ti avvisero' quando {} supera {}.",
+                    "Ok! Ti avviserò quando {} supera {}.",
                     station.nomestaz, threshold
                 )
             }
@@ -291,7 +291,7 @@ pub(crate) async fn message_handler(
         Ok(Some(item)) => {
             if item.nomestaz.to_lowercase() != text.to_lowercase() {
                 format!(
-                    "{}\nSe non e' la stazione corretta prova ad affinare la ricerca.",
+                    "{}\nSe non è la stazione corretta prova ad affinare la ricerca.",
                     item.create_station_message()
                 )
             } else {
@@ -304,12 +304,12 @@ pub(crate) async fn message_handler(
     let mut message = text.clone();
     if fastrand::choose_multiple(0..10, 1)[0] == 8 {
         message = format!(
-            "{text}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalita' tramite una donazione: https://buymeacoffee.com/d0d0",
+            "{text}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0",
         );
     }
     if fastrand::choose_multiple(0..50, 1)[0] == 8 {
         message = format!(
-            "{text}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalita': https://github.com/notdodo/erfiume_bot"
+            "{text}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot"
         );
     }
     utils::send_message(bot, msg, link_preview_options, &message).await?;
