@@ -42,7 +42,7 @@ alerts_table = Table(
     attributes=[
         TableAttribute(name="station", type=TableAttributeType.STRING),
         TableAttribute(name="chat_id", type=TableAttributeType.NUMBER),
-        TableAttribute(name="active", type=TableAttributeType.STRING),
+        TableAttribute(name="active", type=TableAttributeType.NUMBER),
     ],
     global_secondary_indexes=[
         dynamodb.TableGlobalSecondaryIndexArgs(
