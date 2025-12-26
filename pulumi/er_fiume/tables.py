@@ -5,9 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from pulumi_aws import dynamodb
-
 import pulumi
+from pulumi_aws import dynamodb
 
 from .helpers import format_resource_name
 
