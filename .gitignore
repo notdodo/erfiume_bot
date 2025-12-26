@@ -4,3 +4,5 @@
 .env
 dist/
 .DS_Store
+*.md
+!README.md
