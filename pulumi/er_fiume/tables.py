@@ -5,8 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-import pulumi
 from pulumi_aws import dynamodb
+
+import pulumi
 
 from .helpers import format_resource_name
 
@@ -89,7 +90,7 @@ class Table(pulumi.ComponentResource):
             global_secondary_indexes=self.global_secondary_indexes,
             ttl=ttl_attribute,
             opts=pulumi.ResourceOptions.merge(
-                pulumi.ResourceOptions(parent=self), opts
+                pulumi.ResourceOptions(parent=self, delete_before_replace=True), opts
             ),
         )
 
