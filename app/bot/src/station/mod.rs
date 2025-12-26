@@ -43,15 +43,19 @@ impl Station {
             alarm = "🟠";
         }
 
-        let mut value_str = format!("{value}");
+        let mut value_str = format!("{value:.2}");
         if value == UNKNOWN_VALUE {
             value_str = "non disponibile".to_string();
             alarm = "";
         }
 
+        let yellow_str = format!("{yellow:.2}");
+        let orange_str = format!("{orange:.2}");
+        let red_str = format!("{red:.2}");
+
         format!(
             "Stazione: {}\nValore: {} {}\nSoglia Gialla: {}\nSoglia Arancione: {}\nSoglia Rossa: {}\nUltimo rilevamento: {}",
-            self.nomestaz, value_str, alarm, yellow, orange, red, timestamp_formatted
+            self.nomestaz, value_str, alarm, yellow_str, orange_str, red_str, timestamp_formatted
         )
     }
 }
@@ -344,7 +348,7 @@ mod tests {
             soglia3: 3.0,
             value: UNKNOWN_VALUE,
         };
-        let expected = "Stazione: Cesena\nValore: non disponibile \nSoglia Gialla: 1\nSoglia Arancione: 2\nSoglia Rossa: 3\nUltimo rilevamento: 20-10-2024 22:02".to_string();
+        let expected = "Stazione: Cesena\nValore: non disponibile \nSoglia Gialla: 1.00\nSoglia Arancione: 2.00\nSoglia Rossa: 3.00\nUltimo rilevamento: 20-10-2024 22:02".to_string();
 
         assert_eq!(station.create_station_message(), expected);
     }
@@ -363,7 +367,7 @@ mod tests {
             soglia3: 3.0,
             value: 2.2,
         };
-        let expected = "Stazione: Cesena\nValore: 2.2 🟠\nSoglia Gialla: 1\nSoglia Arancione: 2\nSoglia Rossa: 3\nUltimo rilevamento: 20-10-2024 22:02".to_string();
+        let expected = "Stazione: Cesena\nValore: 2.20 🟠\nSoglia Gialla: 1.00\nSoglia Arancione: 2.00\nSoglia Rossa: 3.00\nUltimo rilevamento: 20-10-2024 22:02".to_string();
 
         assert_eq!(station.create_station_message(), expected);
     }

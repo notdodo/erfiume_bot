@@ -68,7 +68,7 @@ pub(crate) async fn commands_handler(
         Command::Info => {
             let info = "Bot Telegram che permette di leggere i livello idrometrici dei fiumi dell'Emilia Romagna \
                               I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagna.it\n\n\
-                              Il progetto è completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
+                              Il progetto e' completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
                               Per donazioni per mantenere il servizio attivo: buymeacoffee.com/d0d0\n\n\
                               Inizia con /start o /stazioni";
             info.to_string()
@@ -76,7 +76,7 @@ pub(crate) async fn commands_handler(
         Command::ListaAvvisi => {
             let alerts_table_name = std::env::var("ALERTS_TABLE_NAME").unwrap_or_default();
             if alerts_table_name.is_empty() {
-                "Funzionalità non disponibile al momento.".to_string()
+                "Funzionalita' non disponibile al momento.".to_string()
             } else {
                 let chat_id = msg.chat.id.0;
                 let alerts = dynamo_alerts::list_active_alerts_for_chat(
@@ -92,8 +92,13 @@ pub(crate) async fn commands_handler(
                 } else {
                     let mut lines = Vec::with_capacity(alerts.len() + 1);
                     lines.push("I tuoi avvisi attivi:".to_string());
-                    for alert in alerts {
-                        lines.push(format!("{} - {}", alert.station_name, alert.threshold));
+                    for (index, alert) in alerts.iter().enumerate() {
+                        lines.push(format!(
+                            "{}. {} - {}",
+                            index + 1,
+                            alert.station_name,
+                            alert.threshold
+                        ));
                     }
                     lines.join("\n")
                 }
@@ -105,7 +110,7 @@ pub(crate) async fn commands_handler(
                     &bot,
                     &msg,
                     link_preview_options,
-                    "Uso: /rimuovi_avviso <stazione>",
+                    "Uso: /rimuovi_avviso <stazione> oppure /rimuovi_avviso <numero>",
                 )
                 .await?;
                 return Ok(());
@@ -113,43 +118,80 @@ pub(crate) async fn commands_handler(
 
             let alerts_table_name = std::env::var("ALERTS_TABLE_NAME").unwrap_or_default();
             if alerts_table_name.is_empty() {
-                "Funzionalità non disponibile al momento.".to_string()
+                "Funzionalita' non disponibile al momento.".to_string()
             } else {
-                let station_result = station::search::get_station(
-                    &dynamodb_client,
-                    station_name,
-                    "EmiliaRomagna-Stations",
-                )
-                .await;
+                let chat_id = msg.chat.id.0;
+                if let Ok(index) = station_name.parse::<usize>() {
+                    let alerts = dynamo_alerts::list_active_alerts_for_chat(
+                        &dynamodb_client,
+                        &alerts_table_name,
+                        chat_id,
+                    )
+                    .await
+                    .unwrap_or_default();
 
-                let station = match station_result {
-                    Ok(Some(item)) => item,
-                    _ => {
+                    if index == 0 || index > alerts.len() {
                         utils::send_message(
                             &bot,
                             &msg,
                             link_preview_options,
-                            "Nessuna stazione trovata con quel nome. Usa /stazioni per vedere l'elenco.",
+                            "Numero non valido. Usa /lista_avvisi per vedere gli avvisi attivi.",
                         )
                         .await?;
                         return Ok(());
                     }
-                };
 
-                let chat_id = msg.chat.id.0;
-                let removed = dynamo_alerts::delete_alert(
-                    &dynamodb_client,
-                    &alerts_table_name,
-                    &station.nomestaz,
-                    chat_id,
-                )
-                .await
-                .unwrap_or(false);
+                    let alert = &alerts[index - 1];
+                    let removed = dynamo_alerts::delete_alert(
+                        &dynamodb_client,
+                        &alerts_table_name,
+                        &alert.station_name,
+                        chat_id,
+                    )
+                    .await
+                    .unwrap_or(false);
 
-                if removed {
-                    format!("Avviso rimosso per {}.", station.nomestaz)
+                    if removed {
+                        format!("Avviso rimosso per {}.", alert.station_name)
+                    } else {
+                        "Non ho trovato un avviso attivo per questa stazione.".to_string()
+                    }
                 } else {
-                    "Non ho trovato un avviso attivo per questa stazione.".to_string()
+                    let station_result = station::search::get_station(
+                        &dynamodb_client,
+                        station_name,
+                        "EmiliaRomagna-Stations",
+                    )
+                    .await;
+
+                    let station = match station_result {
+                        Ok(Some(item)) => item,
+                        _ => {
+                            utils::send_message(
+                                &bot,
+                                &msg,
+                                link_preview_options,
+                                "Nessuna stazione trovata con quel nome. Usa /stazioni per vedere l'elenco.",
+                            )
+                            .await?;
+                            return Ok(());
+                        }
+                    };
+
+                    let removed = dynamo_alerts::delete_alert(
+                        &dynamodb_client,
+                        &alerts_table_name,
+                        &station.nomestaz,
+                        chat_id,
+                    )
+                    .await
+                    .unwrap_or(false);
+
+                    if removed {
+                        format!("Avviso rimosso per {}.", station.nomestaz)
+                    } else {
+                        "Non ho trovato un avviso attivo per questa stazione.".to_string()
+                    }
                 }
             }
         }
@@ -167,7 +209,7 @@ pub(crate) async fn commands_handler(
 
             let alerts_table_name = std::env::var("ALERTS_TABLE_NAME").unwrap_or_default();
             if alerts_table_name.is_empty() {
-                "Funzionalità non disponibile al momento.".to_string()
+                "Funzionalita' non disponibile al momento.".to_string()
             } else {
                 let station_result = station::search::get_station(
                     &dynamodb_client,
@@ -217,7 +259,7 @@ pub(crate) async fn commands_handler(
                             &bot,
                             &msg,
                             link_preview_options,
-                            "Hai già impostato 3 avvisi. Per evitare spam, il limite è 3.",
+                            "Hai gia' impostato 3 avvisi. Per evitare spam, il limite e' 3.",
                         )
                         .await?;
                         return Ok(());
@@ -241,14 +283,14 @@ pub(crate) async fn commands_handler(
                         &bot,
                         &msg,
                         link_preview_options,
-                        "Errore nel salvataggio dell'avviso. Riprova più tardi.",
+                        "Errore nel salvataggio dell'avviso. Riprova piu' tardi.",
                     )
                     .await?;
                     return Ok(());
                 }
 
                 format!(
-                    "Ok! Ti avviserò quando {} supera {}.",
+                    "Ok! Ti avvisero' quando {} supera {}.",
                     station.nomestaz, threshold
                 )
             }
@@ -291,7 +333,7 @@ pub(crate) async fn message_handler(
         Ok(Some(item)) => {
             if item.nomestaz.to_lowercase() != text.to_lowercase() {
                 format!(
-                    "{}\nSe non è la stazione corretta prova ad affinare la ricerca.",
+                    "{}\nSe non e' la stazione corretta prova ad affinare la ricerca.",
                     item.create_station_message()
                 )
             } else {
@@ -304,12 +346,12 @@ pub(crate) async fn message_handler(
     let mut message = text.clone();
     if fastrand::choose_multiple(0..10, 1)[0] == 8 {
         message = format!(
-            "{text}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalità tramite una donazione: https://buymeacoffee.com/d0d0",
+            "{text}\n\nContribuisci al progetto per mantenerlo attivo e sviluppare nuove funzionalita' tramite una donazione: https://buymeacoffee.com/d0d0",
         );
     }
     if fastrand::choose_multiple(0..50, 1)[0] == 8 {
         message = format!(
-            "{text}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalità: https://github.com/notdodo/erfiume_bot"
+            "{text}\n\nEsplora o contribuisci al progetto open-source per sviluppare nuove funzionalita': https://github.com/notdodo/erfiume_bot"
         );
     }
     utils::send_message(bot, msg, link_preview_options, &message).await?;

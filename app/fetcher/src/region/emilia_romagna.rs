@@ -12,6 +12,10 @@ use tracing::error;
 
 pub struct EmiliaRomagna;
 
+fn round_two_decimals(value: f32) -> f32 {
+    (value * 100.0).round() / 100.0
+}
+
 #[allow(unused_variables)]
 impl Region for EmiliaRomagna {
     fn name(&self) -> &'static str {
@@ -110,9 +114,9 @@ async fn fetch_stations(client: &HTTPClient, timestamp: i64) -> Result<Vec<Stati
                 ordinamento,
                 nomestaz,
                 lon,
-                soglia1,
-                soglia2,
-                soglia3,
+                soglia1: round_two_decimals(soglia1),
+                soglia2: round_two_decimals(soglia2),
+                soglia3: round_two_decimals(soglia3),
                 lat,
                 timestamp: None,
                 value: None,
@@ -136,7 +140,7 @@ async fn fetch_station_data(
     let entries: Vec<StationData> = response.json().await?;
     if let Some(latest_value) = entries.iter().max_by_key(|e| e.t) {
         station.timestamp = Some(latest_value.t);
-        station.value = latest_value.v;
+        station.value = latest_value.v.map(round_two_decimals);
     }
 
     Ok(station)
