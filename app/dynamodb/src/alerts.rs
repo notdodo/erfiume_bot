@@ -41,7 +41,7 @@ pub async fn upsert_alert(
         ),
         (
             ":active".to_string(),
-            AttributeValue::S(ALERT_ACTIVE.to_string()),
+            AttributeValue::N(ALERT_ACTIVE.to_string()),
         ),
     ]);
 
@@ -141,7 +141,7 @@ pub async fn list_active_alerts_for_chat(
             .expression_attribute_names("#chat_id", "chat_id")
             .expression_attribute_names("#active", "active")
             .expression_attribute_values(":chat_id", AttributeValue::N(chat_id.to_string()))
-            .expression_attribute_values(":active", AttributeValue::S(ALERT_ACTIVE.to_string()))
+            .expression_attribute_values(":active", AttributeValue::N(ALERT_ACTIVE.to_string()))
             .projection_expression("station, threshold");
 
         if let Some(key) = last_evaluated_key.take() {
@@ -189,7 +189,7 @@ pub async fn count_active_alerts_for_chat(
             .expression_attribute_names("#chat_id", "chat_id")
             .expression_attribute_names("#active", "active")
             .expression_attribute_values(":chat_id", AttributeValue::N(chat_id.to_string()))
-            .expression_attribute_values(":active", AttributeValue::S(ALERT_ACTIVE.to_string()))
+            .expression_attribute_values(":active", AttributeValue::N(ALERT_ACTIVE.to_string()))
             .select(aws_sdk_dynamodb::types::Select::Count)
             .limit((max.saturating_sub(total) + 1) as i32);
 
@@ -225,7 +225,7 @@ pub async fn list_pending_alerts_for_station(
         .expression_attribute_names("#station", "station")
         .expression_attribute_names("#active", "active")
         .expression_attribute_values(":station", AttributeValue::S(station_name.to_string()))
-        .expression_attribute_values(":active", AttributeValue::S(ALERT_ACTIVE.to_string()))
+        .expression_attribute_values(":active", AttributeValue::N(ALERT_ACTIVE.to_string()))
         .projection_expression("chat_id, threshold, thread_id")
         .send()
         .await?;
@@ -266,7 +266,7 @@ pub async fn reactivate_expired_alerts_for_station(
         .expression_attribute_names("#station", "station")
         .expression_attribute_names("#active", "active")
         .expression_attribute_values(":station", AttributeValue::S(station_name.to_string()))
-        .expression_attribute_values(":active", AttributeValue::S(ALERT_TRIGGERED.to_string()))
+        .expression_attribute_values(":active", AttributeValue::N(ALERT_TRIGGERED.to_string()))
         .projection_expression("chat_id, triggered_at")
         .send()
         .await?;
@@ -285,7 +285,7 @@ pub async fn reactivate_expired_alerts_for_station(
 
         let expression_attribute_values = HashMap::from([(
             ":active".to_string(),
-            AttributeValue::S(ALERT_ACTIVE.to_string()),
+            AttributeValue::N(ALERT_ACTIVE.to_string()),
         )]);
 
         client
@@ -327,7 +327,7 @@ pub async fn mark_alert_triggered(
         ),
         (
             ":active".to_string(),
-            AttributeValue::S(ALERT_TRIGGERED.to_string()),
+            AttributeValue::N(ALERT_TRIGGERED.to_string()),
         ),
     ]);
 

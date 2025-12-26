@@ -66,10 +66,10 @@ pub(crate) async fn commands_handler(
         }
         Command::Stazioni => station::stations().join("\n"),
         Command::Info => {
-            let info = "Bot Telegram che permette di leggere i livello idrometrici dei fiumi dell'Emilia Romagna \
+            let info = "Bot Telegram che permette di leggere i livelli idrometrici dei fiumi dell'Emilia-Romagna \
                               I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagna.it\n\n\
                               Il progetto è completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
-                              Per donazioni per mantenere il servizio attivo: buymeacoffee.com/d0d0\n\n\
+                              Per sostenere e mantenere il servizio attivo: buymeacoffee.com/d0d0\n\n\
                               Inizia con /start o /stazioni";
             info.to_string()
         }
@@ -92,8 +92,13 @@ pub(crate) async fn commands_handler(
                 } else {
                     let mut lines = Vec::with_capacity(alerts.len() + 1);
                     lines.push("I tuoi avvisi attivi:".to_string());
-                    for alert in alerts {
-                        lines.push(format!("{} - {}", alert.station_name, alert.threshold));
+                    for (index, alert) in alerts.iter().enumerate() {
+                        lines.push(format!(
+                            "{}. {} - {}",
+                            index + 1,
+                            alert.station_name,
+                            alert.threshold
+                        ));
                     }
                     lines.join("\n")
                 }
@@ -105,7 +110,7 @@ pub(crate) async fn commands_handler(
                     &bot,
                     &msg,
                     link_preview_options,
-                    "Uso: /rimuovi_avviso <stazione>",
+                    "Uso: /rimuovi_avviso <stazione> oppure /rimuovi_avviso <numero>",
                 )
                 .await?;
                 return Ok(());
@@ -115,41 +120,78 @@ pub(crate) async fn commands_handler(
             if alerts_table_name.is_empty() {
                 "Funzionalità non disponibile al momento.".to_string()
             } else {
-                let station_result = station::search::get_station(
-                    &dynamodb_client,
-                    station_name,
-                    "EmiliaRomagna-Stations",
-                )
-                .await;
+                let chat_id = msg.chat.id.0;
+                if let Ok(index) = station_name.parse::<usize>() {
+                    let alerts = dynamo_alerts::list_active_alerts_for_chat(
+                        &dynamodb_client,
+                        &alerts_table_name,
+                        chat_id,
+                    )
+                    .await
+                    .unwrap_or_default();
 
-                let station = match station_result {
-                    Ok(Some(item)) => item,
-                    _ => {
+                    if index == 0 || index > alerts.len() {
                         utils::send_message(
                             &bot,
                             &msg,
                             link_preview_options,
-                            "Nessuna stazione trovata con quel nome. Usa /stazioni per vedere l'elenco.",
+                            "Numero non valido. Usa /lista_avvisi per vedere gli avvisi attivi.",
                         )
                         .await?;
                         return Ok(());
                     }
-                };
 
-                let chat_id = msg.chat.id.0;
-                let removed = dynamo_alerts::delete_alert(
-                    &dynamodb_client,
-                    &alerts_table_name,
-                    &station.nomestaz,
-                    chat_id,
-                )
-                .await
-                .unwrap_or(false);
+                    let alert = &alerts[index - 1];
+                    let removed = dynamo_alerts::delete_alert(
+                        &dynamodb_client,
+                        &alerts_table_name,
+                        &alert.station_name,
+                        chat_id,
+                    )
+                    .await
+                    .unwrap_or(false);
 
-                if removed {
-                    format!("Avviso rimosso per {}.", station.nomestaz)
+                    if removed {
+                        format!("Avviso rimosso per {}.", alert.station_name)
+                    } else {
+                        "Non ho trovato un avviso attivo per questa stazione.".to_string()
+                    }
                 } else {
-                    "Non ho trovato un avviso attivo per questa stazione.".to_string()
+                    let station_result = station::search::get_station(
+                        &dynamodb_client,
+                        station_name,
+                        "EmiliaRomagna-Stations",
+                    )
+                    .await;
+
+                    let station = match station_result {
+                        Ok(Some(item)) => item,
+                        _ => {
+                            utils::send_message(
+                                &bot,
+                                &msg,
+                                link_preview_options,
+                                "Nessuna stazione trovata con quel nome. Usa /stazioni per vedere l'elenco.",
+                            )
+                            .await?;
+                            return Ok(());
+                        }
+                    };
+
+                    let removed = dynamo_alerts::delete_alert(
+                        &dynamodb_client,
+                        &alerts_table_name,
+                        &station.nomestaz,
+                        chat_id,
+                    )
+                    .await
+                    .unwrap_or(false);
+
+                    if removed {
+                        format!("Avviso rimosso per {}.", station.nomestaz)
+                    } else {
+                        "Non ho trovato un avviso attivo per questa stazione.".to_string()
+                    }
                 }
             }
         }
@@ -298,7 +340,7 @@ pub(crate) async fn message_handler(
                 item.create_station_message().to_string()
             }
         }
-        Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca.\nInserisci esattamente il nome che vedi dalla pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico\nAd esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'.\nSe non sai quale cercare prova con /stazioni".to_string(),
+        Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca.\nInserisci esattamente il nome che vedi nella pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico\nAd esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'.\nSe non sai quale cercare, prova con /stazioni.".to_string(),
     };
 
     let mut message = text.clone();
