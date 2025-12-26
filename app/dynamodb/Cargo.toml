@@ -1,0 +1,10 @@
+[package]
+name = "erfiume-dynamodb"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+aws-sdk-dynamodb.workspace = true

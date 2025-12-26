@@ -9,10 +9,11 @@ on:
 
 jobs:
   python-ci-pulumi:
-    permissions: {}
+    permissions:
+      contents: read
     uses: notdodo/github-actions/.github/workflows/python-ci.yml@python-ci-v0
     with:
-      working-directory: "./pulumi"
+      working-directory: './pulumi'
 
   pulumi-up:
     name: Pulumi Up

@@ -1,10 +1,11 @@
 use super::Region;
 use crate::{
-    dynamodb,
+    alerts::{self, AlertsConfig},
     region::{RegionError, RegionResult},
     station::{Entry, Station, StationData},
 };
-use dynamodb::DynamoDbClient;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
+use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use futures::StreamExt;
 use reqwest::Client as HTTPClient;
 use tracing::error;
@@ -155,10 +156,31 @@ async fn process_station(
                 station.nomestaz, e
             );
             e
-        });
-    dynamodb_client
-        .put_station_into_dynamodb(&station?, table_name)
-        .await?;
+        })?;
+    let record = StationRecord {
+        timestamp: station.timestamp.unwrap_or_default() as i64,
+        idstazione: station.idstazione.clone(),
+        ordinamento: station.ordinamento,
+        nomestaz: station.nomestaz.clone(),
+        lon: station.lon.clone(),
+        lat: station.lat.clone(),
+        soglia1: station.soglia1 as f64,
+        soglia2: station.soglia2 as f64,
+        soglia3: station.soglia3 as f64,
+        value: station.value.map(|value| value as f64),
+    };
+    put_station_record(dynamodb_client, table_name, &record).await?;
+
+    if let Some(config) = AlertsConfig::from_env()
+        && let Err(err) =
+            alerts::process_alerts_for_station(client, dynamodb_client, &station, &config).await
+    {
+        error!(
+            station = %station.nomestaz,
+            error = %err,
+            "Failed to process alerts"
+        );
+    }
 
     Ok(())
 }
