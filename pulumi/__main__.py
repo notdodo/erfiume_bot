@@ -2,7 +2,7 @@
 
 import pulumi
 import pulumi_cloudflare
-from pulumi_aws import apigatewayv2, lambda_, scheduler
+from pulumi_aws import apigatewayv2, dynamodb, lambda_, scheduler
 
 from er_fiume import (
     Function,
@@ -10,7 +10,7 @@ from er_fiume import (
     FunctionRuntime,
     GenericRole,
     LambdaRole,
-    Stations,
+    Table,
     TableAttribute,
     TableAttributeType,
 )
@@ -23,23 +23,52 @@ SYNC_MINUTES_RATE_EMERGENCY = 20
 EMERGENCY = False
 CUSTOM_DOMAIN_NAME = "erfiume.thedodo.xyz"
 
-er_stations_table = Stations(
+er_stations_table = Table(
     name="EmiliaRomagna-Stations",
     hash_key="nomestaz",
     attributes=[TableAttribute(name="nomestaz", type=TableAttributeType.STRING)],
 )
 
-m_stations_table = Stations(
+m_stations_table = Table(
     name="Marche-Stations",
     hash_key="nomestaz",
     attributes=[TableAttribute(name="nomestaz", type=TableAttributeType.STRING)],
 )
 
-chats_table = Stations(
-    name="Chats",
-    hash_key="id",
-    attributes=[TableAttribute(name="id", type=TableAttributeType.NUMBER)],
-    ttl="ttl",
+alerts_table = Table(
+    name="Alerts",
+    hash_key="station",
+    range_key="chat_id",
+    attributes=[
+        TableAttribute(name="station", type=TableAttributeType.STRING),
+        TableAttribute(name="chat_id", type=TableAttributeType.NUMBER),
+        TableAttribute(name="active", type=TableAttributeType.STRING),
+    ],
+    global_secondary_indexes=[
+        dynamodb.TableGlobalSecondaryIndexArgs(
+            name="chat_id-active-index",
+            hash_key="chat_id",
+            range_key="active",
+            projection_type="INCLUDE",
+            non_key_attributes=[
+                "station",
+                "threshold",
+                "thread_id",
+            ],
+        ),
+        dynamodb.TableGlobalSecondaryIndexArgs(
+            name="station-active-index",
+            hash_key="station",
+            range_key="active",
+            projection_type="INCLUDE",
+            non_key_attributes=[
+                "chat_id",
+                "threshold",
+                "triggered_at",
+                "thread_id",
+            ],
+        ),
+    ],
 )
 
 fetcher_lambda = Function(
@@ -51,12 +80,16 @@ fetcher_lambda = Function(
             {
                 "Effect": "Allow",
                 "Actions": [
+                    "dynamodb:GetItem",
                     "dynamodb:PutItem",
                     "dynamodb:Query",
                     "dynamodb:UpdateItem",
-                    "dynamodb:GetItem",
                 ],
-                "Resources": [er_stations_table.arn, m_stations_table.arn],
+                "Resources": [
+                    er_stations_table.arn,
+                    m_stations_table.arn,
+                    alerts_table.arn,
+                ],
             }
         ],
     ),
@@ -65,8 +98,10 @@ fetcher_lambda = Function(
     memory=512,
     timeout=20,
     variables={
+        "ALERTS_TABLE_NAME": alerts_table.table.name,
         "ENVIRONMENT": pulumi.get_stack(),
         "RUST_LOG": "info",
+        "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
     },
 )
 
@@ -79,14 +114,14 @@ bot_lambda = Function(
             {
                 "Effect": "Allow",
                 "Actions": [
+                    "dynamodb:GetItem",
                     "dynamodb:Query",
                     "dynamodb:UpdateItem",
-                    "dynamodb:GetItem",
                 ],
                 "Resources": [
                     er_stations_table.arn,
                     m_stations_table.arn,
-                    chats_table.arn,
+                    alerts_table.arn,
                 ],
             },
             {
@@ -94,7 +129,7 @@ bot_lambda = Function(
                 "Actions": [
                     "dynamodb:PutItem",
                 ],
-                "Resources": [chats_table.arn],
+                "Resources": [alerts_table.arn],
             },
         ],
     ),
@@ -103,8 +138,9 @@ bot_lambda = Function(
     memory=128,
     timeout=10,
     variables={
-        "RUST_LOG": "info",
+        "ALERTS_TABLE_NAME": alerts_table.table.name,
         "ENVIRONMENT": pulumi.get_stack(),
+        "RUST_LOG": "info",
         "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
     },
 )

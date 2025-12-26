@@ -10,9 +10,20 @@ install_crate = "rustfmt"
 command = "cargo"
 args = ["fmt", "--all"]
 
+[tasks.format-check]
+condition = { profiles = ["development", "gha"] }
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
 [tasks.test]
 command = "cargo"
 args = ["test"]
+
+[tasks.cargo-check]
+condition = { profiles = ["development", "gha"] }
+command = "cargo"
+args = ["check", "--all-targets", "--all-features"]
 
 [tasks.update]
 condition = { profiles = ["development"] }
@@ -48,7 +59,15 @@ args = [
 
 [tasks.check]
 condition = { profiles = ["development"] }
-dependencies = ["format", "test", "clippy-dev"]
+dependencies = ["format", "cargo-check", "test", "clippy-dev"]
+
+[tasks.lint]
+condition = { profiles = ["development"] }
+dependencies = ["format-check", "clippy-dev"]
 
 [tasks.clippy]
 dependencies = ["clippy-dev", "clippy-gha"]
+
+[tasks.ci]
+condition = { profiles = ["gha"] }
+dependencies = ["format-check", "cargo-check", "test", "clippy-gha"]

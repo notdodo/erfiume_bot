@@ -1,7 +1,6 @@
 use anyhow::Result;
 use aws_config::BehaviorVersion;
-use aws_sdk_dynamodb::Client as AWSClient;
-use dynamodb::DynamoDbClient;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use futures::future::join_all;
 use lambda_runtime::{Error as LambdaError, LambdaEvent, service_fn};
 use region::{Region, Regions, emilia_romagna::EmiliaRomagna};
@@ -10,7 +9,7 @@ use serde_json::{Value, json};
 use std::time::Duration;
 use tracing::instrument;
 use tracing_subscriber::EnvFilter;
-mod dynamodb;
+mod alerts;
 mod region;
 mod station;
 
@@ -60,9 +59,8 @@ async fn main() -> Result<(), LambdaError> {
     let http_client = HTTPClient::builder()
         .timeout(Duration::from_secs(10))
         .build()?;
-    let dynamodb_client = DynamoDbClient::new(AWSClient::new(
-        &aws_config::defaults(BehaviorVersion::latest()).load().await,
-    ));
+    let dynamodb_client =
+        DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await);
     let regions: Vec<Regions> = vec![Regions::EmiliaRomagna(EmiliaRomagna)];
 
     lambda_runtime::run(service_fn(|event: LambdaEvent<Value>| async {

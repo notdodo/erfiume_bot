@@ -1,4 +1,4 @@
-"""Pulumi resources to create and configure Stations on AWS"""
+"""Pulumi resources to create and configure a DynamoDB table on AWS"""
 
 from __future__ import annotations
 
@@ -34,9 +34,9 @@ class TableAttribute:
     type: TableAttributeType
 
 
-class Stations(pulumi.ComponentResource):
+class Table(pulumi.ComponentResource):
     """
-    A Pulumi custom resource to create a Stations table.
+    A Pulumi custom resource to create a table.
 
     :param name [str]: The name of the table to create.
     :param hash_key [str]: The hash key to create in the DynamoDB table.
@@ -47,17 +47,22 @@ class Stations(pulumi.ComponentResource):
         self,
         name: str,
         hash_key: str,
+        range_key: str | None = None,
         attributes: list[TableAttribute] | None = None,
+        global_secondary_indexes: (
+            list[dynamodb.TableGlobalSecondaryIndexArgs] | None
+        ) = None,
         ttl: str | None = None,
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         """
-        Initialize the Stations class.
+        Initialize the Table class.
         """
         self.name = name
         self.attributes = attributes or []
+        self.global_secondary_indexes = global_secondary_indexes or []
         self.resource_name = f"{format_resource_name(name, self)}-table"
-        super().__init__("notdodo:erfiume:Stations", self.name, {}, opts)
+        super().__init__("notdodo:erfiume:Table", self.name, {}, opts)
 
         ttl_attribute = (
             dynamodb.TableTtlArgs(
@@ -73,6 +78,7 @@ class Stations(pulumi.ComponentResource):
             name=self.name,
             billing_mode="PAY_PER_REQUEST",
             hash_key=hash_key,
+            range_key=range_key,
             attributes=[
                 dynamodb.TableAttributeArgs(
                     name=attr.name,
@@ -80,6 +86,7 @@ class Stations(pulumi.ComponentResource):
                 )
                 for attr in self.attributes
             ],
+            global_secondary_indexes=self.global_secondary_indexes,
             ttl=ttl_attribute,
             opts=pulumi.ResourceOptions.merge(
                 pulumi.ResourceOptions(parent=self), opts

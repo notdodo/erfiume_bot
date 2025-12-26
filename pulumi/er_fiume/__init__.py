@@ -2,7 +2,7 @@
 
 from .function import Function, FunctionCPUArchitecture, FunctionRuntime
 from .iam import GenericRole, LambdaRole
-from .tables import Stations, TableAttribute, TableAttributeType
+from .tables import Table, TableAttribute, TableAttributeType
 
 __all__ = [
     "Function",
@@ -10,7 +10,7 @@ __all__ = [
     "FunctionRuntime",
     "GenericRole",
     "LambdaRole",
-    "Stations",
+    "Table",
     "TableAttribute",
     "TableAttributeType",
 ]

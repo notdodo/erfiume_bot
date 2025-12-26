@@ -1,5 +1,5 @@
-use crate::{dynamodb, region::emilia_romagna::EmiliaRomagna};
-use dynamodb::DynamoDbClient;
+use crate::region::emilia_romagna::EmiliaRomagna;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use reqwest::Client as HTTPClient;
 use serde::Serialize;
 pub mod emilia_romagna;

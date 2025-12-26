@@ -1,7 +1,7 @@
 use super::{Station, UNKNOWN_VALUE, stations};
 use anyhow::{Result, anyhow};
-use aws_sdk_dynamodb::{Client as DynamoDbClient, types::AttributeValue};
-use std::collections::HashMap;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
+use erfiume_dynamodb::stations::{StationRecord, get_station_record};
 use strsim::jaro_winkler;
 
 fn fuzzy_search(search: &str) -> Option<String> {
@@ -25,39 +25,9 @@ pub async fn get_station(
     table_name: &str,
 ) -> Result<Option<Station>> {
     if let Some(closest_match) = fuzzy_search(&station_name) {
-        let result = client
-            .get_item()
-            .table_name(table_name)
-            .key("nomestaz", AttributeValue::S(closest_match.clone()))
-            .send()
-            .await?;
-
-        match result.item {
-            Some(item) => {
-                let idstazione = parse_string_field(&item, "idstazione")?;
-                let timestamp = parse_number_field::<i64>(&item, "timestamp")?;
-                let lon = parse_string_field(&item, "lon")?;
-                let lat = parse_string_field(&item, "lat")?;
-                let ordinamento = parse_number_field::<i32>(&item, "ordinamento")?;
-                let nomestaz = parse_string_field(&item, "nomestaz")?;
-                let soglia1 = parse_number_field::<f64>(&item, "soglia1")?;
-                let soglia2 = parse_number_field::<f64>(&item, "soglia2")?;
-                let soglia3 = parse_number_field::<f64>(&item, "soglia3")?;
-                let value = parse_optional_number_field(&item, "value")?.unwrap_or(UNKNOWN_VALUE);
-
-                Ok(Some(Station {
-                    timestamp,
-                    idstazione,
-                    ordinamento,
-                    nomestaz,
-                    lon,
-                    lat,
-                    soglia1,
-                    soglia2,
-                    soglia3,
-                    value,
-                }))
-            }
+        let record = get_station_record(client, table_name, &closest_match).await?;
+        match record {
+            Some(record) => Ok(Some(record_to_station(record))),
             None => Err(anyhow!("Station '{}' not found", closest_match)),
         }
     } else {
@@ -65,67 +35,18 @@ pub async fn get_station(
     }
 }
 
-fn parse_string_field(item: &HashMap<String, AttributeValue>, field: &str) -> Result<String> {
-    match item.get(field) {
-        Some(AttributeValue::S(s)) => Ok(s.clone()),
-        Some(AttributeValue::Ss(ss)) => Ok(ss.join(",")), // If the field is a string set
-        _ => Err(anyhow!("Missing or invalid '{}' field", field)),
-    }
-}
-
-fn parse_number_field<T: std::str::FromStr>(
-    item: &HashMap<String, AttributeValue>,
-    field: &str,
-) -> Result<T>
-where
-    <T as std::str::FromStr>::Err: std::fmt::Display,
-{
-    match item.get(field) {
-        Some(AttributeValue::N(n)) => n.parse::<T>().map_err(|e| {
-            anyhow!(
-                "Failed to parse '{}' field with value '{}' as number: {}",
-                field,
-                n,
-                e
-            )
-        }),
-        Some(AttributeValue::S(s)) => s.parse::<T>().map_err(|e| {
-            anyhow!(
-                "Failed to parse '{}' field with value '{}' as number: {}",
-                field,
-                s,
-                e
-            )
-        }),
-        _ => Err(anyhow!("Missing or invalid '{}' field", field)),
-    }
-}
-
-fn parse_optional_number_field<T: std::str::FromStr>(
-    item: &HashMap<String, AttributeValue>,
-    field: &str,
-) -> Result<Option<T>>
-where
-    <T as std::str::FromStr>::Err: std::fmt::Display,
-{
-    match item.get(field) {
-        Some(AttributeValue::N(n)) => match n.parse::<T>() {
-            Ok(value) => Ok(Some(value)),
-            _ => Err(anyhow!(
-                "Failed to parse '{}' field with value '{}' as number",
-                field,
-                n
-            )),
-        },
-        Some(AttributeValue::S(s)) => match s.parse::<T>() {
-            Ok(value) => Ok(Some(value)),
-            _ => Err(anyhow!(
-                "Failed to parse '{}' field with value '{}' as number",
-                field,
-                s
-            )),
-        },
-        _ => Err(anyhow!("Invalid type for '{}' field", field)),
+fn record_to_station(record: StationRecord) -> Station {
+    Station {
+        timestamp: record.timestamp,
+        idstazione: record.idstazione,
+        ordinamento: record.ordinamento,
+        nomestaz: record.nomestaz,
+        lon: record.lon,
+        lat: record.lat,
+        soglia1: record.soglia1,
+        soglia2: record.soglia2,
+        soglia3: record.soglia3,
+        value: record.value.unwrap_or(UNKNOWN_VALUE),
     }
 }
 
@@ -166,19 +87,20 @@ mod tests {
     }
 
     #[test]
-    fn parse_string_field_yields_correct_value() {
-        let expected = "this is a string".to_string();
-        let item = HashMap::from([("field".to_string(), AttributeValue::S(expected.clone()))]);
-        assert_eq!(parse_string_field(&item, "field").unwrap(), expected);
-    }
-
-    #[test]
-    fn parse_optional_number_field_yields_correct_value() {
-        let expected = 4;
-        let item = HashMap::from([("field".to_string(), AttributeValue::N(expected.to_string()))]);
-        assert_eq!(
-            parse_optional_number_field::<i16>(&item, "field").unwrap(),
-            Some(expected)
-        );
+    fn record_to_station_uses_unknown_value_on_missing() {
+        let record = StationRecord {
+            timestamp: 1,
+            idstazione: "id".to_string(),
+            ordinamento: 1,
+            nomestaz: "Cesena".to_string(),
+            lon: "lon".to_string(),
+            lat: "lat".to_string(),
+            soglia1: 1.0,
+            soglia2: 2.0,
+            soglia3: 3.0,
+            value: None,
+        };
+        let station = record_to_station(record);
+        assert_eq!(station.value, UNKNOWN_VALUE);
     }
 }

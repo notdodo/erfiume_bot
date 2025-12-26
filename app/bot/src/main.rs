@@ -71,8 +71,8 @@ async fn lambda_handler(
     let handler = Update::filter_message()
         .branch(
             dptree::entry()
-                .filter_command::<commands::BaseCommand>()
-                .endpoint(commands::base_commands_handler),
+                .filter_command::<commands::Command>()
+                .endpoint(commands::commands_handler),
         )
         .branch(dptree::endpoint(|msg, bot, dynamodb_client| async move {
             commands::message_handler(&bot, &msg, &dynamodb_client).await?;
