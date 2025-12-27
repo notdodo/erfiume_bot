@@ -161,6 +161,19 @@ async fn process_station(
             );
             e
         })?;
+
+    if let Some(config) = AlertsConfig::from_env()
+        && let Err(err) =
+            alerts::process_alerts_for_station(client, dynamodb_client, &station, &config).await
+    {
+        error!(
+            station = %station.nomestaz,
+            error = ?err,
+            "Failed to process alerts"
+        );
+        return Err(err.into());
+    }
+
     let record = StationRecord {
         timestamp: station.timestamp.unwrap_or_default() as i64,
         idstazione: station.idstazione.clone(),
@@ -174,17 +187,6 @@ async fn process_station(
         value: station.value.map(|value| value as f64),
     };
     put_station_record(dynamodb_client, table_name, &record).await?;
-
-    if let Some(config) = AlertsConfig::from_env()
-        && let Err(err) =
-            alerts::process_alerts_for_station(client, dynamodb_client, &station, &config).await
-    {
-        error!(
-            station = %station.nomestaz,
-            error = %err,
-            "Failed to process alerts"
-        );
-    }
 
     Ok(())
 }
