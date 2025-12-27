@@ -1,6 +1,8 @@
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::Utc;
+use erfiume_dynamodb::ALERT_ACTIVE;
 use erfiume_dynamodb::alerts as dynamo_alerts;
+use std::time::{SystemTime, UNIX_EPOCH};
 use teloxide::{
     prelude::Bot,
     types::{LinkPreviewOptions, Message},
@@ -83,7 +85,7 @@ pub(crate) async fn commands_handler(
                 "Funzionalità non disponibile al momento.".to_string()
             } else {
                 let chat_id = msg.chat.id.0;
-                let alerts = match dynamo_alerts::list_active_alerts_for_chat(
+                let alerts = match dynamo_alerts::list_alerts_for_chat(
                     &dynamodb_client,
                     &alerts_table_name,
                     chat_id,
@@ -113,14 +115,17 @@ pub(crate) async fn commands_handler(
                 if alerts.is_empty() {
                     "Non hai avvisi attivi.".to_string()
                 } else {
+                    let now_millis = current_time_millis();
                     let mut lines = Vec::with_capacity(alerts.len() + 1);
-                    lines.push("I tuoi avvisi attivi:".to_string());
+                    lines.push("I tuoi avvisi:".to_string());
                     for (index, alert) in alerts.iter().enumerate() {
+                        let status = format_alert_status(alert, now_millis);
                         lines.push(format!(
-                            "{}. {} - {}",
+                            "{}. {} - {} ({})",
                             index + 1,
                             alert.station_name,
-                            alert.threshold
+                            alert.threshold,
+                            status
                         ));
                     }
                     lines.join("\n")
@@ -145,7 +150,7 @@ pub(crate) async fn commands_handler(
             } else {
                 let chat_id = msg.chat.id.0;
                 if let Ok(index) = station_name.parse::<usize>() {
-                    let alerts = match dynamo_alerts::list_active_alerts_for_chat(
+                    let alerts = match dynamo_alerts::list_alerts_for_chat(
                         &dynamodb_client,
                         &alerts_table_name,
                         chat_id,
@@ -184,14 +189,27 @@ pub(crate) async fn commands_handler(
                     }
 
                     let alert = &alerts[index - 1];
-                    let removed = dynamo_alerts::delete_alert(
+                    let removed = match dynamo_alerts::delete_alert(
                         &dynamodb_client,
                         &alerts_table_name,
                         &alert.station_name,
                         chat_id,
                     )
                     .await
-                    .unwrap_or(false);
+                    {
+                        Ok(value) => value,
+                        Err(err) => {
+                            error!(
+                                target: "erfiume_bot",
+                                error = ?err,
+                                station = %alert.station_name,
+                                chat_id,
+                                table = %alerts_table_name,
+                                "Failed to delete alert"
+                            );
+                            false
+                        }
+                    };
 
                     if removed {
                         format!("Avviso rimosso per {}.", alert.station_name)
@@ -220,14 +238,27 @@ pub(crate) async fn commands_handler(
                         }
                     };
 
-                    let removed = dynamo_alerts::delete_alert(
+                    let removed = match dynamo_alerts::delete_alert(
                         &dynamodb_client,
                         &alerts_table_name,
                         &station.nomestaz,
                         chat_id,
                     )
                     .await
-                    .unwrap_or(false);
+                    {
+                        Ok(value) => value,
+                        Err(err) => {
+                            error!(
+                                target: "erfiume_bot",
+                                error = ?err,
+                                station = %station.nomestaz,
+                                chat_id,
+                                table = %alerts_table_name,
+                                "Failed to delete alert"
+                            );
+                            false
+                        }
+                    };
 
                     if removed {
                         format!("Avviso rimosso per {}.", station.nomestaz)
@@ -484,4 +515,56 @@ fn parse_station_threshold_args(arg: String) -> Option<(String, f64)> {
     let threshold = threshold_raw.parse::<f64>().ok()?;
     let station_name = parts.join(" ").trim().to_string();
     (!station_name.is_empty()).then_some((station_name, threshold))
+}
+
+fn current_time_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn format_alert_status(alert: &dynamo_alerts::AlertEntry, now_millis: u64) -> String {
+    const COOLDOWN_MILLIS: u64 = 24 * 60 * 60 * 1000;
+    if alert.active == ALERT_ACTIVE.parse::<i64>().unwrap_or(1) {
+        return "attivo".to_string();
+    }
+
+    let remaining = alert.triggered_at.map(|triggered_at| {
+        COOLDOWN_MILLIS.saturating_sub(now_millis.saturating_sub(triggered_at))
+    });
+
+    let mut status = if let Some(value) = alert.triggered_value {
+        format!("in pausa (soglia superata: {})", value)
+    } else {
+        "in pausa (soglia superata)".to_string()
+    };
+
+    if let Some(remaining) = remaining {
+        if remaining == 0 {
+            status.push_str(", ripristino imminente");
+        } else {
+            status.push_str(", ripristino tra ");
+            status.push_str(&format_duration_millis(remaining));
+        }
+    } else {
+        status.push_str(", ripristino in attesa");
+    }
+
+    status
+}
+
+fn format_duration_millis(millis: u64) -> String {
+    let total_secs = millis.div_ceil(1000);
+    let hours = total_secs / 3600;
+    let minutes = (total_secs % 3600) / 60;
+    let seconds = total_secs % 60;
+
+    if hours > 0 {
+        format!("{}h {}m", hours, minutes)
+    } else if minutes > 0 {
+        format!("{}m", minutes)
+    } else {
+        format!("{}s", seconds)
+    }
 }

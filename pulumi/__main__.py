@@ -85,10 +85,12 @@ fetcher_lambda = Function(
                     "dynamodb:Query",
                     "dynamodb:UpdateItem",
                 ],
+                # Query on GSIs requires index ARNs, not just the table ARN.
                 "Resources": [
                     er_stations_table.arn,
                     m_stations_table.arn,
                     alerts_table.arn,
+                    alerts_table.arn.apply(lambda arn: f"{arn}/index/*"),
                 ],
             }
         ],
@@ -116,12 +118,15 @@ bot_lambda = Function(
                 "Actions": [
                     "dynamodb:GetItem",
                     "dynamodb:Query",
+                    "dynamodb:DeleteItem",
                     "dynamodb:UpdateItem",
                 ],
+                # Query on GSIs requires index ARNs, not just the table ARN.
                 "Resources": [
                     er_stations_table.arn,
                     m_stations_table.arn,
                     alerts_table.arn,
+                    alerts_table.arn.apply(lambda arn: f"{arn}/index/*"),
                 ],
             },
             {

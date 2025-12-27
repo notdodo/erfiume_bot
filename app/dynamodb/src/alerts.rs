@@ -9,6 +9,9 @@ use std::collections::HashMap;
 pub struct AlertEntry {
     pub station_name: String,
     pub threshold: f64,
+    pub active: i64,
+    pub triggered_at: Option<u64>,
+    pub triggered_value: Option<f32>,
 }
 
 pub struct AlertSubscription {
@@ -142,7 +145,7 @@ pub async fn list_active_alerts_for_chat(
             .expression_attribute_names("#active", "active")
             .expression_attribute_values(":chat_id", AttributeValue::N(chat_id.to_string()))
             .expression_attribute_values(":active", AttributeValue::N(ALERT_ACTIVE.to_string()))
-            .projection_expression("station, threshold");
+            .projection_expression("station, threshold, active, triggered_at, triggered_value");
 
         if let Some(key) = last_evaluated_key.take() {
             request = request.set_exclusive_start_key(Some(key));
@@ -152,9 +155,15 @@ pub async fn list_active_alerts_for_chat(
         for item in response.items.unwrap_or_default() {
             let station_name = parse_string_field(&item, "station")?;
             let threshold = parse_number_field::<f64>(&item, "threshold")?;
+            let active = parse_number_field::<i64>(&item, "active")?;
+            let triggered_at = parse_optional_number_field::<u64>(&item, "triggered_at")?;
+            let triggered_value = parse_optional_number_field::<f32>(&item, "triggered_value")?;
             alerts.push(AlertEntry {
                 station_name,
                 threshold,
+                active,
+                triggered_at,
+                triggered_value,
             });
         }
 
@@ -162,6 +171,61 @@ pub async fn list_active_alerts_for_chat(
             break;
         }
         last_evaluated_key = response.last_evaluated_key;
+    }
+
+    Ok(alerts)
+}
+
+pub async fn list_alerts_for_chat(
+    client: &Client,
+    table_name: &str,
+    chat_id: i64,
+) -> Result<Vec<AlertEntry>> {
+    if table_name.is_empty() {
+        return Err(anyhow!("alerts table name is empty"));
+    }
+
+    let mut alerts = Vec::new();
+
+    for active_value in [ALERT_ACTIVE, ALERT_TRIGGERED] {
+        let mut last_evaluated_key = None;
+        loop {
+            let mut request = client
+                .query()
+                .table_name(table_name)
+                .index_name("chat_id-active-index")
+                .key_condition_expression("#chat_id = :chat_id AND #active = :active")
+                .expression_attribute_names("#chat_id", "chat_id")
+                .expression_attribute_names("#active", "active")
+                .expression_attribute_values(":chat_id", AttributeValue::N(chat_id.to_string()))
+                .expression_attribute_values(":active", AttributeValue::N(active_value.to_string()))
+                .projection_expression("station, threshold, active, triggered_at, triggered_value");
+
+            if let Some(key) = last_evaluated_key.take() {
+                request = request.set_exclusive_start_key(Some(key));
+            }
+
+            let response = request.send().await?;
+            for item in response.items.unwrap_or_default() {
+                let station_name = parse_string_field(&item, "station")?;
+                let threshold = parse_number_field::<f64>(&item, "threshold")?;
+                let active = parse_number_field::<i64>(&item, "active")?;
+                let triggered_at = parse_optional_number_field::<u64>(&item, "triggered_at")?;
+                let triggered_value = parse_optional_number_field::<f32>(&item, "triggered_value")?;
+                alerts.push(AlertEntry {
+                    station_name,
+                    threshold,
+                    active,
+                    triggered_at,
+                    triggered_value,
+                });
+            }
+
+            if response.last_evaluated_key.is_none() {
+                break;
+            }
+            last_evaluated_key = response.last_evaluated_key;
+        }
     }
 
     Ok(alerts)
@@ -368,6 +432,9 @@ mod tests {
         let entry = AlertEntry {
             station_name,
             threshold,
+            active: ALERT_ACTIVE.parse::<i64>().unwrap_or(1),
+            triggered_at: None,
+            triggered_value: None,
         };
         assert_eq!(entry.station_name, "Cesena");
         assert_eq!(entry.threshold, 2.5);
