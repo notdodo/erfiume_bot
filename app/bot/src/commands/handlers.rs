@@ -4,6 +4,7 @@ use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::Utc;
 use erfiume_dynamodb::ALERT_ACTIVE;
 use erfiume_dynamodb::alerts as dynamo_alerts;
+use erfiume_dynamodb::chats as dynamo_chats;
 use std::time::{SystemTime, UNIX_EPOCH};
 use teloxide::{
     prelude::Bot,
@@ -19,6 +20,8 @@ pub(crate) async fn commands_handler(
     dynamodb_client: DynamoDbClient,
 ) -> Result<(), teloxide::RequestError> {
     let link_preview_options = link_preview_disabled();
+    // Move it to /start only after a while to collect old users
+    ensure_chat_presence(&dynamodb_client, &msg).await;
 
     let text = match cmd {
         Command::Help => Command::descriptions().to_string(),
@@ -429,6 +432,47 @@ pub(crate) async fn message_handler(
     utils::send_message(bot, msg, link_preview_options, &message).await?;
 
     Ok(())
+}
+
+async fn ensure_chat_presence(dynamodb_client: &DynamoDbClient, msg: &Message) {
+    let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
+    if chats_table_name.is_empty() {
+        return;
+    }
+
+    let chat_type = if msg.chat.is_private() {
+        "private"
+    } else if msg.chat.is_group() {
+        "group"
+    } else if msg.chat.is_supergroup() {
+        "supergroup"
+    } else if msg.chat.is_channel() {
+        "channel"
+    } else {
+        "other"
+    };
+
+    let record = dynamo_chats::ChatRecord {
+        chat_id: msg.chat.id.0,
+        chat_type: chat_type.to_string(),
+        username: msg.chat.username().map(|value| value.to_string()),
+        first_name: msg.chat.first_name().map(|value| value.to_string()),
+        last_name: msg.chat.last_name().map(|value| value.to_string()),
+        title: msg.chat.title().map(|value| value.to_string()),
+        created_at: Utc::now().timestamp(),
+    };
+
+    if let Err(err) =
+        dynamo_chats::insert_chat_if_missing(dynamodb_client, &chats_table_name, &record).await
+    {
+        error!(
+            target: "erfiume_bot",
+            error = ?err,
+            "Failed to store chat chat_id={} table={}",
+            record.chat_id,
+            chats_table_name,
+        );
+    }
 }
 
 fn parse_station_arg(arg: String) -> Option<String> {
