@@ -960,6 +960,8 @@ dependencies = [
  "anyhow",
  "aws-config",
  "aws-sdk-dynamodb",
+ "chrono",
+ "chrono-tz",
  "erfiume-dynamodb",
  "futures",
  "lambda_runtime",

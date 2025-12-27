@@ -1,6 +1,8 @@
 use crate::station::Station;
 use anyhow::{Context, Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
+use chrono::{DateTime, TimeZone};
+use chrono_tz::Europe::Rome;
 use erfiume_dynamodb::alerts::{
     AlertSubscription, list_pending_alerts_for_station, mark_alert_triggered,
     reactivate_expired_alerts_for_station,
@@ -119,10 +121,11 @@ async fn send_alert(
 ) -> Result<()> {
     let url = format!("https://api.telegram.org/bot{telegram_token}/sendMessage");
     let message = format!(
-        "Avviso soglia: {} ha raggiunto {} (soglia {}).",
+        "Avviso soglia: {} ha raggiunto {} (soglia {}).\n\n{}",
         station.nomestaz,
         station.value.unwrap_or_default(),
-        alert.threshold
+        alert.threshold,
+        format_station_message(station)
     );
 
     let mut payload = json!({
@@ -152,4 +155,70 @@ fn current_time_millis() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+fn format_station_message(station: &Station) -> String {
+    const UNKNOWN_VALUE: f32 = -9999.0;
+    let timestamp_formatted = station
+        .timestamp
+        .and_then(|timestamp| {
+            let timestamp_secs = (timestamp / 1000) as i64;
+            let naive_datetime = DateTime::from_timestamp(timestamp_secs, 0)?;
+            let datetime_in_tz = Rome.from_utc_datetime(&naive_datetime.naive_utc());
+            Some(datetime_in_tz.format("%d-%m-%Y %H:%M").to_string())
+        })
+        .unwrap_or_else(|| "non disponibile".to_string());
+
+    let value = station.value.unwrap_or(UNKNOWN_VALUE);
+    let yellow = station.soglia1;
+    let orange = station.soglia2;
+    let red = station.soglia3;
+
+    let mut alarm = "🔴";
+    if value <= yellow {
+        alarm = "🟢";
+    } else if value > yellow && value <= orange {
+        alarm = "🟡";
+    } else if value >= orange && value <= red {
+        alarm = "🟠";
+    }
+
+    let mut value_str = format!("{value:.2}");
+    if value == UNKNOWN_VALUE {
+        value_str = "non disponibile".to_string();
+        alarm = "";
+    }
+
+    let yellow_str = format!("{yellow:.2}");
+    let orange_str = format!("{orange:.2}");
+    let red_str = format!("{red:.2}");
+
+    format!(
+        "Stazione: {}\nValore: {} {}\nSoglia Gialla: {}\nSoglia Arancione: {}\nSoglia Rossa: {}\nUltimo rilevamento: {}",
+        station.nomestaz, value_str, alarm, yellow_str, orange_str, red_str, timestamp_formatted
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_station_message_matches_bot_format() {
+        let station = Station {
+            timestamp: Some(1766848325000),
+            idstazione: "id".to_string(),
+            ordinamento: 1,
+            nomestaz: "Cesena".to_string(),
+            lon: "lon".to_string(),
+            lat: "lat".to_string(),
+            soglia1: 1.0,
+            soglia2: 2.0,
+            soglia3: 3.0,
+            value: Some(2.2),
+        };
+
+        let expected = "Stazione: Cesena\nValore: 2.20 🟠\nSoglia Gialla: 1.00\nSoglia Arancione: 2.00\nSoglia Rossa: 3.00\nUltimo rilevamento: 27-12-2025 16:12";
+        assert_eq!(format_station_message(&station), expected);
+    }
 }
