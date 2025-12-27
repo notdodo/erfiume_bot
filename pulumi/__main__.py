@@ -73,6 +73,12 @@ alerts_table = Table(
     ],
 )
 
+chats_table = Table(
+    name="Chats",
+    hash_key="chat_id",
+    attributes=[TableAttribute(name="chat_id", type=TableAttributeType.NUMBER)],
+)
+
 fetcher_lambda = Function(
     name=f"{RESOURCES_PREFIX}-fetcher",
     role=LambdaRole(
@@ -136,7 +142,10 @@ bot_lambda = Function(
                 "Actions": [
                     "dynamodb:PutItem",
                 ],
-                "Resources": [alerts_table.arn],
+                "Resources": [
+                    alerts_table.arn,
+                    chats_table.arn,
+                ],
             },
         ],
     ),
@@ -146,6 +155,7 @@ bot_lambda = Function(
     timeout=10,
     variables={
         "ALERTS_TABLE_NAME": alerts_table.table.name,
+        "CHATS_TABLE_NAME": chats_table.table.name,
         "ENVIRONMENT": pulumi.get_stack(),
         "RUST_LOG": "info",
         "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),

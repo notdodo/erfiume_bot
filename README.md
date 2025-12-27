@@ -12,7 +12,7 @@
 ## Introduction
 
 [`@erfiume_bot`](https://t.me/erfiume_bot) it's a Telegram bot that fetches the water levels of the rivers in Emilia Romagna. Data is retrieved from [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) APIs and periodically stored/updated in a DynamoDB table.
-The bot can be used in both private or group chats, responding to specific station names or commands.
+The bot can be used in both private or group chats, responding to specific station names or commands or alerting when a threshold is reached.
 
 ![](https://github.com/user-attachments/assets/f5bc07c1-fb6c-48be-b871-a9d6dd4aae82)
 
@@ -22,13 +22,16 @@ The bot can be used in both private or group chats, responding to specific stati
 - `/info`
 - `/stazioni`
 - `/<station_name>` where `<station_name>` is one the station reported on [Livello Idrometrico](https://allertameteo.regione.emilia-romagna.it/livello-idrometrico)
+- `/avvisami <station_name> <threshold>`
+- `/lista_avvisi`
+- `/rimuovi_avviso`
 
 ## Architecture
 
 The bot consists of two main components:
 
 1. **User interaction**: the code in `./app/bot` is triggered by a Telegram webhook that starts an AWS Lambda function when a user interacts with the bot.
-2. **Stations data update**: the code in `./app/fetcher` runs on a Lambda function via an EventBridge scheduler, updating the data from the stations. This data is then used by the bot to answer to messages.
+2. **Stations data update**: the code in `./app/fetcher` runs on a Lambda function via an EventBridge scheduler, updating the data from the stations. This data is then used by the bot to answer to messages or to trigger alert notifications.
 
 ![](./assets/erfiume.png)
 
@@ -60,9 +63,9 @@ What it cannot do:
 
 ### Data fetcher (`./app/fetcher`)
 
-This Lambda function is scheduled to fetch data from the APIs on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) and update or create station data in a DynamoDB table. A station refers to a sensor placed on a bridge or river that monitors the water level.
+This Lambda function is scheduled to fetch data from the APIs on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) and update or create station data in a DynamoDB table. A station refers to a sensor installed on a bridge or along a river that monitors water levels. Using the newly fetched information, the function also sends alerts to users who are subscribed to specific threshold notifications.
 
-The Lambda is scheduled to run once a day in "normal" mode, but in "emergency" mode, it can be set to update data every 20 minutes or less.
+The Lambda is scheduled to run once every 2 hours in "normal" mode, but in "emergency" mode, it can be set to update data every 20 minutes or less.
 
 ## Repository Structure
 
