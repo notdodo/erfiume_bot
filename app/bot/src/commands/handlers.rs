@@ -394,6 +394,8 @@ pub(crate) async fn message_handler(
     dynamodb_client: &DynamoDbClient,
 ) -> Result<(), teloxide::RequestError> {
     let link_preview_options = link_preview_small_media();
+    // Move it to /start only after a while to collect old users
+    ensure_chat_presence(dynamodb_client, msg).await;
     let Some(text) = msg.text() else {
         return Ok(());
     };
