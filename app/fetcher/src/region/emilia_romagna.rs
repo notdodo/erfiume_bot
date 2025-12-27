@@ -12,6 +12,12 @@ use tracing::error;
 
 pub struct EmiliaRomagna;
 
+const DEFAULT_API_BASE_URL: &str = "https://allertameteo.regione.emilia-romagna.it";
+const LATEST_TIME_SEED: i64 = 1_726_667_100_000;
+const SENSOR_VALUES_PATH: &str = "/o/api/allerta/get-sensor-values-no-time";
+const TIME_SERIES_PATH: &str = "/o/api/allerta/get-time-series/";
+const VARIABILE_PARAM: &str = "variabile=254,0,0/1,-,-,-/B13215";
+
 fn round_two_decimals(value: f32) -> f32 {
     (value * 100.0).round() / 100.0
 }
@@ -31,13 +37,22 @@ impl Region for EmiliaRomagna {
         http_client: &HTTPClient,
         dynamodb_client: &DynamoDbClient,
     ) -> Result<RegionResult, RegionError> {
-        let latest_timestamp = fetch_latest_time(http_client).await?;
-        let stations = fetch_stations(http_client, latest_timestamp).await?;
+        let api_base = api_base_url();
+        let latest_timestamp = fetch_latest_time(http_client, &api_base).await?;
+        let stations = fetch_stations(http_client, &api_base, latest_timestamp).await?;
         let stations_count = stations.len();
         let concurrency_limit = 40;
+        let alerts_config = AlertsConfig::from_env();
 
         let process_futures = stations.into_iter().map(|station| {
-            process_station(http_client, dynamodb_client, station, self.dynamodb_table())
+            process_station(
+                http_client,
+                dynamodb_client,
+                &api_base,
+                station,
+                self.dynamodb_table(),
+                alerts_config.as_ref(),
+            )
         });
 
         let process_results: Vec<_> = futures::stream::iter(process_futures)
@@ -66,11 +81,16 @@ impl Region for EmiliaRomagna {
     }
 }
 
-async fn fetch_latest_time(client: &HTTPClient) -> Result<i64, RegionError> {
-    let response = client
-        .get("https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time=1726667100000")
-        .send()
-        .await?;
+fn api_base_url() -> String {
+    std::env::var("ALLERTA_API_BASE_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_API_BASE_URL.to_string())
+}
+
+async fn fetch_latest_time(client: &HTTPClient, api_base: &str) -> Result<i64, RegionError> {
+    let url = format!("{api_base}{SENSOR_VALUES_PATH}?{VARIABILE_PARAM}&time={LATEST_TIME_SEED}");
+    let response = client.get(url).send().await?;
 
     response.error_for_status_ref()?;
 
@@ -87,10 +107,12 @@ async fn fetch_latest_time(client: &HTTPClient) -> Result<i64, RegionError> {
     Err("No 'TimeEntry' found in response".into())
 }
 
-async fn fetch_stations(client: &HTTPClient, timestamp: i64) -> Result<Vec<Station>, RegionError> {
-    let url = format!(
-        "https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-sensor-values-no-time?variabile=254,0,0/1,-,-,-/B13215&time={timestamp}"
-    );
+async fn fetch_stations(
+    client: &HTTPClient,
+    api_base: &str,
+    timestamp: i64,
+) -> Result<Vec<Station>, RegionError> {
+    let url = format!("{api_base}{SENSOR_VALUES_PATH}?{VARIABILE_PARAM}&time={timestamp}");
     let response = client.get(&url).send().await?;
     response.error_for_status_ref()?;
 
@@ -129,11 +151,12 @@ async fn fetch_stations(client: &HTTPClient, timestamp: i64) -> Result<Vec<Stati
 
 async fn fetch_station_data(
     client: &HTTPClient,
+    api_base: &str,
     mut station: Station,
 ) -> Result<Station, RegionError> {
     let url = format!(
-        "https://allertameteo.regione.emilia-romagna.it/o/api/allerta/get-time-series/?stazione={}&variabile=254,0,0/1,-,-,-/B13215",
-        station.idstazione
+        "{api_base}{TIME_SERIES_PATH}?stazione={}&{VARIABILE_PARAM}",
+        station.idstazione,
     );
     let response = client.get(&url).send().await?;
     response.error_for_status_ref()?;
@@ -149,10 +172,12 @@ async fn fetch_station_data(
 async fn process_station(
     client: &HTTPClient,
     dynamodb_client: &DynamoDbClient,
+    api_base: &str,
     station: Station,
     table_name: &str,
+    alerts_config: Option<&AlertsConfig>,
 ) -> Result<(), RegionError> {
-    let station = fetch_station_data(client, station.clone())
+    let station = fetch_station_data(client, api_base, station.clone())
         .await
         .map_err(|e| {
             error!(
@@ -162,9 +187,9 @@ async fn process_station(
             e
         })?;
 
-    if let Some(config) = AlertsConfig::from_env()
+    if let Some(config) = alerts_config
         && let Err(err) =
-            alerts::process_alerts_for_station(client, dynamodb_client, &station, &config).await
+            alerts::process_alerts_for_station(client, dynamodb_client, &station, config).await
     {
         error!(
             station = %station.nomestaz,
@@ -189,4 +214,15 @@ async fn process_station(
     put_station_record(dynamodb_client, table_name, &record).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn round_two_decimals_rounds_as_expected() {
+        let value = round_two_decimals(1.235);
+        assert!((value - 1.24).abs() < 1e-6);
+    }
 }

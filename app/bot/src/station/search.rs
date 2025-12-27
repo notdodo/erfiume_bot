@@ -5,6 +5,7 @@ use erfiume_dynamodb::stations::{StationRecord, get_station_record};
 use strsim::jaro_winkler;
 
 fn fuzzy_search(search: &str) -> Option<String> {
+    const MIN_SCORE: f64 = 0.8;
     let stations = stations();
     let search_lower = search.to_lowercase();
     stations
@@ -14,7 +15,7 @@ fn fuzzy_search(search: &str) -> Option<String> {
             let score = jaro_winkler(&search_lower, &s_normalized);
             (s, score)
         })
-        .filter(|(_, score)| *score > 0.8) // Adjust the threshold as needed
+        .filter(|(_, score)| *score > MIN_SCORE) // Adjust the threshold as needed
         .max_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap())
         .map(|(station, _)| station.clone())
 }
