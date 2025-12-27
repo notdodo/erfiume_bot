@@ -6,6 +6,7 @@ use teloxide::{
     types::{LinkPreviewOptions, Message},
     utils::command::BotCommands,
 };
+use tracing::{error, info};
 
 use crate::station;
 pub(crate) mod utils;
@@ -29,6 +30,9 @@ pub(crate) enum Command {
     /// Rimuovi un avviso per la stazione
     #[command(rename = "rimuovi_avviso")]
     Rimuoviavviso(String),
+    /// Rimuovi un avviso per la stazione (alias)
+    #[command(rename = "rimuovi_avvisi")]
+    Rimuoviavvisi(String),
 }
 
 pub(crate) async fn commands_handler(
@@ -67,10 +71,10 @@ pub(crate) async fn commands_handler(
         Command::Stazioni => station::stations().join("\n"),
         Command::Info => {
             let info = "Bot Telegram che permette di leggere i livelli idrometrici dei fiumi dell'Emilia-Romagna \
-                              I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagna.it\n\n\
-                              Il progetto è completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
-                              Per sostenere e mantenere il servizio attivo: buymeacoffee.com/d0d0\n\n\
-                              Inizia con /start o /stazioni";
+                                I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagna.it\n\n\
+                                Il progetto è completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
+                                Per sostenere e mantenere il servizio attivo: buymeacoffee.com/d0d0\n\n\
+                                Inizia con /start o /stazioni";
             info.to_string()
         }
         Command::ListaAvvisi => {
@@ -79,13 +83,26 @@ pub(crate) async fn commands_handler(
                 "Funzionalità non disponibile al momento.".to_string()
             } else {
                 let chat_id = msg.chat.id.0;
-                let alerts = dynamo_alerts::list_active_alerts_for_chat(
+                let alerts = match dynamo_alerts::list_active_alerts_for_chat(
                     &dynamodb_client,
                     &alerts_table_name,
                     chat_id,
                 )
                 .await
-                .unwrap_or_default();
+                {
+                    Ok(alerts) => alerts,
+                    Err(err) => {
+                        error!("Failed to list alerts: chat_id={} error={}", chat_id, err);
+                        utils::send_message(
+                            &bot,
+                            &msg,
+                            link_preview_options,
+                            "Errore nel recupero degli avvisi. Riprova più tardi.",
+                        )
+                        .await?;
+                        return Ok(());
+                    }
+                };
 
                 if alerts.is_empty() {
                     "Non hai avvisi attivi.".to_string()
@@ -104,7 +121,7 @@ pub(crate) async fn commands_handler(
                 }
             }
         }
-        Command::Rimuoviavviso(args) => {
+        Command::Rimuoviavviso(args) | Command::Rimuoviavvisi(args) => {
             let Some(station_name) = parse_station_arg(args) else {
                 utils::send_message(
                     &bot,
@@ -122,13 +139,26 @@ pub(crate) async fn commands_handler(
             } else {
                 let chat_id = msg.chat.id.0;
                 if let Ok(index) = station_name.parse::<usize>() {
-                    let alerts = dynamo_alerts::list_active_alerts_for_chat(
+                    let alerts = match dynamo_alerts::list_active_alerts_for_chat(
                         &dynamodb_client,
                         &alerts_table_name,
                         chat_id,
                     )
                     .await
-                    .unwrap_or_default();
+                    {
+                        Ok(alerts) => alerts,
+                        Err(err) => {
+                            error!("Failed to list alerts: chat_id={} error={}", chat_id, err);
+                            utils::send_message(
+                                &bot,
+                                &msg,
+                                link_preview_options,
+                                "Errore nel recupero degli avvisi. Riprova più tardi.",
+                            )
+                            .await?;
+                            return Ok(());
+                        }
+                    };
 
                     if index == 0 || index > alerts.len() {
                         utils::send_message(
@@ -211,6 +241,16 @@ pub(crate) async fn commands_handler(
             if alerts_table_name.is_empty() {
                 "Funzionalità non disponibile al momento.".to_string()
             } else {
+                let chat_id = msg.chat.id.0;
+                let thread_id = msg.thread_id.map(|id| i64::from(id.0.0));
+                info!(
+                    target: "erfiume_bot",
+                    "command=avvisami chat_id={} thread_id={:?} table={}",
+                    chat_id,
+                    thread_id,
+                    alerts_table_name
+                );
+
                 let station_result = station::search::get_station(
                     &dynamodb_client,
                     station_name,
@@ -232,27 +272,68 @@ pub(crate) async fn commands_handler(
                     }
                 };
 
-                let chat_id = msg.chat.id.0;
-                let thread_id = msg.thread_id.map(|id| i64::from(id.0.0));
-
-                let already_exists = dynamo_alerts::alert_exists(
+                let already_exists = match dynamo_alerts::alert_exists(
                     &dynamodb_client,
                     &alerts_table_name,
                     &station.nomestaz,
                     chat_id,
                 )
                 .await
-                .unwrap_or(false);
+                {
+                    Ok(value) => value,
+                    Err(err) => {
+                        error!(
+                            "Failed to check alert existence: station={} chat_id={} error={}",
+                            station.nomestaz, chat_id, err
+                        );
+                        utils::send_message(
+                            &bot,
+                            &msg,
+                            link_preview_options,
+                            "Errore nel salvataggio dell'avviso. Riprova più tardi.",
+                        )
+                        .await?;
+                        return Ok(());
+                    }
+                };
+
+                info!(
+                    target: "erfiume_bot",
+                    "command=avvisami chat_id={} station={} exists={}",
+                    chat_id,
+                    station.nomestaz,
+                    already_exists
+                );
 
                 if !already_exists {
-                    let count = dynamo_alerts::count_active_alerts_for_chat(
+                    let count = match dynamo_alerts::count_active_alerts_for_chat(
                         &dynamodb_client,
                         &alerts_table_name,
                         chat_id,
                         3,
                     )
                     .await
-                    .unwrap_or(0);
+                    {
+                        Ok(value) => value,
+                        Err(err) => {
+                            error!("Failed to count alerts: chat_id={} error={}", chat_id, err);
+                            utils::send_message(
+                                &bot,
+                                &msg,
+                                link_preview_options,
+                                "Errore nel salvataggio dell'avviso. Riprova più tardi.",
+                            )
+                            .await?;
+                            return Ok(());
+                        }
+                    };
+
+                    info!(
+                        target: "erfiume_bot",
+                        "command=avvisami chat_id={} active_count={}",
+                        chat_id,
+                        count
+                    );
 
                     if count >= 3 {
                         utils::send_message(
@@ -267,7 +348,7 @@ pub(crate) async fn commands_handler(
                 }
 
                 let created_at = Utc::now().timestamp();
-                if dynamo_alerts::upsert_alert(
+                if let Err(err) = dynamo_alerts::upsert_alert(
                     &dynamodb_client,
                     &alerts_table_name,
                     &station.nomestaz,
@@ -277,8 +358,11 @@ pub(crate) async fn commands_handler(
                     thread_id,
                 )
                 .await
-                .is_err()
                 {
+                    error!(
+                        "Failed to save alert: station={} chat_id={} error={}",
+                        station.nomestaz, chat_id, err
+                    );
                     utils::send_message(
                         &bot,
                         &msg,

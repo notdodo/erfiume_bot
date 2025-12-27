@@ -1,5 +1,5 @@
 use crate::station::Station;
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use erfiume_dynamodb::alerts::{
     AlertSubscription, list_pending_alerts_for_station, mark_alert_triggered,
@@ -55,7 +55,8 @@ pub async fn process_alerts_for_station(
 
     let pending_alerts =
         list_pending_alerts_for_station(dynamodb_client, &config.table_name, &station.nomestaz)
-            .await?;
+            .await
+            .context("list_pending_alerts_for_station")?;
 
     if pending_alerts.is_empty() {
         return Ok(());
@@ -70,7 +71,7 @@ pub async fn process_alerts_for_station(
             error!(
                 station = %station.nomestaz,
                 chat_id = alert.chat_id,
-                error = %err,
+                error = ?err,
                 "Failed to send alert"
             );
             continue;
@@ -87,11 +88,12 @@ pub async fn process_alerts_for_station(
             current_value,
         )
         .await
+        .context("mark_alert_triggered")
         {
             error!(
                 station = %station.nomestaz,
                 chat_id = alert.chat_id,
-                error = %err,
+                error = ?err,
                 "Failed to mark alert as triggered"
             );
             continue;
@@ -133,7 +135,13 @@ async fn send_alert(
 
     let response = http_client.post(url).json(&payload).send().await?;
     if !response.status().is_success() {
-        return Err(anyhow!("telegram api error: {}", response.status()));
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(anyhow!(
+            "telegram api error: status={} body={}",
+            status,
+            body
+        ));
     }
 
     Ok(())

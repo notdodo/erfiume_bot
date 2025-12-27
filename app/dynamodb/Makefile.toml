@@ -1,0 +1,73 @@
+
+[tasks.clean]
+condition = { profiles = ["development"] }
+command = "cargo"
+args = ["clean"]
+
+[tasks.format]
+condition = { profiles = ["development"] }
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.format-check]
+condition = { profiles = ["development", "gha"] }
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
+[tasks.test]
+command = "cargo"
+args = ["test"]
+
+[tasks.cargo-check]
+condition = { profiles = ["development", "gha"] }
+command = "cargo"
+args = ["check", "--all-targets", "--all-features"]
+
+[tasks.update]
+condition = { profiles = ["development"] }
+install_crate = "cargo-edit"
+command = "cargo"
+args = ["upgrade"]
+
+[tasks.clippy-gha]
+condition = { profiles = ["gha"] }
+command = "cargo"
+args = [
+    "clippy",
+    "--all-targets",
+    "--all-features",
+    "--message-format=json",
+    "--",
+    "-D",
+    "warnings",
+]
+
+[tasks.clippy-dev]
+condition = { profiles = ["development"] }
+command = "cargo"
+args = [
+    "clippy",
+    "--all-targets",
+    "--all-features",
+    "${@}",
+    "--",
+    "-D",
+    "warnings",
+]
+
+[tasks.check]
+condition = { profiles = ["development"] }
+dependencies = ["format", "cargo-check", "test", "clippy-dev"]
+
+[tasks.lint]
+condition = { profiles = ["development"] }
+dependencies = ["format-check", "clippy-dev"]
+
+[tasks.clippy]
+dependencies = ["clippy-dev", "clippy-gha"]
+
+[tasks.ci]
+condition = { profiles = ["gha"] }
+dependencies = ["format-check", "cargo-check", "test", "clippy-gha"]
