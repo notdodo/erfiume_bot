@@ -92,7 +92,13 @@ pub(crate) async fn commands_handler(
                 {
                     Ok(alerts) => alerts,
                     Err(err) => {
-                        error!("Failed to list alerts: chat_id={} error={}", chat_id, err);
+                        error!(
+                            target: "erfiume_bot",
+                            error = ?err,
+                            chat_id,
+                            table = %alerts_table_name,
+                            "Failed to list alerts"
+                        );
                         utils::send_message(
                             &bot,
                             &msg,
@@ -148,7 +154,13 @@ pub(crate) async fn commands_handler(
                     {
                         Ok(alerts) => alerts,
                         Err(err) => {
-                            error!("Failed to list alerts: chat_id={} error={}", chat_id, err);
+                            error!(
+                                target: "erfiume_bot",
+                                error = ?err,
+                                chat_id,
+                                table = %alerts_table_name,
+                                "Failed to list alerts"
+                            );
                             utils::send_message(
                                 &bot,
                                 &msg,
@@ -283,8 +295,12 @@ pub(crate) async fn commands_handler(
                     Ok(value) => value,
                     Err(err) => {
                         error!(
-                            "Failed to check alert existence: station={} chat_id={} error={}",
-                            station.nomestaz, chat_id, err
+                            target: "erfiume_bot",
+                            error = ?err,
+                            station = %station.nomestaz,
+                            chat_id,
+                            table = %alerts_table_name,
+                            "Failed to check alert existence"
                         );
                         utils::send_message(
                             &bot,
@@ -316,7 +332,13 @@ pub(crate) async fn commands_handler(
                     {
                         Ok(value) => value,
                         Err(err) => {
-                            error!("Failed to count alerts: chat_id={} error={}", chat_id, err);
+                            error!(
+                                target: "erfiume_bot",
+                                error = ?err,
+                                chat_id,
+                                table = %alerts_table_name,
+                                "Failed to count alerts"
+                            );
                             utils::send_message(
                                 &bot,
                                 &msg,
@@ -360,8 +382,12 @@ pub(crate) async fn commands_handler(
                 .await
                 {
                     error!(
-                        "Failed to save alert: station={} chat_id={} error={}",
-                        station.nomestaz, chat_id, err
+                        target: "erfiume_bot",
+                        error = ?err,
+                        station = %station.nomestaz,
+                        chat_id,
+                        table = %alerts_table_name,
+                        "Failed to save alert"
                     );
                     utils::send_message(
                         &bot,
