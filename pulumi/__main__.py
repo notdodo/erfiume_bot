@@ -53,6 +53,8 @@ alerts_table = Table(
             non_key_attributes=[
                 "station",
                 "threshold",
+                "triggered_at",
+                "triggered_value",
                 "thread_id",
             ],
         ),
