@@ -55,11 +55,6 @@ impl Logger {
         self
     }
 
-    pub(crate) fn language_code(mut self, language_code: &'static str) -> Self {
-        self.language_code = Some(language_code);
-        self
-    }
-
     pub(crate) fn update_id(mut self, update_id: u32) -> Self {
         self.update_id = Some(update_id);
         self
@@ -72,16 +67,6 @@ impl Logger {
 
     pub(crate) fn text(mut self, text: impl Into<String>) -> Self {
         self.text = Some(text.into());
-        self
-    }
-
-    pub(crate) fn command_count(mut self, command_count: usize) -> Self {
-        self.command_count = Some(command_count);
-        self
-    }
-
-    pub(crate) fn commands(mut self, commands: impl Into<String>) -> Self {
-        self.commands = Some(commands.into());
         self
     }
 

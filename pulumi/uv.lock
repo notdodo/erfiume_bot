@@ -169,13 +169,13 @@ dependencies = [
     { name = "diagrams" },
     { name = "pulumi-aws" },
     { name = "pulumi-cloudflare" },
+    { name = "pydantic" },
     { name = "requests" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "mypy", extra = ["faster-cache"] },
-    { name = "pydantic" },
     { name = "ruff" },
     { name = "types-requests" },
 ]
@@ -185,13 +185,13 @@ requires-dist = [
     { name = "diagrams", specifier = ">=0.24.1" },
     { name = "pulumi-aws", specifier = ">=7.3.0" },
     { name = "pulumi-cloudflare", specifier = ">=6.4.1" },
+    { name = "pydantic", specifier = ">=2.11.7" },
     { name = "requests", specifier = ">=2.32.4" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "mypy", extras = ["faster-cache"], specifier = ">=1.17.1" },
-    { name = "pydantic", specifier = ">=2.11.7" },
     { name = "ruff", specifier = ">=0.12.7" },
     { name = "types-requests", specifier = ">=2.32.4.20250611" },
 ]

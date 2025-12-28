@@ -14,7 +14,12 @@ from er_fiume import (
     TableAttribute,
     TableAttributeType,
 )
-from telegram_provider import TelegramBot
+from telegram_provider import (
+    TelegramBot,
+    TelegramBotCommand,
+    TelegramBotCommandScopeType,
+    TelegramBotCommandSet,
+)
 
 RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
@@ -22,6 +27,38 @@ SYNC_MINUTES_RATE_MEDIUM = 2 * 60  # Every two hours
 SYNC_MINUTES_RATE_EMERGENCY = 20
 EMERGENCY = False
 CUSTOM_DOMAIN_NAME = "erfiume.thedodo.xyz"
+
+BOT_COMMANDS = [
+    TelegramBotCommand(command="help", description="Visualizza la lista dei comandi"),
+    TelegramBotCommand(
+        command="info", description="Ottieni informazioni riguardanti il bot"
+    ),
+    TelegramBotCommand(command="start", description="Inizia ad interagire con il bot"),
+    TelegramBotCommand(
+        command="stazioni", description="Visualizza la lista delle stazioni disponibili"
+    ),
+    TelegramBotCommand(
+        command="avvisami",
+        description="Ricevi un avviso quando la soglia viene superata",
+    ),
+    TelegramBotCommand(
+        command="lista_avvisi",
+        description="Lista dei tuoi avvisi di superamento soglia",
+    ),
+    TelegramBotCommand(
+        command="rimuovi_avviso", description="Rimuovi un avviso per la stazione"
+    ),
+]
+BOT_COMMAND_SCOPES = [
+    TelegramBotCommandScopeType.DEFAULT,
+    TelegramBotCommandScopeType.ALL_PRIVATE_CHATS,
+    TelegramBotCommandScopeType.ALL_GROUP_CHATS,
+    TelegramBotCommandScopeType.ALL_CHAT_ADMINISTRATORS,
+]
+BOT_COMMAND_SETS = [
+    TelegramBotCommandSet(scope=scope, commands=BOT_COMMANDS)
+    for scope in BOT_COMMAND_SCOPES
+]
 
 er_stations_table = Table(
     name="EmiliaRomagna-Stations",
@@ -265,4 +302,5 @@ TelegramBot(
         "inline_query",
     ],
     url=f"https://{CUSTOM_DOMAIN_NAME}/erfiume_bot",
+    command_sets=BOT_COMMAND_SETS,
 )
