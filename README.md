@@ -39,7 +39,7 @@ The bot consists of two main components:
 
 - **Pulumi** for IaC
 - **AWS Lambda** for main code execution environment
-- **DynamoDB** for storing station data
+- **DynamoDB** for storing data
 - **EventBridge Scheduler** to trigger the syncing from Allerta Meteo
 - **teloxide** to manage Telegram inputs
 - **tokio** for managing asynchronous tasks in the Lambdas
@@ -54,6 +54,7 @@ The bot responds to Telegram messages via the main Lambda function and can:
 - respond to any message or command (`/`) in private chats
 - react when added to a group or supergroup
 - process any command (`/`) in group or supergroup chats
+- set up and manage alerts to notify the user of the reaching of a threshold
 
 What it cannot do:
 
@@ -74,4 +75,4 @@ The Lambda is scheduled to run once every 2 hours in "normal" mode, but in "emer
 
 ## Disclaimer
 
-The accuracy and reliability of the data is entirely dependent on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/): `erfiume_bot` merely collects and displays the available data from that source.
+The accuracy and reliability of the data is entirely dependent on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/): `erfiume_bot` just collects and displays the available data from that source.

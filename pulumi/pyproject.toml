@@ -11,6 +11,7 @@ keywords = ["erfiume", "telegram", "fiumi"]
 dependencies = [
     "pulumi-aws>=7.3.0",
     "pulumi-cloudflare>=6.4.1",
+    "pydantic>=2.11.7",
     "requests>=2.32.4",
     "diagrams>=0.24.1",
 ]
@@ -24,7 +25,6 @@ Documentation = "https://github.com/notdodo/erfiume/blob/main/README.md"
 dev = [
     "mypy[faster-cache]>=1.17.1",
     "ruff>=0.12.7",
-    "pydantic>=2.11.7",
     "types-requests>=2.32.4.20250611",
 ]
 
