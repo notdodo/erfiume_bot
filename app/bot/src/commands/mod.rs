@@ -21,5 +21,5 @@ pub(crate) enum Command {
     ListaAvvisi,
     /// Rimuovi un avviso per la stazione
     #[command(alias = "rimuovi_avvisi", hide_aliases)]
-    Rimuoviavviso(String),
+    RimuoviAvviso(String),
 }

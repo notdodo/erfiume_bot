@@ -105,7 +105,7 @@ pub(crate) async fn commands_handler(
                 }
             }
         }
-        Command::Rimuoviavviso(args) => {
+        Command::RimuoviAvviso(args) => {
             let Some(station_name) = parse_station_arg(args) else {
                 utils::send_message(
                     &bot,
