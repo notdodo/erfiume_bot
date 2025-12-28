@@ -26,7 +26,7 @@ pub(crate) async fn commands_handler(
     let text = match cmd {
         Command::Help => Command::descriptions().to_string(),
         Command::Start => {
-            if msg.chat.is_group() || msg.chat.is_supergroup() {
+            let intro = if msg.chat.is_group() || msg.chat.is_supergroup() {
                 format!(
                     "Ciao {}! Scrivete il nome di una stazione da monitorare (e.g. /Cesena@erfiume_bot o /Borello@erfiume_bot) \
                         o cercatene una con /stazioni@erfiume_bot",
@@ -40,7 +40,8 @@ pub(crate) async fn commands_handler(
                         .username()
                         .unwrap_or(msg.chat.first_name().unwrap_or(""))
                 )
-            }
+            };
+            format!("{intro}\n\n{}", Command::descriptions())
         }
         Command::Stazioni => station::stations().join("\n"),
         Command::Info => {
@@ -104,7 +105,7 @@ pub(crate) async fn commands_handler(
                 }
             }
         }
-        Command::Rimuoviavviso(args) | Command::Rimuoviavvisi(args) => {
+        Command::Rimuoviavviso(args) => {
             let Some(station_name) = parse_station_arg(args) else {
                 utils::send_message(
                     &bot,

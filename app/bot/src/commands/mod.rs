@@ -4,7 +4,7 @@ pub(crate) mod utils;
 pub(crate) use handlers::{commands_handler, message_handler};
 
 #[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase")]
+#[command(rename_rule = "snake_case")]
 pub(crate) enum Command {
     /// Visualizza la lista dei comandi
     Help,
@@ -17,12 +17,9 @@ pub(crate) enum Command {
     /// Ricevi un avviso quando la soglia viene superata
     Avvisami(String),
     /// Lista dei tuoi avvisi di superamento soglia
-    #[command(rename = "lista_avvisi")]
+    #[command(alias = "lista_avviso", hide_aliases)]
     ListaAvvisi,
     /// Rimuovi un avviso per la stazione
-    #[command(rename = "rimuovi_avviso")]
+    #[command(alias = "rimuovi_avvisi", hide_aliases)]
     Rimuoviavviso(String),
-    /// Rimuovi un avviso per la stazione (alias)
-    #[command(rename = "rimuovi_avvisi")]
-    Rimuoviavvisi(String),
 }
