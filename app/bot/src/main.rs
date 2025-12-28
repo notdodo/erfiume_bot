@@ -8,8 +8,9 @@ use teloxide::{
     prelude::{Bot, Requester, Update, dptree},
     respond,
     types::{Me, UpdateKind},
+    utils::command::BotCommands,
 };
-use tracing::{info, instrument};
+use tracing::{error, info, instrument};
 use tracing_subscriber::EnvFilter;
 mod commands;
 mod station;
@@ -32,6 +33,7 @@ async fn main() -> Result<(), LambdaError> {
         .init();
 
     let bot = Bot::from_env();
+    configure_bot_commands(&bot).await;
     let me = bot.get_me().await?;
     let dynamodb_client =
         DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await);
@@ -47,6 +49,17 @@ async fn main() -> Result<(), LambdaError> {
     }))
     .await?;
     Ok(())
+}
+
+async fn configure_bot_commands(bot: &Bot) {
+    let commands = commands::Command::bot_commands();
+    if let Err(err) = bot.set_my_commands(commands).await {
+        error!(
+            target: "erfiume_bot",
+            error = ?err,
+            "Failed to set bot commands"
+        );
+    }
 }
 
 #[instrument(skip(app_state, event))]
