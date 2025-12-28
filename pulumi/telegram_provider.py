@@ -34,7 +34,7 @@ class TelegramBotInfo:
     can_read_all_group_messages: bool
     first_name: str
     has_main_web_app: bool
-    id: str
+    id: int
     is_bot: bool
     supports_inline_queries: bool
     username: str
