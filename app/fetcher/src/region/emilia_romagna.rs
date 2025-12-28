@@ -1,6 +1,7 @@
 use super::Region;
 use crate::{
     alerts::{self, AlertsConfig},
+    logging,
     region::{RegionError, RegionResult},
     station::{Entry, Station, StationData},
 };
@@ -8,7 +9,6 @@ use aws_sdk_dynamodb::Client as DynamoDbClient;
 use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use futures::StreamExt;
 use reqwest::Client as HTTPClient;
-use tracing::error;
 
 pub struct EmiliaRomagna;
 
@@ -64,7 +64,8 @@ impl Region for EmiliaRomagna {
         let error_count = process_results.iter().filter(|res| res.is_err()).count();
         for result in process_results {
             if let Err(e) = result {
-                error!(error = %e, "Error processing station: {:?}", e);
+                let logger = logging::Logger::new().error_text(e.to_string());
+                logger.error("stations.process_failed", &e, "Error processing station");
             }
         }
 
@@ -179,23 +180,21 @@ async fn process_station(
 ) -> Result<(), RegionError> {
     let station = fetch_station_data(client, api_base, station.clone())
         .await
-        .map_err(|e| {
-            error!(
-                "Error fetching data for station {}: {:?}",
-                station.nomestaz, e
+        .inspect_err(|e| {
+            let logger = logging::Logger::new().station(&station.nomestaz);
+            logger.error(
+                "stations.fetch_failed",
+                &e,
+                "Error fetching data for station",
             );
-            e
         })?;
 
     if let Some(config) = alerts_config
         && let Err(err) =
             alerts::process_alerts_for_station(client, dynamodb_client, &station, config).await
     {
-        error!(
-            station = %station.nomestaz,
-            error = ?err,
-            "Failed to process alerts"
-        );
+        let logger = logging::Logger::new().station(&station.nomestaz);
+        logger.error("alerts.process_failed", &err, "Failed to process alerts");
         return Err(err.into());
     }
 

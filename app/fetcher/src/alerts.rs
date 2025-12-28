@@ -1,4 +1,4 @@
-use crate::station::Station;
+use crate::{logging, station::Station};
 use anyhow::{Context, Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::{DateTime, TimeZone};
@@ -10,7 +10,6 @@ use erfiume_dynamodb::alerts::{
 use reqwest::Client as HTTPClient;
 use serde_json::json;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tracing::{error, info};
 
 pub struct AlertsConfig {
     pub table_name: String,
@@ -70,12 +69,10 @@ pub async fn process_alerts_for_station(
         }
 
         if let Err(err) = send_alert(http_client, station, &alert, &config.telegram_token).await {
-            error!(
-                station = %station.nomestaz,
-                chat_id = alert.chat_id,
-                error = ?err,
-                "Failed to send alert"
-            );
+            let logger = logging::Logger::new()
+                .station(&station.nomestaz)
+                .chat_id(alert.chat_id);
+            logger.error("alerts.send_failed", &err, "Failed to send alert");
             continue;
         }
 
@@ -92,22 +89,23 @@ pub async fn process_alerts_for_station(
         .await
         .context("mark_alert_triggered")
         {
-            error!(
-                station = %station.nomestaz,
-                chat_id = alert.chat_id,
-                error = ?err,
-                "Failed to mark alert as triggered"
+            let logger = logging::Logger::new()
+                .station(&station.nomestaz)
+                .chat_id(alert.chat_id);
+            logger.error(
+                "alerts.mark_triggered_failed",
+                &err,
+                "Failed to mark alert as triggered",
             );
             continue;
         }
 
-        info!(
-            station = %station.nomestaz,
-            chat_id = alert.chat_id,
-            threshold = alert.threshold,
-            value = current_value,
-            "Alert triggered"
-        );
+        let logger = logging::Logger::new()
+            .station(&station.nomestaz)
+            .chat_id(alert.chat_id)
+            .threshold(alert.threshold)
+            .value(current_value);
+        logger.info("alerts.triggered", "Alert triggered");
     }
 
     Ok(())
