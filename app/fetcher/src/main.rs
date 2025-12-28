@@ -10,6 +10,7 @@ use std::time::Duration;
 use tracing::instrument;
 use tracing_subscriber::EnvFilter;
 mod alerts;
+mod logging;
 mod region;
 mod station;
 

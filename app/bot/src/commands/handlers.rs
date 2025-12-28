@@ -1,17 +1,13 @@
 use super::{Command, utils};
-use crate::station;
+use crate::commands::utils::{
+    current_time_millis, format_alert_status, link_preview_disabled, link_preview_small_media,
+};
+use crate::{logging, station};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::Utc;
-use erfiume_dynamodb::ALERT_ACTIVE;
 use erfiume_dynamodb::alerts as dynamo_alerts;
 use erfiume_dynamodb::chats as dynamo_chats;
-use std::time::{SystemTime, UNIX_EPOCH};
-use teloxide::{
-    prelude::Bot,
-    types::{LinkPreviewOptions, Message},
-    utils::command::BotCommands,
-};
-use tracing::error;
+use teloxide::{prelude::Bot, types::Message, utils::command::BotCommands};
 
 pub(crate) async fn commands_handler(
     bot: Bot,
@@ -22,6 +18,7 @@ pub(crate) async fn commands_handler(
     let link_preview_options = link_preview_disabled();
     // Move it to /start only after a while to collect old users
     ensure_chat_presence(&dynamodb_client, &msg).await;
+    let logger = logging::Logger::from_command(&cmd, &msg);
 
     let text = match cmd {
         Command::Help => Command::descriptions().to_string(),
@@ -67,12 +64,10 @@ pub(crate) async fn commands_handler(
                 {
                     Ok(alerts) => alerts,
                     Err(err) => {
-                        error!(
-                            target: "erfiume_bot",
-                            error = ?err,
-                            chat_id,
-                            table = %alerts_table_name,
-                            "Failed to list alerts"
+                        logger.clone().table(&alerts_table_name).error(
+                            "alerts.list_failed",
+                            &err,
+                            "Failed to list alerts",
                         );
                         utils::send_message(
                             &bot,
@@ -132,12 +127,10 @@ pub(crate) async fn commands_handler(
                     {
                         Ok(alerts) => alerts,
                         Err(err) => {
-                            error!(
-                                target: "erfiume_bot",
-                                error = ?err,
-                                chat_id,
-                                table = %alerts_table_name,
-                                "Failed to list alerts"
+                            logger.clone().table(&alerts_table_name).error(
+                                "alerts.list_failed",
+                                &err,
+                                "Failed to list alerts",
                             );
                             utils::send_message(
                                 &bot,
@@ -172,14 +165,11 @@ pub(crate) async fn commands_handler(
                     {
                         Ok(value) => value,
                         Err(err) => {
-                            error!(
-                                target: "erfiume_bot",
-                                error = ?err,
-                                station = %alert.station_name,
-                                chat_id,
-                                table = %alerts_table_name,
-                                "Failed to delete alert"
-                            );
+                            logger
+                                .clone()
+                                .station(&alert.station_name)
+                                .table(&alerts_table_name)
+                                .error("alerts.delete_failed", &err, "Failed to delete alert");
                             false
                         }
                     };
@@ -221,14 +211,11 @@ pub(crate) async fn commands_handler(
                     {
                         Ok(value) => value,
                         Err(err) => {
-                            error!(
-                                target: "erfiume_bot",
-                                error = ?err,
-                                station = %station.nomestaz,
-                                chat_id,
-                                table = %alerts_table_name,
-                                "Failed to delete alert"
-                            );
+                            logger
+                                .clone()
+                                .station(&station.nomestaz)
+                                .table(&alerts_table_name)
+                                .error("alerts.delete_failed", &err, "Failed to delete alert");
                             false
                         }
                     };
@@ -290,12 +277,10 @@ pub(crate) async fn commands_handler(
                 {
                     Ok(value) => value,
                     Err(err) => {
-                        error!(
-                            target: "erfiume_bot",
-                            error = ?err,
-                            "Failed to check alert existence command=avvisami chat_id={} stations={}",
-                            chat_id,
-                            station.nomestaz,
+                        logger.clone().station(&station.nomestaz).error(
+                            "alerts.exists_check_failed",
+                            &err,
+                            "Failed to check alert existence",
                         );
                         utils::send_message(
                             &bot,
@@ -318,12 +303,10 @@ pub(crate) async fn commands_handler(
                     {
                         Ok(value) => value,
                         Err(err) => {
-                            error!(
-                                target: "erfiume_bot",
-                                error = ?err,
-                                "Failed to count alerts command=avvisami chat_id={} stations={}",
-                                chat_id,
-                                alerts_table_name,
+                            logger.clone().table(&alerts_table_name).error(
+                                "alerts.count_failed",
+                                &err,
+                                "Failed to count alerts",
                             );
                             utils::send_message(
                                 &bot,
@@ -359,14 +342,11 @@ pub(crate) async fn commands_handler(
                 )
                 .await
                 {
-                    error!(
-                        target: "erfiume_bot",
-                        error = ?err,
-                        "Failed to save alert command=avvisami chat_id={} stations={} table={}",
-                        chat_id,
-                        station.nomestaz,
-                        alerts_table_name,
-                    );
+                    logger
+                        .clone()
+                        .station(&station.nomestaz)
+                        .table(&alerts_table_name)
+                        .error("alerts.save_failed", &err, "Failed to save alert");
                     utils::send_message(
                         &bot,
                         &msg,
@@ -468,13 +448,9 @@ async fn ensure_chat_presence(dynamodb_client: &DynamoDbClient, msg: &Message) {
     if let Err(err) =
         dynamo_chats::insert_chat_if_missing(dynamodb_client, &chats_table_name, &record).await
     {
-        error!(
-            target: "erfiume_bot",
-            error = ?err,
-            "Failed to store chat chat_id={} table={}",
-            record.chat_id,
-            chats_table_name,
-        );
+        logging::Logger::from_message(msg)
+            .table(&chats_table_name)
+            .error("chats.insert_failed", &err, "Failed to store chat");
     }
 }
 
@@ -495,80 +471,12 @@ fn parse_station_threshold_args(arg: String) -> Option<(String, f64)> {
     (!station_name.is_empty()).then_some((station_name, threshold))
 }
 
-fn current_time_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
-
-fn format_alert_status(alert: &dynamo_alerts::AlertEntry, now_millis: u64) -> String {
-    const COOLDOWN_MILLIS: u64 = 24 * 60 * 60 * 1000;
-    if alert.active == ALERT_ACTIVE.parse::<i64>().unwrap_or(1) {
-        return "attivo".to_string();
-    }
-
-    let remaining = alert.triggered_at.map(|triggered_at| {
-        COOLDOWN_MILLIS.saturating_sub(now_millis.saturating_sub(triggered_at))
-    });
-
-    let mut status = if let Some(value) = alert.triggered_value {
-        format!("in pausa (soglia superata: {})", value)
-    } else {
-        "in pausa (soglia superata)".to_string()
-    };
-
-    if let Some(remaining) = remaining {
-        if remaining == 0 {
-            status.push_str(", ripristino imminente");
-        } else {
-            status.push_str(", ripristino tra ");
-            status.push_str(&format_duration_millis(remaining));
-        }
-    } else {
-        status.push_str(", ripristino in attesa");
-    }
-
-    status
-}
-
-fn format_duration_millis(millis: u64) -> String {
-    let total_secs = millis.div_ceil(1000);
-    let hours = total_secs / 3600;
-    let minutes = (total_secs % 3600) / 60;
-    let seconds = total_secs % 60;
-
-    if hours > 0 {
-        format!("{}h {}m", hours, minutes)
-    } else if minutes > 0 {
-        format!("{}m", minutes)
-    } else {
-        format!("{}s", seconds)
-    }
-}
-
-fn link_preview_disabled() -> LinkPreviewOptions {
-    LinkPreviewOptions {
-        is_disabled: true,
-        url: None,
-        prefer_small_media: false,
-        prefer_large_media: false,
-        show_above_text: false,
-    }
-}
-
-fn link_preview_small_media() -> LinkPreviewOptions {
-    LinkPreviewOptions {
-        is_disabled: false,
-        url: None,
-        prefer_small_media: true,
-        prefer_large_media: false,
-        show_above_text: false,
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use erfiume_dynamodb::ALERT_ACTIVE;
+
+    use crate::commands::utils::format_duration_millis;
+
     use super::*;
 
     #[test]

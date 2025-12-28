@@ -5,14 +5,17 @@ use serde_json::{Value, json};
 use teloxide::{
     dispatching::{HandlerExt, UpdateFilterExt},
     dptree::deps,
+    payloads::{DeleteMyCommandsSetters, GetMyCommandsSetters, SetMyCommandsSetters},
     prelude::{Bot, Requester, Update, dptree},
     respond,
-    types::{Me, UpdateKind},
+    types::BotCommandScope,
+    types::Me,
     utils::command::BotCommands,
 };
-use tracing::{error, info, instrument};
+use tracing::instrument;
 use tracing_subscriber::EnvFilter;
 mod commands;
+mod logging;
 mod station;
 
 struct AppState {
@@ -53,12 +56,86 @@ async fn main() -> Result<(), LambdaError> {
 
 async fn configure_bot_commands(bot: &Bot) {
     let commands = commands::Command::bot_commands();
-    if let Err(err) = bot.set_my_commands(commands).await {
-        error!(
-            target: "erfiume_bot",
-            error = ?err,
-            "Failed to set bot commands"
+
+    set_commands(bot, &commands, BotCommandScope::Default, None).await;
+    set_commands(bot, &commands, BotCommandScope::AllPrivateChats, None).await;
+    set_commands(bot, &commands, BotCommandScope::AllGroupChats, None).await;
+    set_commands(bot, &commands, BotCommandScope::AllChatAdministrators, None).await;
+
+    delete_language_commands(bot, BotCommandScope::Default, "en").await;
+    delete_language_commands(bot, BotCommandScope::Default, "it").await;
+    delete_language_commands(bot, BotCommandScope::AllPrivateChats, "en").await;
+    delete_language_commands(bot, BotCommandScope::AllPrivateChats, "it").await;
+    delete_language_commands(bot, BotCommandScope::AllGroupChats, "en").await;
+    delete_language_commands(bot, BotCommandScope::AllGroupChats, "it").await;
+    delete_language_commands(bot, BotCommandScope::AllChatAdministrators, "en").await;
+    delete_language_commands(bot, BotCommandScope::AllChatAdministrators, "it").await;
+
+    log_commands(bot, BotCommandScope::Default, None).await;
+    log_commands(bot, BotCommandScope::AllPrivateChats, None).await;
+    log_commands(bot, BotCommandScope::AllGroupChats, None).await;
+    log_commands(bot, BotCommandScope::AllChatAdministrators, None).await;
+}
+
+async fn set_commands(
+    bot: &Bot,
+    commands: &[teloxide::types::BotCommand],
+    scope: BotCommandScope,
+    language_code: Option<&'static str>,
+) {
+    let mut request = bot.set_my_commands(commands.to_vec());
+    request = SetMyCommandsSetters::scope(request, scope);
+    if let Some(language_code) = language_code {
+        request = SetMyCommandsSetters::language_code(request, language_code);
+    }
+    if let Err(err) = request.await {
+        let logger = logging::Logger::new();
+        logger.error(
+            "bot.commands.set_failed",
+            &err,
+            "Failed to set bot commands",
         );
+    }
+}
+
+async fn delete_language_commands(bot: &Bot, scope: BotCommandScope, language_code: &'static str) {
+    let mut request = bot.delete_my_commands().scope(scope);
+    request = request.language_code(language_code);
+    if let Err(err) = request.await {
+        let logger = logging::Logger::new().language_code(language_code);
+        logger.error(
+            "bot.commands.delete_failed",
+            &err,
+            "Failed to delete language-specific commands",
+        );
+    }
+}
+
+async fn log_commands(bot: &Bot, scope: BotCommandScope, language_code: Option<&'static str>) {
+    let mut request = bot.get_my_commands().scope(scope);
+    if let Some(language_code) = language_code {
+        request = request.language_code(language_code);
+    }
+    match request.await {
+        Ok(commands) => {
+            let names: Vec<String> = commands
+                .iter()
+                .map(|command| command.command.clone())
+                .collect();
+            let logger = logging::Logger::new()
+                .language_code(language_code.unwrap_or("default"))
+                .command_count(commands.len())
+                .commands(names.join(","));
+            logger.info("bot.commands.list", "Bot command list");
+        }
+        Err(err) => {
+            let logger = logging::Logger::new().language_code(language_code.unwrap_or("default"));
+            logger.error(
+                "bot.commands.read_failed",
+                &err,
+                "Failed to read bot commands",
+            );
+        }
     }
 }
 
@@ -78,7 +155,7 @@ async fn lambda_handler(
         .as_str()
         .ok_or_else(|| LambdaError::from("Expected 'body' to be a string"))?;
     let update: Update = serde_json::from_str(inner_json_str)?;
-    log_update_summary(&update);
+    logging::update_summary(&update);
 
     let handler = Update::filter_message()
         .branch(
@@ -103,52 +180,4 @@ async fn lambda_handler(
         "message": "Lambda executed successfully",
         "statusCode": 200,
     }))
-}
-
-fn log_update_summary(update: &Update) {
-    let kind = update_kind_name(update);
-    if let UpdateKind::Message(msg) = &update.kind {
-        let mut text_preview = msg.text().unwrap_or("").to_string();
-        const MAX_LEN: usize = 400;
-        if text_preview.chars().count() > MAX_LEN {
-            text_preview = text_preview.chars().take(MAX_LEN).collect();
-            text_preview.push_str("...");
-        }
-        info!(
-            target: "erfiume_bot",
-            update_id = update.id.0,
-            kind,
-            chat_id = msg.chat.id.0,
-            message_id = msg.id.0,
-            text = %text_preview,
-            "update"
-        );
-    } else {
-        info!(
-            target: "erfiume_bot",
-            update_id = update.id.0,
-            kind,
-            "update"
-        );
-    }
-}
-
-fn update_kind_name(update: &Update) -> &'static str {
-    match &update.kind {
-        UpdateKind::Message(_) => "message",
-        UpdateKind::EditedMessage(_) => "edited_message",
-        UpdateKind::ChannelPost(_) => "channel_post",
-        UpdateKind::EditedChannelPost(_) => "edited_channel_post",
-        UpdateKind::InlineQuery(_) => "inline_query",
-        UpdateKind::ChosenInlineResult(_) => "chosen_inline_result",
-        UpdateKind::CallbackQuery(_) => "callback_query",
-        UpdateKind::ShippingQuery(_) => "shipping_query",
-        UpdateKind::PreCheckoutQuery(_) => "pre_checkout_query",
-        UpdateKind::Poll(_) => "poll",
-        UpdateKind::PollAnswer(_) => "poll_answer",
-        UpdateKind::MyChatMember(_) => "my_chat_member",
-        UpdateKind::ChatMember(_) => "chat_member",
-        UpdateKind::ChatJoinRequest(_) => "chat_join_request",
-        _ => "other",
-    }
 }
