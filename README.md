@@ -11,7 +11,7 @@
 
 ## Introduction
 
-[`@erfiume_bot`](https://t.me/erfiume_bot) it's a Telegram bot that fetches the water levels of the rivers in Emilia Romagna. Data is retrieved from [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) APIs and periodically stored/updated in a DynamoDB table.
+[`@erfiume_bot`](https://t.me/erfiume_bot) is a Telegram bot that fetches the water levels of the rivers in Emilia-Romagna and Marche. Data is retrieved from the [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) APIs and from the [Protezione Civile Marche](http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it) portal, then periodically stored/updated in DynamoDB.
 The bot can be used in both private or group chats, responding to specific station names or commands or alerting when a threshold is reached.
 
 ![](https://github.com/user-attachments/assets/f5bc07c1-fb6c-48be-b871-a9d6dd4aae82)
@@ -21,7 +21,8 @@ The bot can be used in both private or group chats, responding to specific stati
 - `/start`
 - `/info`
 - `/stazioni`
-- `/<station_name>` where `<station_name>` is one the station reported on [Livello Idrometrico](https://allertameteo.regione.emilia-romagna.it/livello-idrometrico)
+- `/cambia_regione`
+- `/<station_name>` where `<station_name>` is one of the stations reported on [Livello Idrometrico](https://allertameteo.regione.emilia-romagna.it/livello-idrometrico) or on the [Protezione Civile Marche portal](http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it)
 - `/avvisami <station_name> <threshold>`
 - `/lista_avvisi`
 - `/rimuovi_avviso`
@@ -64,7 +65,7 @@ What it cannot do:
 
 ### Data fetcher (`./app/fetcher`)
 
-This Lambda function is scheduled to fetch data from the APIs on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) and update or create station data in a DynamoDB table. A station refers to a sensor installed on a bridge or along a river that monitors water levels. Using the newly fetched information, the function also sends alerts to users who are subscribed to specific threshold notifications.
+This Lambda function is scheduled to fetch data from the APIs on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) and from the [Protezione Civile Marche](http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it) portal, then update or create station data in DynamoDB. A station refers to a sensor installed on a bridge or along a river that monitors water levels. Using the newly fetched information, the function also sends alerts to users who are subscribed to specific threshold notifications.
 
 The Lambda is scheduled to run once every 2 hours in "normal" mode, but in "emergency" mode, it can be set to update data every 20 minutes or less.
 
@@ -75,4 +76,4 @@ The Lambda is scheduled to run once every 2 hours in "normal" mode, but in "emer
 
 ## Disclaimer
 
-The accuracy and reliability of the data is entirely dependent on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/): `erfiume_bot` just collects and displays the available data from that source.
+The accuracy and reliability of the data is entirely dependent on [Allerta Meteo Emilia Romagna](https://allertameteo.regione.emilia-romagna.it/) and [Protezione Civile Marche](http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it): `erfiume_bot` just collects and displays the available data from these sources.

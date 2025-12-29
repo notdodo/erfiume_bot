@@ -63,14 +63,20 @@ impl Station {
             alarm = "";
         }
 
-        let yellow_str = Self::format_threshold(yellow);
-        let orange_str = Self::format_threshold(orange);
-        let red_str = Self::format_threshold(red);
+        let mut lines = Vec::with_capacity(6);
+        lines.push(format!("Stazione: {}", self.nomestaz));
+        lines.push(format!("Valore: {} {}", value_str, alarm));
+        if thresholds_available {
+            let yellow_str = Self::format_threshold(yellow);
+            let orange_str = Self::format_threshold(orange);
+            let red_str = Self::format_threshold(red);
+            lines.push(format!("Soglia Gialla: {}", yellow_str));
+            lines.push(format!("Soglia Arancione: {}", orange_str));
+            lines.push(format!("Soglia Rossa: {}", red_str));
+        }
+        lines.push(format!("Ultimo rilevamento: {}", timestamp_formatted));
 
-        format!(
-            "Stazione: {}\nValore: {} {}\nSoglia Gialla: {}\nSoglia Arancione: {}\nSoglia Rossa: {}\nUltimo rilevamento: {}",
-            self.nomestaz, value_str, alarm, yellow_str, orange_str, red_str, timestamp_formatted
-        )
+        lines.join("\n")
     }
 }
 
@@ -130,7 +136,8 @@ mod tests {
             soglia3: UNKNOWN_THRESHOLD,
             value: 1.2,
         };
-        let expected = "Stazione: Cesena\nValore: 1.20 \nSoglia Gialla: non disponibile\nSoglia Arancione: non disponibile\nSoglia Rossa: non disponibile\nUltimo rilevamento: 20-10-2024 22:02".to_string();
+        let expected =
+            "Stazione: Cesena\nValore: 1.20 \nUltimo rilevamento: 20-10-2024 22:02".to_string();
 
         assert_eq!(station.create_station_message(), expected);
     }
