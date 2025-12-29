@@ -26,5 +26,7 @@ jobs:
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-write
       aws-secrets-mapping: >
         CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-write
+      egress-policy-allowlist: >
+        api.telegram.org:443
       stack-name: notdodo/erfiume/production
       working-directory: ./pulumi
