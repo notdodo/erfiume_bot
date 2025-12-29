@@ -5,7 +5,7 @@ members = ["bot", "fetcher", "dynamodb"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-description = "Bot per leggere i livelli idrometrici dei fiumi dell'Emilia Romagna riportati da allertameteo.regione.emilia-romagna.it."
+description = "Bot per leggere i livelli idrometrici dei fiumi in Emilia-Romagna e Marche (allertameteo.regione.emilia-romagna.it, app.protezionecivile.marche.it)."
 authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
 
 [workspace.dependencies]
