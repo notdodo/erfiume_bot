@@ -5,10 +5,10 @@ use erfiume_dynamodb::alerts as dynamo_alerts;
 use teloxide::{
     payloads::SendMessageSetters,
     prelude::{Bot, Requester},
-    types::{LinkPreviewOptions, Message, ParseMode},
+    types::{LinkPreviewOptions, Message, ParseMode, ReplyMarkup},
 };
 
-fn escape_markdown_v2(text: &str) -> String {
+pub(crate) fn escape_markdown_v2(text: &str) -> String {
     text.replace("\\", "\\\\")
         .replace("_", "\\_")
         .replace("*", "\\*")
@@ -45,6 +45,29 @@ pub(crate) async fn send_message(
         bot.send_message(msg.chat.id, escape_markdown_v2(text))
             .link_preview_options(preview_options)
             .parse_mode(ParseMode::MarkdownV2)
+            .await
+    }
+}
+
+pub(crate) async fn send_message_with_markup(
+    bot: &Bot,
+    msg: &Message,
+    preview_options: LinkPreviewOptions,
+    text: &str,
+    reply_markup: impl Into<ReplyMarkup>,
+) -> Result<teloxide::prelude::Message, teloxide::RequestError> {
+    if let Some(thread_id) = msg.thread_id {
+        bot.send_message(msg.chat.id, escape_markdown_v2(text))
+            .link_preview_options(preview_options)
+            .message_thread_id(thread_id)
+            .parse_mode(ParseMode::MarkdownV2)
+            .reply_markup(reply_markup)
+            .await
+    } else {
+        bot.send_message(msg.chat.id, escape_markdown_v2(text))
+            .link_preview_options(preview_options)
+            .parse_mode(ParseMode::MarkdownV2)
+            .reply_markup(reply_markup)
             .await
     }
 }
