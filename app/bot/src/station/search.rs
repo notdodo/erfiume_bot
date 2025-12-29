@@ -1,6 +1,7 @@
-use super::{Station, UNKNOWN_VALUE};
+use super::Station;
 use anyhow::{Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
+use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 use erfiume_dynamodb::stations::{StationRecord, get_station_record, list_stations};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -81,7 +82,7 @@ fn record_to_station(record: StationRecord) -> Station {
         soglia1: record.soglia1,
         soglia2: record.soglia2,
         soglia3: record.soglia3,
-        value: record.value.unwrap_or(UNKNOWN_VALUE),
+        value: record.value.unwrap_or(UNKNOWN_THRESHOLD),
     }
 }
 
@@ -140,6 +141,6 @@ mod tests {
             value: None,
         };
         let station = record_to_station(record);
-        assert_eq!(station.value, UNKNOWN_VALUE);
+        assert_eq!(station.value, UNKNOWN_THRESHOLD);
     }
 }
