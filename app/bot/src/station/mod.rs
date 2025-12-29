@@ -4,8 +4,6 @@ use chrono_tz::Europe::Rome;
 use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 use serde::Deserialize;
 
-const UNKNOWN_VALUE: f64 = UNKNOWN_THRESHOLD;
-
 #[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct Station {
@@ -60,7 +58,7 @@ impl Station {
         }
 
         let mut value_str = format!("{value:.2}");
-        if value == UNKNOWN_VALUE {
+        if value == UNKNOWN_THRESHOLD {
             value_str = "non disponibile".to_string();
             alarm = "";
         }
@@ -92,7 +90,7 @@ mod tests {
             soglia1: 1.0,
             soglia2: 2.0,
             soglia3: 3.0,
-            value: UNKNOWN_VALUE,
+            value: UNKNOWN_THRESHOLD,
         };
         let expected = "Stazione: Cesena\nValore: non disponibile \nSoglia Gialla: 1.00\nSoglia Arancione: 2.00\nSoglia Rossa: 3.00\nUltimo rilevamento: 20-10-2024 22:02".to_string();
 
