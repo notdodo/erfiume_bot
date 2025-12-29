@@ -28,31 +28,6 @@ SYNC_MINUTES_RATE_EMERGENCY = 20
 EMERGENCY = False
 CUSTOM_DOMAIN_NAME = "erfiume.thedodo.xyz"
 
-BOT_COMMANDS = [
-    TelegramBotCommand(command="help", description="Visualizza la lista dei comandi"),
-    TelegramBotCommand(
-        command="info", description="Ottieni informazioni riguardanti il bot"
-    ),
-    TelegramBotCommand(command="start", description="Inizia ad interagire con il bot"),
-    TelegramBotCommand(
-        command="stazioni", description="Visualizza la lista delle stazioni disponibili"
-    ),
-    TelegramBotCommand(
-        command="avvisami",
-        description="Ricevi un avviso quando la soglia viene superata",
-    ),
-    TelegramBotCommand(
-        command="lista_avvisi",
-        description="Lista dei tuoi avvisi di superamento soglia",
-    ),
-    TelegramBotCommand(
-        command="cambia_regione", description="Cambia la regione da monitorare"
-    ),
-    TelegramBotCommand(
-        command="rimuovi_avviso", description="Rimuovi un avviso per la stazione"
-    ),
-]
-
 er_stations_table = Table(
     name="EmiliaRomagna-Stations",
     hash_key="nomestaz",
@@ -136,7 +111,7 @@ fetcher_lambda = Function(
     code_runtime=FunctionRuntime.RUST,
     architecture=FunctionCPUArchitecture.ARM,
     memory=512,
-    timeout=20,
+    timeout=60,
     variables={
         "ALERTS_TABLE_NAME": alerts_table.table.name,
         "EMILIA_ROMAGNA_STATIONS_TABLE_NAME": er_stations_table.table.name,
@@ -189,7 +164,7 @@ bot_lambda = Function(
         "REGION_MARCHE_KEY": "marche",
         "REGION_MARCHE_LABEL": "Marche",
         "RUST_LOG": "info",
-        "STATIONS_SCAN_PAGE_SIZE": "50",
+        "STATIONS_SCAN_PAGE_SIZE": "25",
         "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
     },
 )
@@ -299,7 +274,41 @@ TelegramBot(
     ],
     url=f"https://{CUSTOM_DOMAIN_NAME}/erfiume_bot",
     command_sets=[
-        TelegramBotCommandSet(scope=scope, commands=BOT_COMMANDS)
+        TelegramBotCommandSet(
+            scope=scope,
+            commands=[
+                TelegramBotCommand(
+                    command="help", description="Visualizza la lista dei comandi"
+                ),
+                TelegramBotCommand(
+                    command="info",
+                    description="Ottieni informazioni riguardanti il bot",
+                ),
+                TelegramBotCommand(
+                    command="start", description="Inizia ad interagire con il bot"
+                ),
+                TelegramBotCommand(
+                    command="stazioni",
+                    description="Visualizza la lista delle stazioni disponibili",
+                ),
+                TelegramBotCommand(
+                    command="avvisami",
+                    description="Ricevi un avviso quando la soglia viene superata",
+                ),
+                TelegramBotCommand(
+                    command="lista_avvisi",
+                    description="Lista dei tuoi avvisi di superamento soglia",
+                ),
+                TelegramBotCommand(
+                    command="cambia_regione",
+                    description="Cambia la regione da monitorare",
+                ),
+                TelegramBotCommand(
+                    command="rimuovi_avviso",
+                    description="Rimuovi un avviso per la stazione",
+                ),
+            ],
+        )
         for scope in [
             TelegramBotCommandScopeType.DEFAULT,
             TelegramBotCommandScopeType.ALL_PRIVATE_CHATS,

@@ -3,6 +3,7 @@ use anyhow::{Context, Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::{DateTime, TimeZone};
 use chrono_tz::Europe::Rome;
+use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 use erfiume_dynamodb::alerts::{
     AlertSubscription, list_pending_alerts_for_station, mark_alert_triggered,
     reactivate_expired_alerts_for_station,
@@ -156,7 +157,7 @@ fn current_time_millis() -> u64 {
 }
 
 fn format_station_message(station: &Station) -> String {
-    const UNKNOWN_VALUE: f32 = -9999.0;
+    const UNKNOWN_VALUE: f32 = UNKNOWN_THRESHOLD as f32;
     let timestamp_formatted = station
         .timestamp
         .and_then(|timestamp| {

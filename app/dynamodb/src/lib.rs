@@ -6,3 +6,5 @@ pub use parse::{parse_number_field, parse_optional_number_field, parse_string_fi
 
 pub const ALERT_ACTIVE: &str = "1";
 pub const ALERT_TRIGGERED: &str = "0";
+/// Sentinel value for missing or unavailable threshold levels.
+pub const UNKNOWN_THRESHOLD: f64 = -9999.0;
