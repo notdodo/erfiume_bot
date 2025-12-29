@@ -68,16 +68,20 @@ async fn lambda_handler(
     let update: Update = serde_json::from_str(inner_json_str)?;
     logging::update_summary(&update);
 
-    let handler = Update::filter_message()
+    let handler = dptree::entry()
         .branch(
-            dptree::entry()
-                .filter_command::<commands::Command>()
-                .endpoint(commands::commands_handler),
+            Update::filter_message()
+                .branch(
+                    dptree::entry()
+                        .filter_command::<commands::Command>()
+                        .endpoint(commands::commands_handler),
+                )
+                .branch(dptree::endpoint(|msg, bot, dynamodb_client| async move {
+                    commands::message_handler(&bot, &msg, &dynamodb_client).await?;
+                    respond(())
+                })),
         )
-        .branch(dptree::endpoint(|msg, bot, dynamodb_client| async move {
-            commands::message_handler(&bot, &msg, &dynamodb_client).await?;
-            respond(())
-        }));
+        .branch(Update::filter_callback_query().endpoint(commands::callback_query_handler));
 
     let _ = handler
         .dispatch(deps![

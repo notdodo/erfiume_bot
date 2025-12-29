@@ -46,18 +46,11 @@ BOT_COMMANDS = [
         description="Lista dei tuoi avvisi di superamento soglia",
     ),
     TelegramBotCommand(
+        command="cambia_regione", description="Cambia la regione da monitorare"
+    ),
+    TelegramBotCommand(
         command="rimuovi_avviso", description="Rimuovi un avviso per la stazione"
     ),
-]
-BOT_COMMAND_SCOPES = [
-    TelegramBotCommandScopeType.DEFAULT,
-    TelegramBotCommandScopeType.ALL_PRIVATE_CHATS,
-    TelegramBotCommandScopeType.ALL_GROUP_CHATS,
-    TelegramBotCommandScopeType.ALL_CHAT_ADMINISTRATORS,
-]
-BOT_COMMAND_SETS = [
-    TelegramBotCommandSet(scope=scope, commands=BOT_COMMANDS)
-    for scope in BOT_COMMAND_SCOPES
 ]
 
 er_stations_table = Table(
@@ -146,7 +139,9 @@ fetcher_lambda = Function(
     timeout=20,
     variables={
         "ALERTS_TABLE_NAME": alerts_table.table.name,
+        "EMILIA_ROMAGNA_STATIONS_TABLE_NAME": er_stations_table.table.name,
         "ENVIRONMENT": pulumi.get_stack(),
+        "MARCHE_STATIONS_TABLE_NAME": m_stations_table.table.name,
         "RUST_LOG": "info",
         "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
     },
@@ -161,9 +156,11 @@ bot_lambda = Function(
             {
                 "Effect": "Allow",
                 "Actions": [
-                    "dynamodb:GetItem",
-                    "dynamodb:Query",
                     "dynamodb:DeleteItem",
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:Query",
+                    "dynamodb:Scan",
                     "dynamodb:UpdateItem",
                 ],
                 # Query on GSIs requires index ARNs, not just the table ARN.
@@ -172,15 +169,6 @@ bot_lambda = Function(
                     m_stations_table.arn,
                     alerts_table.arn,
                     alerts_table.arn.apply(lambda arn: f"{arn}/index/*"),
-                ],
-            },
-            {
-                "Effect": "Allow",
-                "Actions": [
-                    "dynamodb:PutItem",
-                ],
-                "Resources": [
-                    alerts_table.arn,
                     chats_table.arn,
                 ],
             },
@@ -193,8 +181,15 @@ bot_lambda = Function(
     variables={
         "ALERTS_TABLE_NAME": alerts_table.table.name,
         "CHATS_TABLE_NAME": chats_table.table.name,
+        "EMILIA_ROMAGNA_STATIONS_TABLE_NAME": er_stations_table.table.name,
         "ENVIRONMENT": pulumi.get_stack(),
+        "MARCHE_STATIONS_TABLE_NAME": m_stations_table.table.name,
+        "REGION_EMILIA_ROMAGNA_KEY": "emilia-romagna",
+        "REGION_EMILIA_ROMAGNA_LABEL": "Emilia-Romagna",
+        "REGION_MARCHE_KEY": "marche",
+        "REGION_MARCHE_LABEL": "Marche",
         "RUST_LOG": "info",
+        "STATIONS_SCAN_PAGE_SIZE": "50",
         "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
     },
 )
@@ -300,7 +295,16 @@ TelegramBot(
     react_on=[
         "message",
         "inline_query",
+        "callback_query",
     ],
     url=f"https://{CUSTOM_DOMAIN_NAME}/erfiume_bot",
-    command_sets=BOT_COMMAND_SETS,
+    command_sets=[
+        TelegramBotCommandSet(scope=scope, commands=BOT_COMMANDS)
+        for scope in [
+            TelegramBotCommandScopeType.DEFAULT,
+            TelegramBotCommandScopeType.ALL_PRIVATE_CHATS,
+            TelegramBotCommandScopeType.ALL_GROUP_CHATS,
+            TelegramBotCommandScopeType.ALL_CHAT_ADMINISTRATORS,
+        ]
+    ],
 )

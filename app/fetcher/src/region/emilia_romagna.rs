@@ -9,10 +9,11 @@ use aws_sdk_dynamodb::Client as DynamoDbClient;
 use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use futures::StreamExt;
 use reqwest::Client as HTTPClient;
+use std::sync::OnceLock;
 
 pub struct EmiliaRomagna;
 
-const DEFAULT_API_BASE_URL: &str = "https://allertameteo.regione.emilia-romagna.it";
+const API_BASE_URL: &str = "https://allertameteo.regione.emilia-romagna.it";
 const LATEST_TIME_SEED: i64 = 1_726_667_100_000;
 const SENSOR_VALUES_PATH: &str = "/o/api/allerta/get-sensor-values-no-time";
 const TIME_SERIES_PATH: &str = "/o/api/allerta/get-time-series/";
@@ -29,7 +30,7 @@ impl Region for EmiliaRomagna {
     }
 
     fn dynamodb_table(&self) -> &'static str {
-        "EmiliaRomagna-Stations"
+        emilia_romagna_table_name()
     }
 
     async fn fetch_stations_data(
@@ -37,9 +38,9 @@ impl Region for EmiliaRomagna {
         http_client: &HTTPClient,
         dynamodb_client: &DynamoDbClient,
     ) -> Result<RegionResult, RegionError> {
-        let api_base = api_base_url();
-        let latest_timestamp = fetch_latest_time(http_client, &api_base).await?;
-        let stations = fetch_stations(http_client, &api_base, latest_timestamp).await?;
+        let api_base = API_BASE_URL;
+        let latest_timestamp = fetch_latest_time(http_client, api_base).await?;
+        let stations = fetch_stations(http_client, api_base, latest_timestamp).await?;
         let stations_count = stations.len();
         let concurrency_limit = 40;
         let alerts_config = AlertsConfig::from_env();
@@ -48,7 +49,7 @@ impl Region for EmiliaRomagna {
             process_station(
                 http_client,
                 dynamodb_client,
-                &api_base,
+                api_base,
                 station,
                 self.dynamodb_table(),
                 alerts_config.as_ref(),
@@ -82,11 +83,17 @@ impl Region for EmiliaRomagna {
     }
 }
 
-fn api_base_url() -> String {
-    std::env::var("ALLERTA_API_BASE_URL")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| DEFAULT_API_BASE_URL.to_string())
+fn emilia_romagna_table_name() -> &'static str {
+    static TABLE_NAME: OnceLock<String> = OnceLock::new();
+    TABLE_NAME
+        .get_or_init(|| {
+            std::env::var("EMILIA_ROMAGNA_STATIONS_TABLE_NAME")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| panic!("Missing env var: EMILIA_ROMAGNA_STATIONS_TABLE_NAME"))
+        })
+        .as_str()
 }
 
 async fn fetch_latest_time(client: &HTTPClient, api_base: &str) -> Result<i64, RegionError> {

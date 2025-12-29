@@ -180,6 +180,7 @@ fn command_name(cmd: &Command) -> &'static str {
         Command::Stazioni => "stazioni",
         Command::Avvisami(_) => "avvisami",
         Command::ListaAvvisi => "lista_avvisi",
+        Command::CambiaRegione => "cambia_regione",
         Command::RimuoviAvviso(_) => "rimuovi_avviso",
     }
 }

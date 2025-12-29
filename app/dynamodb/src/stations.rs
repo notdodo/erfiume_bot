@@ -152,6 +152,50 @@ OR attribute_not_exists(soglia3)";
     }
 }
 
+pub async fn list_stations(
+    client: &Client,
+    table_name: &str,
+    page_size: i32,
+) -> Result<Vec<String>> {
+    if table_name.is_empty() {
+        return Err(anyhow!("stations table name is empty"));
+    }
+
+    let page_size = page_size.clamp(1, 100);
+    let mut names = Vec::new();
+    let mut last_evaluated_key: Option<HashMap<String, AttributeValue>> = None;
+
+    loop {
+        let mut request = client
+            .scan()
+            .table_name(table_name)
+            .projection_expression("nomestaz")
+            .limit(page_size);
+
+        if let Some(key) = last_evaluated_key.take() {
+            request = request.set_exclusive_start_key(Some(key));
+        }
+
+        let response = request.send().await?;
+        if let Some(items) = response.items {
+            for item in items {
+                names.push(parse_string_field(&item, "nomestaz")?);
+            }
+        }
+
+        match response.last_evaluated_key {
+            Some(key) if !key.is_empty() => {
+                last_evaluated_key = Some(key);
+            }
+            _ => break,
+        }
+    }
+
+    names.sort();
+    names.dedup();
+    Ok(names)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

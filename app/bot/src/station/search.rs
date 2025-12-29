@@ -1,16 +1,19 @@
-use super::{Station, UNKNOWN_VALUE, stations};
+use super::{Station, UNKNOWN_VALUE};
 use anyhow::{Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use erfiume_dynamodb::stations::{StationRecord, get_station_record};
+use erfiume_dynamodb::stations::{StationRecord, get_station_record, list_stations};
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 use strsim::jaro_winkler;
 
-fn fuzzy_search(search: &str) -> Option<String> {
+static STATION_CACHE: OnceLock<Mutex<HashMap<String, Vec<String>>>> = OnceLock::new();
+
+fn fuzzy_search(search: &str, stations: &[String]) -> Option<String> {
     const MIN_SCORE: f64 = 0.8;
-    let stations = stations();
     let search_lower = search.to_lowercase();
     stations
         .iter()
-        .map(|s: &String| {
+        .map(|s| {
             let s_normalized = s.replace(" ", "").to_lowercase();
             let score = jaro_winkler(&search_lower, &s_normalized);
             (s, score)
@@ -24,8 +27,10 @@ pub async fn get_station(
     client: &DynamoDbClient,
     station_name: String,
     table_name: &str,
+    page_size: i32,
 ) -> Result<Option<Station>> {
-    if let Some(closest_match) = fuzzy_search(&station_name) {
+    let stations = list_stations_cached(client, table_name, page_size).await?;
+    if let Some(closest_match) = fuzzy_search(&station_name, &stations) {
         let record = get_station_record(client, table_name, &closest_match).await?;
         match record {
             Some(record) => Ok(Some(record_to_station(record))),
@@ -33,6 +38,35 @@ pub async fn get_station(
         }
     } else {
         Err(anyhow!("'{}' did not match any know station", station_name))
+    }
+}
+
+pub async fn list_stations_cached(
+    client: &DynamoDbClient,
+    table_name: &str,
+    page_size: i32,
+) -> Result<Vec<String>> {
+    if let Some(cached) = get_cached_station_names(table_name) {
+        return Ok(cached);
+    }
+
+    let names = list_stations(client, table_name, page_size).await?;
+    set_cached_station_names(table_name, names.clone());
+    Ok(names)
+}
+
+fn station_cache() -> &'static Mutex<HashMap<String, Vec<String>>> {
+    STATION_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn get_cached_station_names(table_name: &str) -> Option<Vec<String>> {
+    let cache = station_cache().lock().ok()?;
+    cache.get(table_name).cloned()
+}
+
+fn set_cached_station_names(table_name: &str, names: Vec<String>) {
+    if let Ok(mut cache) = station_cache().lock() {
+        cache.insert(table_name.to_string(), names);
     }
 }
 
@@ -59,32 +93,36 @@ mod tests {
     fn fuzzy_search_cesena_yields_cesena_station() {
         let message = "cesena".to_string();
         let expected = Some("Cesena".to_string());
+        let stations = vec!["Cesena".to_string(), "S. Carlo".to_string()];
 
-        assert_eq!(fuzzy_search(&message), expected);
+        assert_eq!(fuzzy_search(&message, &stations), expected);
     }
 
     #[test]
     fn fuzzy_search_scarlo_yields_scarlo_station() {
         let message = "scarlo".to_string();
         let expected = Some("S. Carlo".to_string());
+        let stations = vec!["Cesena".to_string(), "S. Carlo".to_string()];
 
-        assert_eq!(fuzzy_search(&message), expected);
+        assert_eq!(fuzzy_search(&message, &stations), expected);
     }
 
     #[test]
     fn fuzzy_search_nonexisting_yields_nonexisting_station() {
         let message = "thisdoesnotexists".to_string();
         let expected = None;
+        let stations = vec!["Cesena".to_string(), "S. Carlo".to_string()];
 
-        assert_eq!(fuzzy_search(&message), expected);
+        assert_eq!(fuzzy_search(&message, &stations), expected);
     }
 
     #[test]
     fn fuzzy_search_ecsena_yields_cesena_station() {
         let message = "ecsena".to_string();
         let expected = Some("Cesena".to_string());
+        let stations = vec!["Cesena".to_string(), "S. Carlo".to_string()];
 
-        assert_eq!(fuzzy_search(&message), expected);
+        assert_eq!(fuzzy_search(&message, &stations), expected);
     }
 
     #[test]

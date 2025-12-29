@@ -11,6 +11,7 @@ pub struct ChatRecord {
     pub first_name: Option<String>,
     pub last_name: Option<String>,
     pub title: Option<String>,
+    pub region: Option<String>,
     pub created_at: i64,
 }
 
@@ -59,6 +60,9 @@ pub async fn insert_chat_if_missing(
     if let Some(title) = record.title.as_ref().filter(|value| !value.is_empty()) {
         item.insert("title".to_string(), AttributeValue::S(title.to_string()));
     }
+    if let Some(region) = record.region.as_ref().filter(|value| !value.is_empty()) {
+        item.insert("region".to_string(), AttributeValue::S(region.to_string()));
+    }
 
     let result = client
         .put_item()
@@ -78,5 +82,54 @@ pub async fn insert_chat_if_missing(
             }
         }
         Err(err) => Err(err.into()),
+    }
+}
+
+pub async fn update_chat_region(
+    client: &Client,
+    table_name: &str,
+    chat_id: i64,
+    region: &str,
+) -> Result<()> {
+    if table_name.is_empty() {
+        return Err(anyhow!("chats table name is empty"));
+    }
+
+    client
+        .update_item()
+        .table_name(table_name)
+        .key("chat_id", AttributeValue::N(chat_id.to_string()))
+        .update_expression("SET #region = :region")
+        .expression_attribute_names("#region", "region")
+        .expression_attribute_values(":region", AttributeValue::S(region.to_string()))
+        .send()
+        .await
+        .map(|_| ())
+        .map_err(|err| err.into())
+}
+
+pub async fn get_chat_region(
+    client: &Client,
+    table_name: &str,
+    chat_id: i64,
+) -> Result<Option<String>> {
+    if table_name.is_empty() {
+        return Err(anyhow!("chats table name is empty"));
+    }
+
+    let response = client
+        .get_item()
+        .table_name(table_name)
+        .key("chat_id", AttributeValue::N(chat_id.to_string()))
+        .send()
+        .await?;
+
+    let Some(item) = response.item else {
+        return Ok(None);
+    };
+
+    match item.get("region") {
+        Some(AttributeValue::S(value)) if !value.is_empty() => Ok(Some(value.clone())),
+        _ => Ok(None),
     }
 }

@@ -7,7 +7,31 @@ use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::Utc;
 use erfiume_dynamodb::alerts as dynamo_alerts;
 use erfiume_dynamodb::chats as dynamo_chats;
-use teloxide::{prelude::Bot, types::Message, utils::command::BotCommands};
+use std::sync::OnceLock;
+use teloxide::{
+    payloads::{AnswerCallbackQuerySetters, EditMessageTextSetters, SendMessageSetters},
+    prelude::{Bot, Requester},
+    types::{
+        CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage,
+        Message, ParseMode,
+    },
+    utils::command::BotCommands,
+};
+
+const REGION_CALLBACK_PREFIX: &str = "region:";
+const DEFAULT_SCAN_PAGE_SIZE: i32 = 25;
+const MAX_SCAN_PAGE_SIZE: i32 = 100;
+
+struct RegionConfig {
+    key: String,
+    label: String,
+    table_name: String,
+}
+
+struct RegionsConfig {
+    emilia_romagna: RegionConfig,
+    marche: RegionConfig,
+}
 
 pub(crate) async fn commands_handler(
     bot: Bot,
@@ -38,9 +62,100 @@ pub(crate) async fn commands_handler(
                         .unwrap_or(msg.chat.first_name().unwrap_or(""))
                 )
             };
-            format!("{intro}\n\n{}", Command::descriptions())
+            let text = format!(
+                "{intro}\n\nSeleziona la regione da monitorare:\n\n{}",
+                Command::descriptions()
+            );
+            let regions = match regions_config() {
+                Ok(value) => value,
+                Err(err) => {
+                    logger.error(
+                        "regions.config_missing",
+                        &err,
+                        "Missing regions configuration",
+                    );
+                    utils::send_message(
+                        &bot,
+                        &msg,
+                        link_preview_options,
+                        "Configurazione non disponibile. Riprova più tardi.",
+                    )
+                    .await?;
+                    return Ok(());
+                }
+            };
+            utils::send_message_with_markup(
+                &bot,
+                &msg,
+                link_preview_options,
+                &text,
+                region_keyboard(regions),
+            )
+            .await?;
+            return Ok(());
         }
-        Command::Stazioni => station::stations().join("\n"),
+        Command::CambiaRegione => {
+            let text = "Scegli la regione da monitorare:";
+            let regions = match regions_config() {
+                Ok(value) => value,
+                Err(err) => {
+                    logger.error(
+                        "regions.config_missing",
+                        &err,
+                        "Missing regions configuration",
+                    );
+                    utils::send_message(
+                        &bot,
+                        &msg,
+                        link_preview_options,
+                        "Configurazione non disponibile. Riprova più tardi.",
+                    )
+                    .await?;
+                    return Ok(());
+                }
+            };
+            utils::send_message_with_markup(
+                &bot,
+                &msg,
+                link_preview_options,
+                text,
+                region_keyboard(regions),
+            )
+            .await?;
+            return Ok(());
+        }
+        Command::Stazioni => {
+            let Some(stations_table_name) = resolve_stations_table(&dynamodb_client, &msg).await
+            else {
+                utils::send_message(
+                    &bot,
+                    &msg,
+                    link_preview_options,
+                    "Configurazione non disponibile. Riprova più tardi.",
+                )
+                .await?;
+                return Ok(());
+            };
+            let scan_page_size = stations_scan_page_size();
+            match station::search::list_stations_cached(
+                &dynamodb_client,
+                stations_table_name.as_str(),
+                scan_page_size,
+            )
+            .await
+            {
+                Ok(stations) if !stations.is_empty() => stations.join("\n"),
+                Ok(_) => "Nessuna stazione disponibile al momento.".to_string(),
+                Err(err) => {
+                    logger.clone().table(stations_table_name).error(
+                        "stations.list_failed",
+                        &err,
+                        "Failed to list stations",
+                    );
+                    "Errore nel recupero delle stazioni. Riprova più tardi.".to_string()
+                }
+            }
+        }
         Command::Info => {
             let info = "Bot Telegram che permette di leggere i livelli idrometrici dei fiumi dell'Emilia-Romagna \
                                 I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagna.it\n\n\
@@ -180,10 +295,24 @@ pub(crate) async fn commands_handler(
                         "Non ho trovato un avviso attivo per questa stazione.".to_string()
                     }
                 } else {
+                    let Some(stations_table_name) =
+                        resolve_stations_table(&dynamodb_client, &msg).await
+                    else {
+                        utils::send_message(
+                            &bot,
+                            &msg,
+                            link_preview_options,
+                            "Configurazione non disponibile. Riprova più tardi.",
+                        )
+                        .await?;
+                        return Ok(());
+                    };
+                    let scan_page_size = stations_scan_page_size();
                     let station_result = station::search::get_station(
                         &dynamodb_client,
                         station_name,
-                        "EmiliaRomagna-Stations",
+                        stations_table_name.as_str(),
+                        scan_page_size,
                     )
                     .await;
 
@@ -246,10 +375,24 @@ pub(crate) async fn commands_handler(
             } else {
                 let chat_id = msg.chat.id.0;
                 let thread_id = msg.thread_id.map(|id| i64::from(id.0.0));
+                let Some(stations_table_name) =
+                    resolve_stations_table(&dynamodb_client, &msg).await
+                else {
+                    utils::send_message(
+                        &bot,
+                        &msg,
+                        link_preview_options,
+                        "Configurazione non disponibile. Riprova più tardi.",
+                    )
+                    .await?;
+                    return Ok(());
+                };
+                let scan_page_size = stations_scan_page_size();
                 let station_result = station::search::get_station(
                     &dynamodb_client,
                     station_name,
-                    "EmiliaRomagna-Stations",
+                    stations_table_name.as_str(),
+                    scan_page_size,
                 )
                 .await;
 
@@ -381,10 +524,22 @@ pub(crate) async fn message_handler(
         return Ok(());
     };
 
+    let Some(stations_table_name) = resolve_stations_table(dynamodb_client, msg).await else {
+        utils::send_message(
+            bot,
+            msg,
+            link_preview_options,
+            "Configurazione non disponibile. Riprova più tardi.",
+        )
+        .await?;
+        return Ok(());
+    };
+    let scan_page_size = stations_scan_page_size();
     let text = match station::search::get_station(
         dynamodb_client,
         text.trim().replace("@erfiume_bot", "").replace("/", ""),
-        "EmiliaRomagna-Stations",
+        stations_table_name.as_str(),
+        scan_page_size,
     )
     .await
     {
@@ -417,6 +572,140 @@ pub(crate) async fn message_handler(
     Ok(())
 }
 
+pub(crate) async fn callback_query_handler(
+    bot: Bot,
+    query: CallbackQuery,
+    dynamodb_client: DynamoDbClient,
+) -> Result<(), teloxide::RequestError> {
+    let Some(data) = query.data.as_deref() else {
+        return Ok(());
+    };
+
+    let regions = match regions_config() {
+        Ok(value) => value,
+        Err(err) => {
+            if let Some(message) = query.message.as_ref() {
+                logger_from_callback_message(message).error(
+                    "regions.config_missing",
+                    &err,
+                    "Missing regions configuration",
+                );
+            } else {
+                logging::Logger::new().kind("callback_query").error(
+                    "regions.config_missing",
+                    &err,
+                    "Missing regions configuration",
+                );
+            }
+            bot.answer_callback_query(query.id)
+                .text("Configurazione non disponibile.")
+                .await?;
+            return Ok(());
+        }
+    };
+
+    let Some(region) = parse_region_callback_data(data, regions) else {
+        bot.answer_callback_query(query.id)
+            .text("Selezione non valida.")
+            .await?;
+        return Ok(());
+    };
+
+    let Some(message) = query.message.as_ref() else {
+        bot.answer_callback_query(query.id)
+            .text("Selezione non supportata.")
+            .await?;
+        return Ok(());
+    };
+
+    if let Some(regular_message) = message.regular_message() {
+        ensure_chat_presence(&dynamodb_client, regular_message).await;
+    }
+
+    let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
+    if chats_table_name.is_empty() {
+        bot.answer_callback_query(query.id)
+            .text("Configurazione non disponibile.")
+            .await?;
+        return Ok(());
+    }
+
+    if let Err(err) = dynamo_chats::update_chat_region(
+        &dynamodb_client,
+        &chats_table_name,
+        message.chat().id.0,
+        region.key.as_str(),
+    )
+    .await
+    {
+        logger_from_callback_message(message)
+            .table(&chats_table_name)
+            .error(
+                "chats.update_region_failed",
+                &err,
+                "Failed to save chat region",
+            );
+        bot.answer_callback_query(query.id)
+            .text("Errore nel salvataggio. Riprova.")
+            .await?;
+        return Ok(());
+    }
+
+    logger_from_callback_message(message)
+        .table(&chats_table_name)
+        .info("chats.region_selected", "Region selected");
+
+    bot.answer_callback_query(query.id)
+        .text(format!("Regione impostata: {}.", region.label))
+        .await?;
+
+    let confirmation = format!(
+        "Perfetto! Regione selezionata: {}.\n\nScrivi il nome di una stazione (e.g. `Cesena`) o usa /stazioni.",
+        region.label
+    );
+    let edit_result = bot
+        .edit_message_text(
+            message.chat().id,
+            message.id(),
+            utils::escape_markdown_v2(&confirmation),
+        )
+        .parse_mode(ParseMode::MarkdownV2)
+        .reply_markup(InlineKeyboardMarkup::new(
+            Vec::<Vec<InlineKeyboardButton>>::new(),
+        ))
+        .await;
+    if let Err(err) = edit_result {
+        logger_from_callback_message(message).error(
+            "message.edit_failed",
+            &err,
+            "Failed to edit region selection message",
+        );
+        if let Some(regular_message) = message.regular_message() {
+            utils::send_message(
+                &bot,
+                regular_message,
+                link_preview_disabled(),
+                &confirmation,
+            )
+            .await?;
+        } else {
+            bot.send_message(message.chat().id, utils::escape_markdown_v2(&confirmation))
+                .link_preview_options(link_preview_disabled())
+                .parse_mode(ParseMode::MarkdownV2)
+                .await?;
+        }
+    }
+
+    Ok(())
+}
+
+fn logger_from_callback_message(message: &MaybeInaccessibleMessage) -> logging::Logger {
+    message
+        .regular_message()
+        .map(logging::Logger::from_message)
+        .unwrap_or_else(|| logging::Logger::new().kind("callback_query"))
+}
+
 async fn ensure_chat_presence(dynamodb_client: &DynamoDbClient, msg: &Message) {
     let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
     if chats_table_name.is_empty() {
@@ -442,6 +731,7 @@ async fn ensure_chat_presence(dynamodb_client: &DynamoDbClient, msg: &Message) {
         first_name: msg.chat.first_name().map(|value| value.to_string()),
         last_name: msg.chat.last_name().map(|value| value.to_string()),
         title: msg.chat.title().map(|value| value.to_string()),
+        region: None,
         created_at: Utc::now().timestamp(),
     };
 
@@ -469,6 +759,118 @@ fn parse_station_threshold_args(arg: String) -> Option<(String, f64)> {
     let threshold = threshold_raw.parse::<f64>().ok()?;
     let station_name = parts.join(" ").trim().to_string();
     (!station_name.is_empty()).then_some((station_name, threshold))
+}
+
+fn region_keyboard(regions: &RegionsConfig) -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup::new(vec![vec![
+        InlineKeyboardButton::callback(
+            regions.emilia_romagna.label.as_str(),
+            format!(
+                "{REGION_CALLBACK_PREFIX}{}",
+                regions.emilia_romagna.key.as_str()
+            ),
+        ),
+        InlineKeyboardButton::callback(
+            regions.marche.label.as_str(),
+            format!("{REGION_CALLBACK_PREFIX}{}", regions.marche.key.as_str()),
+        ),
+    ]])
+}
+
+fn parse_region_callback_data<'a>(
+    data: &str,
+    regions: &'a RegionsConfig,
+) -> Option<&'a RegionConfig> {
+    let key = data.strip_prefix(REGION_CALLBACK_PREFIX)?;
+    if key.eq_ignore_ascii_case(regions.emilia_romagna.key.as_str()) {
+        Some(&regions.emilia_romagna)
+    } else if key.eq_ignore_ascii_case(regions.marche.key.as_str()) {
+        Some(&regions.marche)
+    } else {
+        None
+    }
+}
+
+async fn resolve_stations_table(dynamodb_client: &DynamoDbClient, msg: &Message) -> Option<String> {
+    let regions = match regions_config() {
+        Ok(value) => value,
+        Err(err) => {
+            logging::Logger::from_message(msg).error(
+                "regions.config_missing",
+                &err,
+                "Missing regions configuration",
+            );
+            return None;
+        }
+    };
+
+    let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
+    if chats_table_name.is_empty() {
+        return Some(regions.emilia_romagna.table_name.clone());
+    }
+
+    match dynamo_chats::get_chat_region(dynamodb_client, &chats_table_name, msg.chat.id.0).await {
+        Ok(Some(region)) => Some(region_table_from_key(regions, &region).to_string()),
+        Ok(None) => Some(regions.emilia_romagna.table_name.clone()),
+        Err(err) => {
+            logging::Logger::from_message(msg)
+                .table(&chats_table_name)
+                .error(
+                    "chats.region_lookup_failed",
+                    &err,
+                    "Failed to load chat region",
+                );
+            Some(regions.emilia_romagna.table_name.clone())
+        }
+    }
+}
+
+fn region_table_from_key<'a>(regions: &'a RegionsConfig, key: &str) -> &'a str {
+    if key.eq_ignore_ascii_case(regions.marche.key.as_str()) {
+        regions.marche.table_name.as_str()
+    } else {
+        regions.emilia_romagna.table_name.as_str()
+    }
+}
+
+fn regions_config() -> Result<&'static RegionsConfig, String> {
+    static CONFIG: OnceLock<Result<RegionsConfig, String>> = OnceLock::new();
+    match CONFIG.get_or_init(load_regions_config) {
+        Ok(config) => Ok(config),
+        Err(err) => Err(err.clone()),
+    }
+}
+
+fn load_regions_config() -> Result<RegionsConfig, String> {
+    let emilia_romagna = RegionConfig {
+        key: require_env("REGION_EMILIA_ROMAGNA_KEY")?,
+        label: require_env("REGION_EMILIA_ROMAGNA_LABEL")?,
+        table_name: require_env("EMILIA_ROMAGNA_STATIONS_TABLE_NAME")?,
+    };
+    let marche = RegionConfig {
+        key: require_env("REGION_MARCHE_KEY")?,
+        label: require_env("REGION_MARCHE_LABEL")?,
+        table_name: require_env("MARCHE_STATIONS_TABLE_NAME")?,
+    };
+    Ok(RegionsConfig {
+        emilia_romagna,
+        marche,
+    })
+}
+
+fn require_env(name: &str) -> Result<String, String> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| format!("Missing env var: {name}"))
+}
+
+fn stations_scan_page_size() -> i32 {
+    let raw = std::env::var("STATIONS_SCAN_PAGE_SIZE").unwrap_or_default();
+    let parsed = raw.trim().parse::<i32>().ok();
+    let value = parsed.unwrap_or(DEFAULT_SCAN_PAGE_SIZE);
+    value.clamp(1, MAX_SCAN_PAGE_SIZE)
 }
 
 #[cfg(test)]
@@ -528,5 +930,51 @@ mod tests {
             status,
             "in pausa (soglia superata: 2.5), ripristino imminente"
         );
+    }
+
+    #[test]
+    fn parse_region_callback_data_matches_known_regions() {
+        let regions = sample_regions_config();
+        assert!(
+            parse_region_callback_data("region:emilia-romagna", &regions)
+                .is_some_and(|region| region.key == "emilia-romagna")
+        );
+        assert!(
+            parse_region_callback_data("region:marche", &regions)
+                .is_some_and(|region| region.key == "marche")
+        );
+        assert!(parse_region_callback_data("region:unknown", &regions).is_none());
+    }
+
+    #[test]
+    fn region_to_table_defaults_and_matches() {
+        let regions = sample_regions_config();
+        assert_eq!(
+            region_table_from_key(&regions, "emilia-romagna"),
+            regions.emilia_romagna.table_name.as_str()
+        );
+        assert_eq!(
+            region_table_from_key(&regions, "Marche"),
+            regions.marche.table_name.as_str()
+        );
+        assert_eq!(
+            region_table_from_key(&regions, "unknown"),
+            regions.emilia_romagna.table_name.as_str()
+        );
+    }
+
+    fn sample_regions_config() -> RegionsConfig {
+        RegionsConfig {
+            emilia_romagna: RegionConfig {
+                key: "emilia-romagna".to_string(),
+                label: "Emilia-Romagna".to_string(),
+                table_name: "EmiliaRomagna-Stations".to_string(),
+            },
+            marche: RegionConfig {
+                key: "marche".to_string(),
+                label: "Marche".to_string(),
+                table_name: "Marche-Stations".to_string(),
+            },
+        }
     }
 }
