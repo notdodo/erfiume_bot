@@ -9,6 +9,12 @@ use strsim::jaro_winkler;
 
 static STATION_CACHE: OnceLock<Mutex<HashMap<String, Vec<String>>>> = OnceLock::new();
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StationMatch {
+    Exact,
+    Fuzzy,
+}
+
 fn fuzzy_search(search: &str, stations: &[String]) -> Option<String> {
     const MIN_SCORE: f64 = 0.8;
     let search_lower = search.to_lowercase();
@@ -30,11 +36,26 @@ pub async fn get_station(
     table_name: &str,
     page_size: i32,
 ) -> Result<Option<Station>> {
+    get_station_with_match(client, station_name, table_name, page_size)
+        .await
+        .map(|result| result.map(|(station, _)| station))
+}
+
+pub async fn get_station_with_match(
+    client: &DynamoDbClient,
+    station_name: String,
+    table_name: &str,
+    page_size: i32,
+) -> Result<Option<(Station, StationMatch)>> {
+    if let Some(record) = get_station_record(client, table_name, &station_name).await? {
+        return Ok(Some((record_to_station(record), StationMatch::Exact)));
+    }
+
     let stations = list_stations_cached(client, table_name, page_size).await?;
     if let Some(closest_match) = fuzzy_search(&station_name, &stations) {
         let record = get_station_record(client, table_name, &closest_match).await?;
         match record {
-            Some(record) => Ok(Some(record_to_station(record))),
+            Some(record) => Ok(Some((record_to_station(record), StationMatch::Fuzzy))),
             None => Err(anyhow!("Station '{}' not found", closest_match)),
         }
     } else {

@@ -12,8 +12,8 @@ use teloxide::{
     payloads::{AnswerCallbackQuerySetters, EditMessageTextSetters, SendMessageSetters},
     prelude::{Bot, Requester},
     types::{
-        CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage,
-        Message, ParseMode,
+        CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions,
+        MaybeInaccessibleMessage, Message, ParseMode,
     },
     utils::command::BotCommands,
 };
@@ -125,15 +125,10 @@ pub(crate) async fn commands_handler(
             return Ok(());
         }
         Command::Stazioni => {
-            let Some(stations_table_name) = resolve_stations_table(&dynamodb_client, &msg).await
+            let Some(stations_table_name) =
+                ensure_region_selected(&bot, &msg, &dynamodb_client, link_preview_options.clone())
+                    .await?
             else {
-                utils::send_message(
-                    &bot,
-                    &msg,
-                    link_preview_options,
-                    "Configurazione non disponibile. Riprova più tardi.",
-                )
-                .await?;
                 return Ok(());
             };
             let scan_page_size = stations_scan_page_size();
@@ -157,11 +152,11 @@ pub(crate) async fn commands_handler(
             }
         }
         Command::Info => {
-            let info = "Bot Telegram che permette di leggere i livelli idrometrici dei fiumi dell'Emilia-Romagna \
-                                I dati idrometrici sono ottenuti dalle API messe a disposizione da allertameteo.regione.emilia-romagna.it\n\n\
+            let info = "Bot Telegram che permette di leggere i livelli idrometrici dei fiumi in Emilia-Romagna e Marche.\n\
+                                I dati sono ottenuti da allertameteo.regione.emilia-romagna.it e dal portale app.protezionecivile.marche.it.\n\n\
                                 Il progetto è completamente open-source (https://github.com/notdodo/erfiume_bot).\n\
                                 Per sostenere e mantenere il servizio attivo: buymeacoffee.com/d0d0\n\n\
-                                Inizia con /start o /stazioni";
+                                Inizia con /start o /stazioni, oppure cambia regione con /cambia_regione";
             info.to_string()
         }
         Command::ListaAvvisi => {
@@ -295,16 +290,14 @@ pub(crate) async fn commands_handler(
                         "Non ho trovato un avviso attivo per questa stazione.".to_string()
                     }
                 } else {
-                    let Some(stations_table_name) =
-                        resolve_stations_table(&dynamodb_client, &msg).await
+                    let Some(stations_table_name) = ensure_region_selected(
+                        &bot,
+                        &msg,
+                        &dynamodb_client,
+                        link_preview_options.clone(),
+                    )
+                    .await?
                     else {
-                        utils::send_message(
-                            &bot,
-                            &msg,
-                            link_preview_options,
-                            "Configurazione non disponibile. Riprova più tardi.",
-                        )
-                        .await?;
                         return Ok(());
                     };
                     let scan_page_size = stations_scan_page_size();
@@ -375,16 +368,14 @@ pub(crate) async fn commands_handler(
             } else {
                 let chat_id = msg.chat.id.0;
                 let thread_id = msg.thread_id.map(|id| i64::from(id.0.0));
-                let Some(stations_table_name) =
-                    resolve_stations_table(&dynamodb_client, &msg).await
+                let Some(stations_table_name) = ensure_region_selected(
+                    &bot,
+                    &msg,
+                    &dynamodb_client,
+                    link_preview_options.clone(),
+                )
+                .await?
                 else {
-                    utils::send_message(
-                        &bot,
-                        &msg,
-                        link_preview_options,
-                        "Configurazione non disponibile. Riprova più tardi.",
-                    )
-                    .await?;
                     return Ok(());
                 };
                 let scan_page_size = stations_scan_page_size();
@@ -429,7 +420,7 @@ pub(crate) async fn commands_handler(
                             &bot,
                             &msg,
                             link_preview_options,
-                            "Errore nel salvataggio dell'avviso. Riprova pi— tardi.",
+                            "Errore nel salvataggio dell'avviso. Riprova più tardi.",
                         )
                         .await?;
                         return Ok(());
@@ -455,7 +446,7 @@ pub(crate) async fn commands_handler(
                                 &bot,
                                 &msg,
                                 link_preview_options,
-                                "Errore nel salvataggio dell'avviso. Riprova pi— tardi.",
+                                "Errore nel salvataggio dell'avviso. Riprova più tardi.",
                             )
                             .await?;
                             return Ok(());
@@ -524,36 +515,31 @@ pub(crate) async fn message_handler(
         return Ok(());
     };
 
-    let Some(stations_table_name) = resolve_stations_table(dynamodb_client, msg).await else {
-        utils::send_message(
-            bot,
-            msg,
-            link_preview_options,
-            "Configurazione non disponibile. Riprova più tardi.",
-        )
-        .await?;
+    let Some(stations_table_name) =
+        ensure_region_selected(bot, msg, dynamodb_client, link_preview_options.clone()).await?
+    else {
         return Ok(());
     };
     let scan_page_size = stations_scan_page_size();
-    let text = match station::search::get_station(
+    let station_query = text.trim().replace("@erfiume_bot", "").replace("/", "");
+    let text = match station::search::get_station_with_match(
         dynamodb_client,
-        text.trim().replace("@erfiume_bot", "").replace("/", ""),
+        station_query,
         stations_table_name.as_str(),
         scan_page_size,
     )
     .await
     {
-        Ok(Some(item)) => {
-            if item.nomestaz.to_lowercase() != text.to_lowercase() {
-                format!(
-                    "{}\nSe non è la stazione corretta prova ad affinare la ricerca.",
-                    item.create_station_message()
-                )
-            } else {
-                item.create_station_message().to_string()
+        Ok(Some((item, match_kind))) => {
+            let mut message = item.create_station_message().to_string();
+            if matches!(match_kind, station::search::StationMatch::Fuzzy) {
+                message.push_str(
+                    "\nSe non è la stazione corretta prova ad affinare la ricerca.",
+                );
             }
+            message
         }
-        Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca.\nInserisci esattamente il nome che vedi nella pagina https://allertameteo.regione.emilia-romagna.it/livello-idrometrico\nAd esempio 'Cesena', 'Lavino di Sopra' o 'S. Carlo'.\nSe non sai quale cercare, prova con /stazioni.".to_string(),
+        Err(_) | Ok(None) => "Nessuna stazione trovata con la parola di ricerca.\nInserisci esattamente il nome che vedi nella pagina della regione selezionata:\n- Emilia-Romagna: https://allertameteo.regione.emilia-romagna.it/livello-idrometrico\n- Marche: http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it\nSe non sai quale cercare, prova con /stazioni oppure cambia regione con /cambia_regione.".to_string(),
     };
 
     let mut message = text.clone();
@@ -782,16 +768,15 @@ fn parse_region_callback_data<'a>(
     regions: &'a RegionsConfig,
 ) -> Option<&'a RegionConfig> {
     let key = data.strip_prefix(REGION_CALLBACK_PREFIX)?;
-    if key.eq_ignore_ascii_case(regions.emilia_romagna.key.as_str()) {
-        Some(&regions.emilia_romagna)
-    } else if key.eq_ignore_ascii_case(regions.marche.key.as_str()) {
-        Some(&regions.marche)
-    } else {
-        None
-    }
+    region_from_key(regions, key)
 }
 
-async fn resolve_stations_table(dynamodb_client: &DynamoDbClient, msg: &Message) -> Option<String> {
+async fn ensure_region_selected(
+    bot: &Bot,
+    msg: &Message,
+    dynamodb_client: &DynamoDbClient,
+    link_preview_options: LinkPreviewOptions,
+) -> Result<Option<String>, teloxide::RequestError> {
     let regions = match regions_config() {
         Ok(value) => value,
         Err(err) => {
@@ -800,18 +785,39 @@ async fn resolve_stations_table(dynamodb_client: &DynamoDbClient, msg: &Message)
                 &err,
                 "Missing regions configuration",
             );
-            return None;
+            utils::send_message(
+                bot,
+                msg,
+                link_preview_options,
+                "Configurazione non disponibile. Riprova più tardi.",
+            )
+            .await?;
+            return Ok(None);
         }
     };
 
     let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
     if chats_table_name.is_empty() {
-        return Some(regions.emilia_romagna.table_name.clone());
+        utils::send_message(
+            bot,
+            msg,
+            link_preview_options,
+            "Configurazione non disponibile. Riprova più tardi.",
+        )
+        .await?;
+        return Ok(None);
     }
 
     match dynamo_chats::get_chat_region(dynamodb_client, &chats_table_name, msg.chat.id.0).await {
-        Ok(Some(region)) => Some(region_table_from_key(regions, &region).to_string()),
-        Ok(None) => Some(regions.emilia_romagna.table_name.clone()),
+        Ok(Some(region_key)) => {
+            if let Some(region) = region_from_key(regions, &region_key) {
+                return Ok(Some(region.table_name.clone()));
+            }
+            logging::Logger::from_message(msg)
+                .table(&chats_table_name)
+                .info("chats.region_unknown", "Unknown region in chat record");
+        }
+        Ok(None) => {}
         Err(err) => {
             logging::Logger::from_message(msg)
                 .table(&chats_table_name)
@@ -820,16 +826,36 @@ async fn resolve_stations_table(dynamodb_client: &DynamoDbClient, msg: &Message)
                     &err,
                     "Failed to load chat region",
                 );
-            Some(regions.emilia_romagna.table_name.clone())
+            utils::send_message(
+                bot,
+                msg,
+                link_preview_options,
+                "Errore nel recupero della regione. Riprova più tardi.",
+            )
+            .await?;
+            return Ok(None);
         }
     }
+
+    let prompt = "Prima di continuare, scegli la regione da monitorare:";
+    utils::send_message_with_markup(
+        bot,
+        msg,
+        link_preview_options,
+        prompt,
+        region_keyboard(regions),
+    )
+    .await?;
+    Ok(None)
 }
 
-fn region_table_from_key<'a>(regions: &'a RegionsConfig, key: &str) -> &'a str {
-    if key.eq_ignore_ascii_case(regions.marche.key.as_str()) {
-        regions.marche.table_name.as_str()
+fn region_from_key<'a>(regions: &'a RegionsConfig, key: &str) -> Option<&'a RegionConfig> {
+    if key.eq_ignore_ascii_case(regions.emilia_romagna.key.as_str()) {
+        Some(&regions.emilia_romagna)
+    } else if key.eq_ignore_ascii_case(regions.marche.key.as_str()) {
+        Some(&regions.marche)
     } else {
-        regions.emilia_romagna.table_name.as_str()
+        None
     }
 }
 
@@ -947,20 +973,14 @@ mod tests {
     }
 
     #[test]
-    fn region_to_table_defaults_and_matches() {
+    fn region_from_key_matches_and_unknown_returns_none() {
         let regions = sample_regions_config();
-        assert_eq!(
-            region_table_from_key(&regions, "emilia-romagna"),
-            regions.emilia_romagna.table_name.as_str()
+        assert!(
+            region_from_key(&regions, "emilia-romagna")
+                .is_some_and(|region| region.key == "emilia-romagna")
         );
-        assert_eq!(
-            region_table_from_key(&regions, "Marche"),
-            regions.marche.table_name.as_str()
-        );
-        assert_eq!(
-            region_table_from_key(&regions, "unknown"),
-            regions.emilia_romagna.table_name.as_str()
-        );
+        assert!(region_from_key(&regions, "Marche").is_some_and(|region| region.key == "marche"));
+        assert!(region_from_key(&regions, "unknown").is_none());
     }
 
     fn sample_regions_config() -> RegionsConfig {
