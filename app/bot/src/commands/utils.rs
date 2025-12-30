@@ -134,3 +134,45 @@ pub(crate) fn link_preview_small_media() -> LinkPreviewOptions {
         show_above_text: false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use erfiume_dynamodb::ALERT_ACTIVE;
+
+    use super::*;
+
+    #[test]
+    fn format_duration_millis_prefers_hours_and_minutes() {
+        assert_eq!(format_duration_millis(3_600_000), "1h 0m");
+        assert_eq!(format_duration_millis(60_000), "1m");
+        assert_eq!(format_duration_millis(500), "1s");
+    }
+
+    #[test]
+    fn format_alert_status_active() {
+        let alert = dynamo_alerts::AlertEntry {
+            station_name: "Cesena".to_string(),
+            threshold: 1.0,
+            active: ALERT_ACTIVE.parse::<i64>().unwrap_or(1),
+            triggered_at: None,
+            triggered_value: None,
+        };
+        assert_eq!(format_alert_status(&alert, 0), "attivo");
+    }
+
+    #[test]
+    fn format_alert_status_triggered_imminent() {
+        let alert = dynamo_alerts::AlertEntry {
+            station_name: "Cesena".to_string(),
+            threshold: 1.0,
+            active: 0,
+            triggered_at: Some(0),
+            triggered_value: Some(2.5),
+        };
+        let status = format_alert_status(&alert, 24 * 60 * 60 * 1000);
+        assert_eq!(
+            status,
+            "in pausa (soglia superata: 2.5), ripristino imminente"
+        );
+    }
+}
