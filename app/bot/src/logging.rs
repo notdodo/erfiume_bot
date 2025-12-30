@@ -17,8 +17,6 @@ pub(crate) struct Logger {
     update_id: Option<u32>,
     kind: Option<&'static str>,
     text: Option<String>,
-    command_count: Option<usize>,
-    commands: Option<String>,
 }
 
 impl Logger {
@@ -85,9 +83,7 @@ impl Logger {
             language_code = self.language_code,
             update_id = self.update_id,
             kind = self.kind,
-            text = ?self.text,
-            command_count = self.command_count,
-            commands = ?self.commands,
+            text = self.text.as_deref(),
             "{}",
             message
         );
@@ -108,9 +104,7 @@ impl Logger {
             language_code = self.language_code,
             update_id = self.update_id,
             kind = self.kind,
-            text = ?self.text,
-            command_count = self.command_count,
-            commands = ?self.commands,
+            text = self.text.as_deref(),
             error = ?err,
             "{}",
             message
