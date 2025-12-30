@@ -1,6 +1,4 @@
 pub(crate) mod search;
-#[cfg(test)]
-use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 use erfiume_dynamodb::utils::format_station_message;
 use serde::Deserialize;
 
@@ -35,6 +33,7 @@ impl Station {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 
     #[test]
     fn create_station_message_with_unknown_value() {
