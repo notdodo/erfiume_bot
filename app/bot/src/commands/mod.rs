@@ -1,4 +1,5 @@
 use teloxide::utils::command::BotCommands;
+pub(crate) mod context;
 pub(crate) mod handlers;
 pub(crate) mod utils;
 pub(crate) use handlers::{callback_query_handler, commands_handler, message_handler};

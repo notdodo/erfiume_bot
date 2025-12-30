@@ -1,16 +1,13 @@
 use crate::{logging, station::Station};
 use anyhow::{Context, Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use chrono::{DateTime, TimeZone};
-use chrono_tz::Europe::Rome;
-use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 use erfiume_dynamodb::alerts::{
     AlertSubscription, list_pending_alerts_for_station, mark_alert_triggered,
     reactivate_expired_alerts_for_station,
 };
+use erfiume_dynamodb::utils::{current_time_millis, format_station_message};
 use reqwest::Client as HTTPClient;
 use serde_json::json;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct AlertsConfig {
     pub table_name: String,
@@ -124,7 +121,7 @@ async fn send_alert(
         station.nomestaz,
         station.value.unwrap_or_default(),
         alert.threshold,
-        format_station_message(station)
+        format_station_message_for_alert(station)
     );
 
     let mut payload = json!({
@@ -149,52 +146,14 @@ async fn send_alert(
     Ok(())
 }
 
-fn current_time_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
-
-fn format_station_message(station: &Station) -> String {
-    const UNKNOWN_VALUE: f32 = UNKNOWN_THRESHOLD as f32;
-    let timestamp_formatted = station
-        .timestamp
-        .and_then(|timestamp| {
-            let timestamp_secs = (timestamp / 1000) as i64;
-            let naive_datetime = DateTime::from_timestamp(timestamp_secs, 0)?;
-            let datetime_in_tz = Rome.from_utc_datetime(&naive_datetime.naive_utc());
-            Some(datetime_in_tz.format("%d-%m-%Y %H:%M").to_string())
-        })
-        .unwrap_or_else(|| "non disponibile".to_string());
-
-    let value = station.value.unwrap_or(UNKNOWN_VALUE);
-    let yellow = station.soglia1;
-    let orange = station.soglia2;
-    let red = station.soglia3;
-
-    let mut alarm = "🔴";
-    if value <= yellow {
-        alarm = "🟢";
-    } else if value > yellow && value <= orange {
-        alarm = "🟡";
-    } else if value >= orange && value <= red {
-        alarm = "🟠";
-    }
-
-    let mut value_str = format!("{value:.2}");
-    if value == UNKNOWN_VALUE {
-        value_str = "non disponibile".to_string();
-        alarm = "";
-    }
-
-    let yellow_str = format!("{yellow:.2}");
-    let orange_str = format!("{orange:.2}");
-    let red_str = format!("{red:.2}");
-
-    format!(
-        "Stazione: {}\nValore: {} {}\nSoglia Gialla: {}\nSoglia Arancione: {}\nSoglia Rossa: {}\nUltimo rilevamento: {}",
-        station.nomestaz, value_str, alarm, yellow_str, orange_str, red_str, timestamp_formatted
+fn format_station_message_for_alert(station: &Station) -> String {
+    format_station_message(
+        &station.nomestaz,
+        station.value.map(|value| value as f64),
+        station.soglia1 as f64,
+        station.soglia2 as f64,
+        station.soglia3 as f64,
+        station.timestamp.map(|value| value as i64),
     )
 }
 
@@ -218,6 +177,6 @@ mod tests {
         };
 
         let expected = "Stazione: Cesena\nValore: 2.20 🟠\nSoglia Gialla: 1.00\nSoglia Arancione: 2.00\nSoglia Rossa: 3.00\nUltimo rilevamento: 27-12-2025 16:12";
-        assert_eq!(format_station_message(&station), expected);
+        assert_eq!(format_station_message_for_alert(&station), expected);
     }
 }

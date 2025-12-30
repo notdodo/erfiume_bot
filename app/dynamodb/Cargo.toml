@@ -8,3 +8,5 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 aws-sdk-dynamodb.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true

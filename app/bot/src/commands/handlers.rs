@@ -1,12 +1,13 @@
-use super::{Command, utils};
+use super::{Command, context::ChatContext, utils};
 use crate::commands::utils::{
-    current_time_millis, format_alert_status, link_preview_disabled, link_preview_small_media,
+    format_alert_status, link_preview_disabled, link_preview_small_media,
 };
 use crate::{logging, station};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::Utc;
 use erfiume_dynamodb::alerts as dynamo_alerts;
 use erfiume_dynamodb::chats as dynamo_chats;
+use erfiume_dynamodb::utils::current_time_millis;
 use std::sync::OnceLock;
 use teloxide::{
     payloads::{AnswerCallbackQuerySetters, EditMessageTextSetters, SendMessageSetters},
@@ -39,9 +40,8 @@ pub(crate) async fn commands_handler(
     cmd: Command,
     dynamodb_client: DynamoDbClient,
 ) -> Result<(), teloxide::RequestError> {
+    let ctx = ChatContext::from_message(&dynamodb_client, &msg);
     let link_preview_options = link_preview_disabled();
-    // Move it to /start only after a while to collect old users
-    ensure_chat_presence(&dynamodb_client, &msg).await;
     let logger = logging::Logger::from_command(&cmd, &msg);
 
     let text = match cmd {
@@ -49,13 +49,13 @@ pub(crate) async fn commands_handler(
         Command::Start => {
             let intro = if msg.chat.is_group() || msg.chat.is_supergroup() {
                 format!(
-                    "Ciao {}! Scrivete il nome di una stazione da monitorare (e.g. /Cesena@erfiume_bot o /Borello@erfiume_bot) \
+                    "Ciao {}! Scrivete il nome di una stazione da monitorare (e.g. /Cesena@erfiume_bot o /Pianello@erfiume_bot) \
                         o cercatene una con /stazioni@erfiume_bot",
                     msg.chat.title().unwrap_or("")
                 )
             } else {
                 format!(
-                    "Ciao @{}! Scrivi il nome di una stazione da monitorare (e.g. `Cesena` o /SCarlo) \
+                    "Ciao @{}! Scrivi il nome di una stazione da monitorare (e.g. `Cesena`, /Marotta o /SCarlo) \
                         o cercane una con /stazioni",
                     msg.chat
                         .username()
@@ -80,53 +80,19 @@ pub(crate) async fn commands_handler(
                     return Ok(());
                 }
             };
-            let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
-            if chats_table_name.is_empty() {
-                utils::send_message(
-                    &bot,
-                    &msg,
-                    link_preview_options,
-                    "Configurazione non disponibile. Riprova più tardi.",
-                )
-                .await?;
-                return Ok(());
-            }
-            let mut has_region = false;
-            let mut region_label: Option<String> = None;
-            match dynamo_chats::get_chat_region(&dynamodb_client, &chats_table_name, msg.chat.id.0)
-                .await
-            {
-                Ok(Some(region_key)) => {
-                    if let Some(region) = region_from_key(regions, &region_key) {
-                        region_label = Some(region.label.clone());
-                        has_region = true;
-                    } else {
-                        logger
-                            .table(&chats_table_name)
-                            .info("chats.region_unknown", "Unknown region in chat record");
-                    }
-                }
-                Ok(None) => {}
-                Err(err) => {
-                    logger.table(&chats_table_name).error(
-                        "chats.region_lookup_failed",
-                        &err,
-                        "Failed to load chat region",
-                    );
-                    utils::send_message(
-                        &bot,
-                        &msg,
-                        link_preview_options,
-                        "Errore nel recupero della regione. Riprova più tardi.",
-                    )
-                    .await?;
+            let region = match load_region_for_chat(&ctx, &logger, regions).await {
+                Ok(region) => region,
+                Err(message) => {
+                    utils::send_message(&bot, &msg, link_preview_options, message).await?;
                     return Ok(());
                 }
-            }
-            let text = if has_region {
-                let label = region_label.unwrap_or_else(|| "non disponibile".to_string());
+            };
+
+            let has_region = region.is_some();
+            let text = if let Some(region) = region {
                 format!(
-                    "{intro}\n\nRegione attuale: {label}.\n\n{}",
+                    "{intro}\nRegione attuale: {}.\n\n{}",
+                    region.label,
                     Command::descriptions()
                 )
             } else {
@@ -181,8 +147,7 @@ pub(crate) async fn commands_handler(
         }
         Command::Stazioni => {
             let Some(stations_table_name) =
-                ensure_region_selected(&bot, &msg, &dynamodb_client, link_preview_options.clone())
-                    .await?
+                ensure_region_selected(&ctx, &bot, &msg, link_preview_options.clone()).await?
             else {
                 return Ok(());
             };
@@ -208,43 +173,11 @@ pub(crate) async fn commands_handler(
         }
         Command::Info => {
             let region_line = match regions_config() {
-                Ok(regions) => {
-                    let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
-                    if chats_table_name.is_empty() {
-                        let err = "Missing env var: CHATS_TABLE_NAME";
-                        logger.error("chats.config_missing", &err, "Missing chat configuration");
-                        "Regione attuale: non disponibile.".to_string()
-                    } else {
-                        match dynamo_chats::get_chat_region(
-                            &dynamodb_client,
-                            &chats_table_name,
-                            msg.chat.id.0,
-                        )
-                        .await
-                        {
-                            Ok(Some(region_key)) => {
-                                if let Some(region) = region_from_key(regions, &region_key) {
-                                    format!("Regione attuale: {}.", region.label)
-                                } else {
-                                    logger.table(&chats_table_name).info(
-                                        "chats.region_unknown",
-                                        "Unknown region in chat record",
-                                    );
-                                    "Regione attuale: non impostata.".to_string()
-                                }
-                            }
-                            Ok(None) => "Regione attuale: non impostata.".to_string(),
-                            Err(err) => {
-                                logger.table(&chats_table_name).error(
-                                    "chats.region_lookup_failed",
-                                    &err,
-                                    "Failed to load chat region",
-                                );
-                                "Regione attuale: non disponibile.".to_string()
-                            }
-                        }
-                    }
-                }
+                Ok(regions) => match load_region_for_chat(&ctx, &logger, regions).await {
+                    Ok(Some(region)) => format!("Regione attuale: {}.", region.label),
+                    Ok(None) => "Regione attuale: non impostata.".to_string(),
+                    Err(_) => "Regione attuale: non disponibile.".to_string(),
+                },
                 Err(err) => {
                     logger.error(
                         "regions.config_missing",
@@ -394,13 +327,9 @@ pub(crate) async fn commands_handler(
                         "Non ho trovato un avviso attivo per questa stazione.".to_string()
                     }
                 } else {
-                    let Some(stations_table_name) = ensure_region_selected(
-                        &bot,
-                        &msg,
-                        &dynamodb_client,
-                        link_preview_options.clone(),
-                    )
-                    .await?
+                    let Some(stations_table_name) =
+                        ensure_region_selected(&ctx, &bot, &msg, link_preview_options.clone())
+                            .await?
                     else {
                         return Ok(());
                     };
@@ -472,13 +401,8 @@ pub(crate) async fn commands_handler(
             } else {
                 let chat_id = msg.chat.id.0;
                 let thread_id = msg.thread_id.map(|id| i64::from(id.0.0));
-                let Some(stations_table_name) = ensure_region_selected(
-                    &bot,
-                    &msg,
-                    &dynamodb_client,
-                    link_preview_options.clone(),
-                )
-                .await?
+                let Some(stations_table_name) =
+                    ensure_region_selected(&ctx, &bot, &msg, link_preview_options.clone()).await?
                 else {
                     return Ok(());
                 };
@@ -613,14 +537,13 @@ pub(crate) async fn message_handler(
     dynamodb_client: &DynamoDbClient,
 ) -> Result<(), teloxide::RequestError> {
     let link_preview_options = link_preview_small_media();
-    // Move it to /start only after a while to collect old users
-    ensure_chat_presence(dynamodb_client, msg).await;
+    let ctx = ChatContext::from_message(dynamodb_client, msg);
     let Some(text) = msg.text() else {
         return Ok(());
     };
 
     let Some(stations_table_name) =
-        ensure_region_selected(bot, msg, dynamodb_client, link_preview_options.clone()).await?
+        ensure_region_selected(&ctx, bot, msg, link_preview_options.clone()).await?
     else {
         return Ok(());
     };
@@ -671,22 +594,20 @@ pub(crate) async fn callback_query_handler(
         return Ok(());
     };
 
+    let callback_logger = query
+        .message
+        .as_ref()
+        .map(logger_from_callback_message)
+        .unwrap_or_else(|| logging::Logger::new().kind("callback_query"));
+
     let regions = match regions_config() {
         Ok(value) => value,
         Err(err) => {
-            if let Some(message) = query.message.as_ref() {
-                logger_from_callback_message(message).error(
-                    "regions.config_missing",
-                    &err,
-                    "Missing regions configuration",
-                );
-            } else {
-                logging::Logger::new().kind("callback_query").error(
-                    "regions.config_missing",
-                    &err,
-                    "Missing regions configuration",
-                );
-            }
+            callback_logger.error(
+                "regions.config_missing",
+                &err,
+                "Missing regions configuration",
+            );
             bot.answer_callback_query(query.id)
                 .text("Configurazione non disponibile.")
                 .await?;
@@ -708,41 +629,44 @@ pub(crate) async fn callback_query_handler(
         return Ok(());
     };
 
-    if let Some(regular_message) = message.regular_message() {
-        ensure_chat_presence(&dynamodb_client, regular_message).await;
-    }
+    let ctx = if let Some(regular_message) = message.regular_message() {
+        ChatContext::from_message(&dynamodb_client, regular_message)
+    } else {
+        ChatContext::from_chat_id(&dynamodb_client, message.chat().id.0)
+    };
 
-    let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
-    if chats_table_name.is_empty() {
+    ctx.ensure_chat_presence_with_logging(&callback_logger)
+        .await;
+
+    let Some(chats_table_name) = ctx.chats_table_name() else {
         bot.answer_callback_query(query.id)
             .text("Configurazione non disponibile.")
             .await?;
         return Ok(());
-    }
+    };
 
     if let Err(err) = dynamo_chats::update_chat_region(
-        &dynamodb_client,
-        &chats_table_name,
+        ctx.dynamodb_client(),
+        chats_table_name,
         message.chat().id.0,
         region.key.as_str(),
     )
     .await
     {
-        logger_from_callback_message(message)
-            .table(&chats_table_name)
-            .error(
-                "chats.update_region_failed",
-                &err,
-                "Failed to save chat region",
-            );
+        callback_logger.clone().table(chats_table_name).error(
+            "chats.update_region_failed",
+            &err,
+            "Failed to save chat region",
+        );
         bot.answer_callback_query(query.id)
             .text("Errore nel salvataggio. Riprova.")
             .await?;
         return Ok(());
     }
 
-    logger_from_callback_message(message)
-        .table(&chats_table_name)
+    callback_logger
+        .clone()
+        .table(chats_table_name)
         .info("chats.region_selected", "Region selected");
 
     bot.answer_callback_query(query.id)
@@ -750,7 +674,7 @@ pub(crate) async fn callback_query_handler(
         .await?;
 
     let confirmation = format!(
-        "Perfetto! Regione selezionata: {}.\n\nScrivi il nome di una stazione (e.g. `Cesena`) o usa /stazioni.",
+        "Perfetto! Regione selezionata: {}.\n\nScrivi il nome di una stazione (e.g. `Cesena` o /Pianello) o usa /stazioni.",
         region.label
     );
     let edit_result = bot
@@ -765,7 +689,7 @@ pub(crate) async fn callback_query_handler(
         ))
         .await;
     if let Err(err) = edit_result {
-        logger_from_callback_message(message).error(
+        callback_logger.error(
             "message.edit_failed",
             &err,
             "Failed to edit region selection message",
@@ -789,49 +713,40 @@ pub(crate) async fn callback_query_handler(
     Ok(())
 }
 
+fn logger_with_table(logger: &logging::Logger, table: Option<&str>) -> logging::Logger {
+    if let Some(table) = table {
+        logger.clone().table(table)
+    } else {
+        logger.clone()
+    }
+}
+
+async fn load_region_for_chat<'a>(
+    ctx: &ChatContext,
+    logger: &logging::Logger,
+    regions: &'a RegionsConfig,
+) -> Result<Option<&'a RegionConfig>, &'static str> {
+    let region_logger = logger_with_table(logger, ctx.chats_table_name());
+    let Some(region_key) = ctx
+        .region_key_with_logging(&region_logger)
+        .await
+        .map_err(|err| err.user_message())?
+    else {
+        return Ok(None);
+    };
+    if let Some(region) = region_from_key(regions, &region_key) {
+        Ok(Some(region))
+    } else {
+        region_logger.info("chats.region_unknown", "Unknown region in chat record");
+        Ok(None)
+    }
+}
+
 fn logger_from_callback_message(message: &MaybeInaccessibleMessage) -> logging::Logger {
     message
         .regular_message()
         .map(logging::Logger::from_message)
         .unwrap_or_else(|| logging::Logger::new().kind("callback_query"))
-}
-
-async fn ensure_chat_presence(dynamodb_client: &DynamoDbClient, msg: &Message) {
-    let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
-    if chats_table_name.is_empty() {
-        return;
-    }
-
-    let chat_type = if msg.chat.is_private() {
-        "private"
-    } else if msg.chat.is_group() {
-        "group"
-    } else if msg.chat.is_supergroup() {
-        "supergroup"
-    } else if msg.chat.is_channel() {
-        "channel"
-    } else {
-        "other"
-    };
-
-    let record = dynamo_chats::ChatRecord {
-        chat_id: msg.chat.id.0,
-        chat_type: chat_type.to_string(),
-        username: msg.chat.username().map(|value| value.to_string()),
-        first_name: msg.chat.first_name().map(|value| value.to_string()),
-        last_name: msg.chat.last_name().map(|value| value.to_string()),
-        title: msg.chat.title().map(|value| value.to_string()),
-        region: None,
-        created_at: Utc::now().timestamp(),
-    };
-
-    if let Err(err) =
-        dynamo_chats::insert_chat_if_missing(dynamodb_client, &chats_table_name, &record).await
-    {
-        logging::Logger::from_message(msg)
-            .table(&chats_table_name)
-            .error("chats.insert_failed", &err, "Failed to store chat");
-    }
 }
 
 fn parse_station_arg(arg: String) -> Option<String> {
@@ -876,9 +791,9 @@ fn parse_region_callback_data<'a>(
 }
 
 async fn ensure_region_selected(
+    ctx: &ChatContext,
     bot: &Bot,
     msg: &Message,
-    dynamodb_client: &DynamoDbClient,
     link_preview_options: LinkPreviewOptions,
 ) -> Result<Option<String>, teloxide::RequestError> {
     let regions = match regions_config() {
@@ -900,45 +815,17 @@ async fn ensure_region_selected(
         }
     };
 
-    let chats_table_name = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
-    if chats_table_name.is_empty() {
-        utils::send_message(
-            bot,
-            msg,
-            link_preview_options,
-            "Configurazione non disponibile. Riprova più tardi.",
-        )
-        .await?;
-        return Ok(None);
-    }
-
-    match dynamo_chats::get_chat_region(dynamodb_client, &chats_table_name, msg.chat.id.0).await {
-        Ok(Some(region_key)) => {
-            if let Some(region) = region_from_key(regions, &region_key) {
-                return Ok(Some(region.table_name.clone()));
-            }
-            logging::Logger::from_message(msg)
-                .table(&chats_table_name)
-                .info("chats.region_unknown", "Unknown region in chat record");
-        }
-        Ok(None) => {}
-        Err(err) => {
-            logging::Logger::from_message(msg)
-                .table(&chats_table_name)
-                .error(
-                    "chats.region_lookup_failed",
-                    &err,
-                    "Failed to load chat region",
-                );
-            utils::send_message(
-                bot,
-                msg,
-                link_preview_options,
-                "Errore nel recupero della regione. Riprova più tardi.",
-            )
-            .await?;
+    let logger = logging::Logger::from_message(msg);
+    let region = match load_region_for_chat(ctx, &logger, regions).await {
+        Ok(region) => region,
+        Err(message) => {
+            utils::send_message(bot, msg, link_preview_options, message).await?;
             return Ok(None);
         }
+    };
+
+    if let Some(region) = region {
+        return Ok(Some(region.table_name.clone()));
     }
 
     let prompt = "Prima di continuare, scegli la regione da monitorare:";
