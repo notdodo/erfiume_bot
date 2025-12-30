@@ -951,6 +951,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aws-sdk-dynamodb",
+ "chrono",
+ "chrono-tz",
 ]
 
 [[package]]

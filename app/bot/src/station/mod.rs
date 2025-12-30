@@ -1,7 +1,7 @@
 pub(crate) mod search;
-use chrono::{DateTime, TimeZone};
-use chrono_tz::Europe::Rome;
+#[cfg(test)]
 use erfiume_dynamodb::UNKNOWN_THRESHOLD;
+use erfiume_dynamodb::utils::format_station_message;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -20,63 +20,15 @@ pub struct Station {
 }
 
 impl Station {
-    fn format_threshold(value: f64) -> String {
-        if value == UNKNOWN_THRESHOLD {
-            "non disponibile".to_string()
-        } else {
-            format!("{value:.2}")
-        }
-    }
-
     pub fn create_station_message(&self) -> String {
-        let timestamp_secs = self.timestamp / 1000;
-        let naive_datetime = DateTime::from_timestamp(timestamp_secs, 0).unwrap();
-        let datetime_in_tz: DateTime<chrono_tz::Tz> =
-            Rome.from_utc_datetime(&naive_datetime.naive_utc());
-        let timestamp_formatted = datetime_in_tz.format("%d-%m-%Y %H:%M").to_string();
-
-        let value = self.value;
-
-        let yellow = self.soglia1;
-        let orange = self.soglia2;
-        let red = self.soglia3;
-
-        let thresholds_available =
-            yellow != UNKNOWN_THRESHOLD && orange != UNKNOWN_THRESHOLD && red != UNKNOWN_THRESHOLD;
-
-        let mut alarm = "🔴";
-        if thresholds_available {
-            if value <= yellow {
-                alarm = "🟢";
-            } else if value > yellow && value <= orange {
-                alarm = "🟡";
-            } else if value >= orange && value <= red {
-                alarm = "🟠";
-            }
-        } else {
-            alarm = "";
-        }
-
-        let mut value_str = format!("{value:.2}");
-        if value == UNKNOWN_THRESHOLD {
-            value_str = "non disponibile".to_string();
-            alarm = "";
-        }
-
-        let mut lines = Vec::with_capacity(6);
-        lines.push(format!("Stazione: {}", self.nomestaz));
-        lines.push(format!("Valore: {} {}", value_str, alarm));
-        if thresholds_available {
-            let yellow_str = Self::format_threshold(yellow);
-            let orange_str = Self::format_threshold(orange);
-            let red_str = Self::format_threshold(red);
-            lines.push(format!("Soglia Gialla: {}", yellow_str));
-            lines.push(format!("Soglia Arancione: {}", orange_str));
-            lines.push(format!("Soglia Rossa: {}", red_str));
-        }
-        lines.push(format!("Ultimo rilevamento: {}", timestamp_formatted));
-
-        lines.join("\n")
+        format_station_message(
+            &self.nomestaz,
+            Some(self.value),
+            self.soglia1,
+            self.soglia2,
+            self.soglia3,
+            Some(self.timestamp),
+        )
     }
 }
 

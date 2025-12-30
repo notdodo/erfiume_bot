@@ -1,5 +1,3 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use erfiume_dynamodb::ALERT_ACTIVE;
 use erfiume_dynamodb::alerts as dynamo_alerts;
 use teloxide::{
@@ -70,13 +68,6 @@ pub(crate) async fn send_message_with_markup(
             .reply_markup(reply_markup)
             .await
     }
-}
-
-pub(crate) fn current_time_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }
 
 pub(crate) fn format_alert_status(alert: &dynamo_alerts::AlertEntry, now_millis: u64) -> String {

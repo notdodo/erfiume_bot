@@ -2,6 +2,7 @@ pub mod alerts;
 pub mod chats;
 mod parse;
 pub mod stations;
+pub mod utils;
 pub use parse::{parse_number_field, parse_optional_number_field, parse_string_field};
 
 pub const ALERT_ACTIVE: &str = "1";
