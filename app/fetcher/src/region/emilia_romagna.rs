@@ -28,7 +28,7 @@ struct EmiliaRomagnaMeta {
     bacino: Option<String>,
 }
 
-fn round_two_decimals(value: f32) -> f32 {
+fn round_two_decimals(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
 }
 
@@ -243,13 +243,13 @@ async fn process_station(
         nomestaz: station.nomestaz.clone(),
         lon: station.lon.clone(),
         lat: station.lat.clone(),
-        soglia1: station.soglia1 as f64,
-        soglia2: station.soglia2 as f64,
-        soglia3: station.soglia3 as f64,
+        soglia1: station.soglia1,
+        soglia2: station.soglia2,
+        soglia3: station.soglia3,
         bacino: station.bacino.clone(),
         provincia: station.provincia.clone(),
         comune: station.comune.clone(),
-        value: station.value.map(|value| value as f64),
+        value: station.value,
     };
     put_station_record(dynamodb_client, table_name, &record).await?;
 

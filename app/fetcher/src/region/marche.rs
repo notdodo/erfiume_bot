@@ -29,6 +29,9 @@ const MARCHE_QUERY_URL: &str =
     "http://app.protezionecivile.marche.it/sol/annaliidro2/queryResultsFile.sol?lang=it";
 const MARCHE_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
 const MARCHE_REQUEST_TIMEOUT_SECS: u64 = 90;
+const MARCHE_TIMESTEP_TYPE: &str = "y";
+const MARCHE_TIMESTEP_VALUE: &str = "999";
+const MARCHE_COOKIE_HEADER: &str = "displayCookieConsent=y; PHPSESSID=erfiume";
 
 struct MarcheSensor {
     id_raw: String,
@@ -196,13 +199,13 @@ impl Region for Marche {
                 nomestaz: sensor.name.clone(),
                 lon: "0".to_string(),
                 lat: "0".to_string(),
-                soglia1: UNKNOWN_THRESHOLD as f32,
-                soglia2: UNKNOWN_THRESHOLD as f32,
-                soglia3: max_threshold.unwrap_or(UNKNOWN_THRESHOLD) as f32,
+                soglia1: UNKNOWN_THRESHOLD,
+                soglia2: UNKNOWN_THRESHOLD,
+                soglia3: max_threshold.unwrap_or(UNKNOWN_THRESHOLD),
                 bacino: meta.and_then(|value| value.bacino.clone()),
                 provincia: meta.and_then(|value| value.provincia.clone()),
                 comune: meta.and_then(|value| value.comune.clone()),
-                value: Some(*value as f32),
+                value: Some(*value),
             };
 
             if let Some(config) = alerts_config.as_ref()
@@ -225,13 +228,13 @@ impl Region for Marche {
                 nomestaz: station.nomestaz.clone(),
                 lon: station.lon.clone(),
                 lat: station.lat.clone(),
-                soglia1: station.soglia1 as f64,
-                soglia2: station.soglia2 as f64,
-                soglia3: station.soglia3 as f64,
+                soglia1: station.soglia1,
+                soglia2: station.soglia2,
+                soglia3: station.soglia3,
                 bacino: station.bacino.clone(),
                 provincia: station.provincia.clone(),
                 comune: station.comune.clone(),
-                value: station.value.map(|value| value as f64),
+                value: station.value,
             };
 
             match put_station_record(dynamodb_client, self.dynamodb_table(), &record).await {
@@ -283,6 +286,8 @@ async fn fetch_menu_html(http_client: &HTTPClient) -> Result<String, RegionError
     let response = http_client
         .post(MARCHE_MENU_URL)
         .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .header(reqwest::header::REFERER, MARCHE_INDEX_URL)
+        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
         .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&menu_form_params("All", "All", "All"))
         .send()
@@ -297,13 +302,15 @@ async fn fetch_series_chunk(
     begin: &str,
     end: &str,
 ) -> Result<Vec<MarcheSeries>, RegionError> {
-    let mut params = Vec::with_capacity(8 + sensors.len());
+    let mut params = Vec::with_capacity(10 + sensors.len());
     params.push(("sessid", SESSION_ID.to_string()));
     params.push(("outputType", "plot".to_string()));
     params.push(("TipoDato", "original".to_string()));
     params.push(("TipoTabella", "Livelli_".to_string()));
     params.push(("BeginDate", begin.to_string()));
     params.push(("EndDate", end.to_string()));
+    params.push(("TimeStepType", MARCHE_TIMESTEP_TYPE.to_string()));
+    params.push(("TimeStep", MARCHE_TIMESTEP_VALUE.to_string()));
     params.push(("LineNumberPdf", "0".to_string()));
     for sensor in sensors {
         params.push(("SelezionaStazione[]", sensor.id_raw.clone()));
@@ -312,6 +319,8 @@ async fn fetch_series_chunk(
     let response = http_client
         .post(MARCHE_QUERY_URL)
         .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .header(reqwest::header::REFERER, MARCHE_MENU_URL)
+        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
         .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&params)
         .send()
@@ -342,6 +351,8 @@ async fn fetch_thresholds_chunk(
     let response = http_client
         .post(MARCHE_QUERY_URL)
         .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .header(reqwest::header::REFERER, MARCHE_MENU_URL)
+        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
         .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&params)
         .send()
@@ -429,6 +440,8 @@ async fn fetch_index_html(http_client: &HTTPClient) -> Result<String, RegionErro
     let response = http_client
         .post(MARCHE_INDEX_URL)
         .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .header(reqwest::header::REFERER, MARCHE_INDEX_URL)
+        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
         .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&index_form_params())
         .send()
@@ -446,6 +459,8 @@ async fn fetch_menu_html_filtered(
     let response = http_client
         .post(MARCHE_MENU_URL)
         .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .header(reqwest::header::REFERER, MARCHE_INDEX_URL)
+        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
         .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&menu_form_params(bacino, provincia, comune))
         .send()
@@ -467,6 +482,8 @@ async fn fetch_dropdown_options(
         .post(MARCHE_DROPDOWN_URL)
         .header("X-Requested-With", "XMLHttpRequest")
         .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .header(reqwest::header::REFERER, MARCHE_INDEX_URL)
+        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
         .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&dropdown_form_params(bacino))
         .send()
