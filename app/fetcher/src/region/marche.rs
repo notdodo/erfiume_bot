@@ -29,6 +29,7 @@ const MARCHE_TIMESTEP_TYPE: &str = "y";
 const MARCHE_TIMESTEP_VALUE: &str = "999";
 const MARCHE_COOKIE_HEADER: &str = "displayCookieConsent=y; PHPSESSID=erfiume";
 const MARCHE_ORIGIN: &str = "http://app.protezionecivile.marche.it";
+const NULL_SENTINEL: f64 = -0.01;
 
 struct MarcheSensor {
     id_raw: String,
@@ -262,7 +263,7 @@ async fn fetch_series_chunk(
         .await?;
     response.error_for_status_ref()?;
     let payload = response.text().await?;
-    parse_series_response(&payload).map_err(|err| err.into())
+    serde_json::from_str(&payload).map_err(|err| err.into())
 }
 
 async fn fetch_thresholds_chunk(
@@ -316,7 +317,15 @@ fn extract_latest_values(series: Vec<MarcheSeries>) -> HashMap<String, (i64, f64
 
 fn latest_valid_point(data: &[(i64, Option<f64>)], now_ms: i64) -> Option<(i64, f64)> {
     data.iter()
-        .filter_map(|(timestamp, value)| value.map(|value| (*timestamp, value)))
+        .filter_map(|(timestamp, value)| {
+            value.and_then(|value| {
+                if value == NULL_SENTINEL {
+                    None
+                } else {
+                    Some((*timestamp, value))
+                }
+            })
+        })
         .filter(|(timestamp, _)| *timestamp <= now_ms)
         .max_by_key(|(timestamp, _)| *timestamp)
 }
@@ -324,7 +333,15 @@ fn latest_valid_point(data: &[(i64, Option<f64>)], now_ms: i64) -> Option<(i64, 
 fn format_series_tail(data: &[(i64, Option<f64>)], count: usize) -> String {
     let mut points: Vec<(i64, f64)> = data
         .iter()
-        .filter_map(|(timestamp, value)| value.map(|value| (*timestamp, value)))
+        .filter_map(|(timestamp, value)| {
+            value.and_then(|value| {
+                if value == NULL_SENTINEL {
+                    None
+                } else {
+                    Some((*timestamp, value))
+                }
+            })
+        })
         .collect();
     points.sort_by_key(|(timestamp, _)| *timestamp);
     let tail: Vec<String> = points
@@ -337,10 +354,6 @@ fn format_series_tail(data: &[(i64, Option<f64>)], count: usize) -> String {
         .map(|(timestamp, value)| format!("({timestamp},{value})"))
         .collect();
     format!("[{}]", tail.join(", "))
-}
-
-fn parse_series_response(payload: &str) -> Result<Vec<MarcheSeries>, serde_json::Error> {
-    serde_json::from_str(payload)
 }
 
 async fn fetch_station_metadata(
@@ -571,9 +584,15 @@ mod tests {
     }
 
     #[test]
+    fn latest_valid_point_skips_null_sentinel() {
+        let data = vec![(1, Some(0.07)), (2, Some(-0.01))];
+        assert_eq!(latest_valid_point(&data, 2), Some((1, 0.07)));
+    }
+
+    #[test]
     fn parse_series_response_reads_values() {
         let payload = r#"[{"name":"Foo (sensore 123)","data":[[1,0.1],[2,null],[3,0.2]]}]"#;
-        let parsed = parse_series_response(payload).unwrap();
+        let parsed: Vec<MarcheSeries> = serde_json::from_str(payload).unwrap();
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].name, "Foo (sensore 123)");
         assert_eq!(parsed[0].data.len(), 3);
