@@ -294,12 +294,13 @@ async fn fetch_thresholds_chunk(
 }
 
 fn extract_latest_values(series: Vec<MarcheSeries>) -> HashMap<String, (i64, f64)> {
+    let now_ms = Utc::now().timestamp_millis();
     let mut values = HashMap::new();
     for entry in series {
         let Some(sensor_id) = extract_sensor_id_from_series_name(&entry.name) else {
             continue;
         };
-        if let Some((timestamp, value)) = latest_valid_point(&entry.data) {
+        if let Some((timestamp, value)) = latest_valid_point(&entry.data, now_ms) {
             if value < 0.0 && value.abs() <= 0.1 {
                 let tail = format_series_tail(&entry.data, 3);
                 logging::Logger::new().station(&entry.name).info(
@@ -313,9 +314,10 @@ fn extract_latest_values(series: Vec<MarcheSeries>) -> HashMap<String, (i64, f64
     values
 }
 
-fn latest_valid_point(data: &[(i64, Option<f64>)]) -> Option<(i64, f64)> {
+fn latest_valid_point(data: &[(i64, Option<f64>)], now_ms: i64) -> Option<(i64, f64)> {
     data.iter()
         .filter_map(|(timestamp, value)| value.map(|value| (*timestamp, value)))
+        .filter(|(timestamp, _)| *timestamp <= now_ms)
         .max_by_key(|(timestamp, _)| *timestamp)
 }
 
@@ -565,7 +567,7 @@ mod tests {
     #[test]
     fn latest_valid_point_skips_nulls() {
         let data = vec![(3, Some(0.2)), (1, Some(0.1)), (2, None)];
-        assert_eq!(latest_valid_point(&data), Some((3, 0.2)));
+        assert_eq!(latest_valid_point(&data, 3), Some((3, 0.2)));
     }
 
     #[test]
