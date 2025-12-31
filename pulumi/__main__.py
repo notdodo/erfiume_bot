@@ -1,6 +1,9 @@
 """An AWS Python Pulumi program"""
 
+import pulumi
 import pulumi_cloudflare
+from pulumi_aws import apigatewayv2, dynamodb, lambda_, scheduler
+
 from er_fiume import (
     Function,
     FunctionCPUArchitecture,
@@ -11,15 +14,12 @@ from er_fiume import (
     TableAttribute,
     TableAttributeType,
 )
-from pulumi_aws import apigatewayv2, dynamodb, lambda_, scheduler
 from telegram_provider import (
     TelegramBot,
     TelegramBotCommand,
     TelegramBotCommandScopeType,
     TelegramBotCommandSet,
 )
-
-import pulumi
 
 RESOURCES_PREFIX = "erfiume"
 SYNC_MINUTES_RATE_NORMAL = 24 * 60  # Once a day
