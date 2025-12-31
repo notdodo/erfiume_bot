@@ -18,7 +18,7 @@ pub struct Marche;
 const SESSION_ID: &str = "erfiume";
 const MAX_SENSORS: usize = 5;
 const LATEST_LOOKBACK_HOURS: i64 = 24;
-const THRESHOLD_LOOKBACK_DAYS: i64 = 365 * 3;
+const THRESHOLD_LOOKBACK_DAYS: i64 = 365 * 3 / 2;
 const MARCHE_MENU_URL: &str =
     "http://app.protezionecivile.marche.it/sol/annaliidro2/menu.sol?lang=it";
 const MARCHE_INDEX_URL: &str =
