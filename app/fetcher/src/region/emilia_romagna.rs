@@ -6,9 +6,11 @@ use crate::{
     station::{Entry, Station, StationData},
 };
 use aws_sdk_dynamodb::Client as DynamoDbClient;
+use chrono::{Duration, Utc};
 use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use futures::StreamExt;
 use reqwest::Client as HTTPClient;
+use serde_json::Value;
 use std::sync::OnceLock;
 
 pub struct EmiliaRomagna;
@@ -18,6 +20,14 @@ const LATEST_TIME_SEED: i64 = 1_726_667_100_000;
 const SENSOR_VALUES_PATH: &str = "/o/api/allerta/get-sensor-values-no-time";
 const TIME_SERIES_PATH: &str = "/o/api/allerta/get-time-series/";
 const VARIABILE_PARAM: &str = "variabile=254,0,0/1,-,-,-/B13215";
+const GRAFICO_PATH: &str = "/web/guest/grafico-sensori";
+const GRAFICO_VARIABILE: &str = "254,0,0/1,-,-,-/B13215";
+
+#[derive(Clone)]
+struct EmiliaRomagnaMeta {
+    bacino: Option<String>,
+    comune: Option<String>,
+}
 
 fn round_two_decimals(value: f32) -> f32 {
     (value * 100.0).round() / 100.0
@@ -205,6 +215,19 @@ async fn process_station(
         return Err(err.into());
     }
 
+    let meta = match fetch_station_metadata(client, api_base, &station.idstazione).await {
+        Ok(meta) => meta,
+        Err(err) => {
+            let logger = logging::Logger::new().station(&station.nomestaz);
+            logger.error(
+                "stations.metadata_failed",
+                &err,
+                "Failed to load station metadata",
+            );
+            None
+        }
+    };
+
     let record = StationRecord {
         timestamp: station.timestamp.unwrap_or_default() as i64,
         idstazione: station.idstazione.clone(),
@@ -215,11 +238,85 @@ async fn process_station(
         soglia1: station.soglia1 as f64,
         soglia2: station.soglia2 as f64,
         soglia3: station.soglia3 as f64,
+        bacino: meta.as_ref().and_then(|value| value.bacino.clone()),
+        provincia: None,
+        comune: meta.as_ref().and_then(|value| value.comune.clone()),
         value: station.value.map(|value| value as f64),
     };
     put_station_record(dynamodb_client, table_name, &record).await?;
 
     Ok(())
+}
+
+async fn fetch_station_metadata(
+    client: &HTTPClient,
+    api_base: &str,
+    station_id: &str,
+) -> Result<Option<EmiliaRomagnaMeta>, RegionError> {
+    let end = Utc::now().date_naive();
+    let start = end - Duration::days(2);
+    let fmt = "%Y-%m-%d";
+    let start = start.format(fmt).to_string();
+    let end = end.format(fmt).to_string();
+    let r_param = format!("{station_id}/{GRAFICO_VARIABILE}/{start}/{end}");
+    let url = format!(
+        "{api_base}{GRAFICO_PATH}?p_p_id=AllertaGraficoPortlet&p_p_lifecycle=0&\
+_AllertaGraficoPortlet_mvcRenderCommandName=%2Fallerta%2Fanimazione%2Fgrafico&\
+r={r_param}&stazione={station_id}&variabile={GRAFICO_VARIABILE}"
+    );
+
+    let response = client.get(&url).send().await?;
+    response.error_for_status_ref()?;
+    let payload = response.text().await?;
+    Ok(parse_grafico_metadata(&payload))
+}
+
+fn parse_grafico_metadata(payload: &str) -> Option<EmiliaRomagnaMeta> {
+    let marker = payload
+        .find("var  data")
+        .or_else(|| payload.find("var data"))?;
+    let json = extract_json_object(&payload[marker..])?;
+    let value: Value = serde_json::from_str(&json).ok()?;
+
+    let bacino = value
+        .get("namebasin")
+        .and_then(|value| value.as_str())
+        .map(str::to_string)
+        .or_else(|| {
+            value
+                .get("namesubbasin")
+                .and_then(|value| value.as_str())
+                .map(str::to_string)
+        });
+    let comune = value
+        .get("name")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+
+    if bacino.is_none() && comune.is_none() {
+        return None;
+    }
+
+    Some(EmiliaRomagnaMeta { bacino, comune })
+}
+
+fn extract_json_object(payload: &str) -> Option<String> {
+    let start = payload.find('{')?;
+    let mut depth = 0i32;
+    for (offset, ch) in payload[start..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    let end = start + offset + 1;
+                    return Some(payload[start..end].to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -230,5 +327,17 @@ mod tests {
     fn round_two_decimals_rounds_as_expected() {
         let value = round_two_decimals(1.235);
         assert!((value - 1.24).abs() < 1e-6);
+    }
+
+    #[test]
+    fn parse_grafico_metadata_extracts_bacino_and_comune() {
+        let html = r#"
+        <script type="text/javascript">
+        var  data = {"unit":"M","namebasin":"SAVIO","name":"Cesena","description":"Livello idrometrico","namesubbasin":"SAVIO","soglia1":4.0,"soglia2":5.5,"soglia3":7.8,"height":31.0};
+        </script>
+        "#;
+        let meta = parse_grafico_metadata(html).expect("expected metadata");
+        assert_eq!(meta.bacino, Some("SAVIO".to_string()));
+        assert_eq!(meta.comune, Some("Cesena".to_string()));
     }
 }

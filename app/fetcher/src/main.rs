@@ -58,7 +58,7 @@ async fn main() -> Result<(), LambdaError> {
         .init();
 
     let http_client = HTTPClient::builder()
-        .timeout(Duration::from_secs(25))
+        .timeout(Duration::from_secs(40))
         .build()?;
     let dynamodb_client =
         DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await);
