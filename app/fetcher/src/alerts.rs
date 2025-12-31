@@ -147,14 +147,42 @@ async fn send_alert(
 }
 
 fn format_station_message_for_alert(station: &Station) -> String {
-    format_station_message(
+    let base_message = format_station_message(
         &station.nomestaz,
         station.value.map(|value| value as f64),
         station.soglia1 as f64,
         station.soglia2 as f64,
         station.soglia3 as f64,
         station.timestamp.map(|value| value as i64),
-    )
+    );
+
+    let metadata_lines = station_metadata_lines(station);
+    if metadata_lines.is_empty() {
+        return base_message;
+    }
+
+    let mut lines: Vec<String> = base_message.lines().map(str::to_string).collect();
+    let mut insert_index = 1;
+    for line in metadata_lines {
+        lines.insert(insert_index, line);
+        insert_index += 1;
+    }
+
+    lines.join("\n")
+}
+
+fn station_metadata_lines(station: &Station) -> Vec<String> {
+    let mut lines = Vec::new();
+    if let Some(bacino) = station.bacino.as_ref().filter(|value| !value.is_empty()) {
+        lines.push(format!("Bacino: {}", bacino));
+    }
+    if let Some(comune) = station.comune.as_ref().filter(|value| !value.is_empty()) {
+        lines.push(format!("Comune: {}", comune));
+    }
+    if let Some(provincia) = station.provincia.as_ref().filter(|value| !value.is_empty()) {
+        lines.push(format!("Provincia: {}", provincia));
+    }
+    lines
 }
 
 #[cfg(test)]
@@ -173,6 +201,9 @@ mod tests {
             soglia1: 1.0,
             soglia2: 2.0,
             soglia3: 3.0,
+            bacino: None,
+            provincia: None,
+            comune: None,
             value: Some(2.2),
         };
 

@@ -1,4 +1,5 @@
 use super::Region;
+use crate::alerts::{self, AlertsConfig};
 use crate::logging;
 use crate::region::{RegionError, RegionResult};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
@@ -11,12 +12,23 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::time::Duration as StdDuration;
 
 pub struct Marche;
 
 const SESSION_ID: &str = "erfiume";
 const MAX_SENSORS: usize = 5;
 const LATEST_LOOKBACK_HOURS: i64 = 24;
+const MARCHE_MENU_URL: &str =
+    "http://app.protezionecivile.marche.it/sol/annaliidro2/menu.sol?lang=it";
+const MARCHE_INDEX_URL: &str =
+    "http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it";
+const MARCHE_DROPDOWN_URL: &str =
+    "http://app.protezionecivile.marche.it/sol/json_sol/json_dropdown.sol";
+const MARCHE_QUERY_URL: &str =
+    "http://app.protezionecivile.marche.it/sol/annaliidro2/queryResultsFile.sol?lang=it";
+const MARCHE_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
+const MARCHE_REQUEST_TIMEOUT_SECS: u64 = 90;
 
 struct MarcheSensor {
     id_raw: String,
@@ -52,6 +64,7 @@ impl Region for Marche {
         dynamodb_client: &DynamoDbClient,
     ) -> Result<RegionResult, RegionError> {
         logging::Logger::new().info("marche.fetch.start", "Starting Marche fetch");
+        let alerts_config = AlertsConfig::from_env();
         let html = fetch_menu_html(http_client).await?;
         logging::Logger::new().info(
             "marche.menu.fetched",
@@ -176,20 +189,49 @@ impl Region for Marche {
             };
             let max_threshold = max_thresholds.get(&sensor.id_raw).copied();
             let meta = station_meta.get(&sensor.id_raw);
-            let record = StationRecord {
-                timestamp: *timestamp,
+            let station = crate::station::Station {
+                timestamp: Some((*timestamp).max(0) as u64),
                 idstazione: sensor.id_rt.clone(),
                 ordinamento: (index + 1) as i32,
                 nomestaz: sensor.name.clone(),
                 lon: "0".to_string(),
                 lat: "0".to_string(),
-                soglia1: UNKNOWN_THRESHOLD,
-                soglia2: UNKNOWN_THRESHOLD,
-                soglia3: max_threshold.unwrap_or(UNKNOWN_THRESHOLD),
+                soglia1: UNKNOWN_THRESHOLD as f32,
+                soglia2: UNKNOWN_THRESHOLD as f32,
+                soglia3: max_threshold.unwrap_or(UNKNOWN_THRESHOLD) as f32,
                 bacino: meta.and_then(|value| value.bacino.clone()),
                 provincia: meta.and_then(|value| value.provincia.clone()),
                 comune: meta.and_then(|value| value.comune.clone()),
-                value: Some(*value),
+                value: Some(*value as f32),
+            };
+
+            if let Some(config) = alerts_config.as_ref()
+                && let Err(err) = alerts::process_alerts_for_station(
+                    http_client,
+                    dynamodb_client,
+                    &station,
+                    config,
+                )
+                .await
+            {
+                let logger = logging::Logger::new().station(&station.nomestaz);
+                logger.error("alerts.process_failed", &err, "Failed to process alerts");
+            }
+
+            let record = StationRecord {
+                timestamp: station.timestamp.unwrap_or_default() as i64,
+                idstazione: station.idstazione.clone(),
+                ordinamento: station.ordinamento,
+                nomestaz: station.nomestaz.clone(),
+                lon: station.lon.clone(),
+                lat: station.lat.clone(),
+                soglia1: station.soglia1 as f64,
+                soglia2: station.soglia2 as f64,
+                soglia3: station.soglia3 as f64,
+                bacino: station.bacino.clone(),
+                provincia: station.provincia.clone(),
+                comune: station.comune.clone(),
+                value: station.value.map(|value| value as f64),
             };
 
             match put_station_record(dynamodb_client, self.dynamodb_table(), &record).await {
@@ -239,7 +281,9 @@ fn marche_table_name() -> &'static str {
 
 async fn fetch_menu_html(http_client: &HTTPClient) -> Result<String, RegionError> {
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/menu.sol?lang=it")
+        .post(MARCHE_MENU_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&menu_form_params("All", "All", "All"))
         .send()
         .await?;
@@ -266,7 +310,9 @@ async fn fetch_series_chunk(
     }
 
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/queryResultsFile.sol?lang=it")
+        .post(MARCHE_QUERY_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&params)
         .send()
         .await?;
@@ -294,7 +340,9 @@ async fn fetch_thresholds_chunk(
     }
 
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/queryResultsFile.sol?lang=it")
+        .post(MARCHE_QUERY_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&params)
         .send()
         .await?;
@@ -379,7 +427,9 @@ async fn fetch_station_metadata(
 
 async fn fetch_index_html(http_client: &HTTPClient) -> Result<String, RegionError> {
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it")
+        .post(MARCHE_INDEX_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&index_form_params())
         .send()
         .await?;
@@ -394,7 +444,9 @@ async fn fetch_menu_html_filtered(
     comune: &str,
 ) -> Result<String, RegionError> {
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/menu.sol?lang=it")
+        .post(MARCHE_MENU_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&menu_form_params(bacino, provincia, comune))
         .send()
         .await?;
@@ -412,8 +464,10 @@ async fn fetch_dropdown_options(
     bacino: &str,
 ) -> Result<MarcheDropdown, RegionError> {
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/json_sol/json_dropdown.sol")
+        .post(MARCHE_DROPDOWN_URL)
         .header("X-Requested-With", "XMLHttpRequest")
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&dropdown_form_params(bacino))
         .send()
         .await?;

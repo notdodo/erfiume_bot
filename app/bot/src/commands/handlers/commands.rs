@@ -199,14 +199,18 @@ impl<'a> CommandHandler<'a> {
             return Ok(());
         };
         let scan_page_size = stations_scan_page_size();
-        let text = match station::search::list_stations_cached(
+        let text = match erfiume_dynamodb::stations::list_station_entries(
             self.dynamodb(),
             stations_table_name.as_str(),
             scan_page_size,
         )
         .await
         {
-            Ok(stations) if !stations.is_empty() => stations.join("\n"),
+            Ok(stations) if !stations.is_empty() => stations
+                .iter()
+                .map(station::format_station_list_entry)
+                .collect::<Vec<String>>()
+                .join("\n"),
             Ok(_) => "Nessuna stazione disponibile al momento.".to_string(),
             Err(err) => {
                 self.logger.clone().table(stations_table_name).error(

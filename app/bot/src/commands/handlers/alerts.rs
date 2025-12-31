@@ -145,13 +145,14 @@ pub(super) async fn handle_rimuovi_avviso(
     };
 
     let scan_page_size = stations_scan_page_size();
-    let station_result = station::search::get_station(
+    let station_result = station::search::get_station_with_match(
         handler.dynamodb(),
         station_name,
         stations_table_name.as_str(),
         scan_page_size,
     )
-    .await;
+    .await
+    .map(|result| result.map(|(station, _)| station));
 
     let station = match station_result {
         Ok(Some(item)) => item,
@@ -224,13 +225,14 @@ pub(super) async fn handle_avvisami(
     };
 
     let scan_page_size = stations_scan_page_size();
-    let station_result = station::search::get_station(
+    let station_result = station::search::get_station_with_match(
         handler.dynamodb(),
         station_name,
         stations_table_name.as_str(),
         scan_page_size,
     )
-    .await;
+    .await
+    .map(|result| result.map(|(station, _)| station));
 
     let station = match station_result {
         Ok(Some(item)) => item,

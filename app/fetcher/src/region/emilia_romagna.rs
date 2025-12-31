@@ -26,7 +26,6 @@ const GRAFICO_VARIABILE: &str = "254,0,0/1,-,-,-/B13215";
 #[derive(Clone)]
 struct EmiliaRomagnaMeta {
     bacino: Option<String>,
-    comune: Option<String>,
 }
 
 fn round_two_decimals(value: f32) -> f32 {
@@ -158,6 +157,9 @@ async fn fetch_stations(
                 soglia2: round_two_decimals(soglia2),
                 soglia3: round_two_decimals(soglia3),
                 lat,
+                bacino: None,
+                provincia: None,
+                comune: None,
                 timestamp: None,
                 value: None,
             }),
@@ -195,7 +197,7 @@ async fn process_station(
     table_name: &str,
     alerts_config: Option<&AlertsConfig>,
 ) -> Result<(), RegionError> {
-    let station = fetch_station_data(client, api_base, station.clone())
+    let mut station = fetch_station_data(client, api_base, station.clone())
         .await
         .inspect_err(|e| {
             let logger = logging::Logger::new().station(&station.nomestaz);
@@ -205,15 +207,6 @@ async fn process_station(
                 "Error fetching data for station",
             );
         })?;
-
-    if let Some(config) = alerts_config
-        && let Err(err) =
-            alerts::process_alerts_for_station(client, dynamodb_client, &station, config).await
-    {
-        let logger = logging::Logger::new().station(&station.nomestaz);
-        logger.error("alerts.process_failed", &err, "Failed to process alerts");
-        return Err(err.into());
-    }
 
     let meta = match fetch_station_metadata(client, api_base, &station.idstazione).await {
         Ok(meta) => meta,
@@ -228,6 +221,21 @@ async fn process_station(
         }
     };
 
+    if let Some(meta) = meta.as_ref() {
+        station.bacino = meta.bacino.clone();
+        station.provincia = None;
+        station.comune = None;
+    }
+
+    if let Some(config) = alerts_config
+        && let Err(err) =
+            alerts::process_alerts_for_station(client, dynamodb_client, &station, config).await
+    {
+        let logger = logging::Logger::new().station(&station.nomestaz);
+        logger.error("alerts.process_failed", &err, "Failed to process alerts");
+        return Err(err.into());
+    }
+
     let record = StationRecord {
         timestamp: station.timestamp.unwrap_or_default() as i64,
         idstazione: station.idstazione.clone(),
@@ -238,9 +246,9 @@ async fn process_station(
         soglia1: station.soglia1 as f64,
         soglia2: station.soglia2 as f64,
         soglia3: station.soglia3 as f64,
-        bacino: meta.as_ref().and_then(|value| value.bacino.clone()),
-        provincia: None,
-        comune: meta.as_ref().and_then(|value| value.comune.clone()),
+        bacino: station.bacino.clone(),
+        provincia: station.provincia.clone(),
+        comune: station.comune.clone(),
         value: station.value.map(|value| value as f64),
     };
     put_station_record(dynamodb_client, table_name, &record).await?;
@@ -288,16 +296,11 @@ fn parse_grafico_metadata(payload: &str) -> Option<EmiliaRomagnaMeta> {
                 .and_then(|value| value.as_str())
                 .map(str::to_string)
         });
-    let comune = value
-        .get("name")
-        .and_then(|value| value.as_str())
-        .map(str::to_string);
 
-    if bacino.is_none() && comune.is_none() {
-        return None;
-    }
-
-    Some(EmiliaRomagnaMeta { bacino, comune })
+    let bacino = bacino?;
+    Some(EmiliaRomagnaMeta {
+        bacino: Some(bacino),
+    })
 }
 
 fn extract_json_object(payload: &str) -> Option<String> {
@@ -330,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_grafico_metadata_extracts_bacino_and_comune() {
+    fn parse_grafico_metadata_extracts_bacino() {
         let html = r#"
         <script type="text/javascript">
         var  data = {"unit":"M","namebasin":"SAVIO","name":"Cesena","description":"Livello idrometrico","namesubbasin":"SAVIO","soglia1":4.0,"soglia2":5.5,"soglia3":7.8,"height":31.0};
@@ -338,6 +341,5 @@ mod tests {
         "#;
         let meta = parse_grafico_metadata(html).expect("expected metadata");
         assert_eq!(meta.bacino, Some("SAVIO".to_string()));
-        assert_eq!(meta.comune, Some("Cesena".to_string()));
     }
 }

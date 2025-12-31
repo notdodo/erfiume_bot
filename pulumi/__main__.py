@@ -111,7 +111,7 @@ fetcher_lambda = Function(
     code_runtime=FunctionRuntime.RUST,
     architecture=FunctionCPUArchitecture.ARM,
     memory=512,
-    timeout=60,
+    timeout=120,
     variables={
         "ALERTS_TABLE_NAME": alerts_table.table.name,
         "EMILIA_ROMAGNA_STATIONS_TABLE_NAME": er_stations_table.table.name,
