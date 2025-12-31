@@ -18,6 +18,7 @@ pub struct Marche;
 const SESSION_ID: &str = "erfiume";
 const MAX_SENSORS: usize = 5;
 const LATEST_LOOKBACK_HOURS: i64 = 24;
+const THRESHOLD_LOOKBACK_DAYS: i64 = 365 * 3;
 const MARCHE_MENU_URL: &str =
     "http://app.protezionecivile.marche.it/sol/annaliidro2/menu.sol?lang=it";
 const MARCHE_INDEX_URL: &str =
@@ -104,7 +105,7 @@ impl Region for Marche {
         };
 
         let threshold_end = Utc::now().with_timezone(&Rome);
-        let threshold_start = threshold_end - Duration::hours(LATEST_LOOKBACK_HOURS);
+        let threshold_start = threshold_end - Duration::days(THRESHOLD_LOOKBACK_DAYS);
         let fmt = "%Y-%m-%d %H:%M";
         let threshold_begin = threshold_start.format(fmt).to_string();
         let threshold_end = threshold_end.format(fmt).to_string();
