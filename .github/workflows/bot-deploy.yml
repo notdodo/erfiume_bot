@@ -26,7 +26,6 @@ jobs:
       lambda-arch: arm64
 
   rust-ci-fetcher:
-    needs: [rust-ci-bot]
     permissions:
       actions: read
       security-events: write
