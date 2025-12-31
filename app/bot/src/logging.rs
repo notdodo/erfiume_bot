@@ -2,6 +2,7 @@ use teloxide::types::{Message, Update, UpdateKind};
 use tracing::{error, info};
 
 use crate::commands::Command;
+use crate::commands::utils::chat_type_name;
 
 pub(crate) const TARGET: &str = "erfiume_bot";
 
@@ -27,7 +28,7 @@ impl Logger {
     pub(crate) fn from_message(msg: &Message) -> Self {
         Self {
             chat_id: Some(msg.chat.id.0),
-            chat_type: Some(chat_type_name(msg)),
+            chat_type: Some(chat_type_name(&msg.chat)),
             message_id: Some(msg.id.0),
             ..Self::default()
         }
@@ -37,7 +38,7 @@ impl Logger {
         Self {
             command: Some(command_name(cmd)),
             chat_id: Some(msg.chat.id.0),
-            chat_type: Some(chat_type_name(msg)),
+            chat_type: Some(chat_type_name(&msg.chat)),
             message_id: Some(msg.id.0),
             ..Self::default()
         }
@@ -149,20 +150,6 @@ fn update_kind_name(update: &Update) -> &'static str {
         UpdateKind::ChatMember(_) => "chat_member",
         UpdateKind::ChatJoinRequest(_) => "chat_join_request",
         _ => "other",
-    }
-}
-
-fn chat_type_name(msg: &Message) -> &'static str {
-    if msg.chat.is_private() {
-        "private"
-    } else if msg.chat.is_group() {
-        "group"
-    } else if msg.chat.is_supergroup() {
-        "supergroup"
-    } else if msg.chat.is_channel() {
-        "channel"
-    } else {
-        "other"
     }
 }
 

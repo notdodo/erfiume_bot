@@ -3,7 +3,7 @@ use erfiume_dynamodb::alerts as dynamo_alerts;
 use teloxide::{
     payloads::SendMessageSetters,
     prelude::{Bot, Requester},
-    types::{LinkPreviewOptions, Message, ParseMode, ReplyMarkup},
+    types::{Chat, LinkPreviewOptions, Message, ParseMode, ReplyMarkup},
 };
 
 pub(crate) fn escape_markdown_v2(text: &str) -> String {
@@ -25,6 +25,20 @@ pub(crate) fn escape_markdown_v2(text: &str) -> String {
         .replace("}", "\\}")
         .replace(".", "\\.")
         .replace("!", "\\!")
+}
+
+pub(crate) fn chat_type_name(chat: &Chat) -> &'static str {
+    if chat.is_private() {
+        "private"
+    } else if chat.is_group() {
+        "group"
+    } else if chat.is_supergroup() {
+        "supergroup"
+    } else if chat.is_channel() {
+        "channel"
+    } else {
+        "other"
+    }
 }
 
 pub(crate) async fn send_message(

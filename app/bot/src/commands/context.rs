@@ -1,3 +1,4 @@
+use crate::commands::utils::chat_type_name;
 use crate::logging;
 use anyhow::Error;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
@@ -53,7 +54,7 @@ impl ChatContext {
         Self::new(
             dynamodb_client.clone(),
             msg.chat.id.0,
-            chat_type_name(msg),
+            chat_type_name(&msg.chat),
             Some(ChatPresenceData {
                 username: msg.chat.username().map(|value| value.to_string()),
                 first_name: msg.chat.first_name().map(|value| value.to_string()),
@@ -187,19 +188,5 @@ fn load_chats_table_name() -> Option<String> {
         None
     } else {
         Some(trimmed.to_string())
-    }
-}
-
-fn chat_type_name(msg: &Message) -> &'static str {
-    if msg.chat.is_private() {
-        "private"
-    } else if msg.chat.is_group() {
-        "group"
-    } else if msg.chat.is_supergroup() {
-        "supergroup"
-    } else if msg.chat.is_channel() {
-        "channel"
-    } else {
-        "other"
     }
 }

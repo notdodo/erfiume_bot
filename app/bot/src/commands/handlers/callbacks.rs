@@ -7,8 +7,7 @@ use erfiume_dynamodb::chats as dynamo_chats;
 use teloxide::payloads::{AnswerCallbackQuerySetters, EditMessageTextSetters, SendMessageSetters};
 use teloxide::prelude::{Bot, Requester};
 use teloxide::types::{
-    CallbackQuery, Chat, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage,
-    ParseMode,
+    CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage, ParseMode,
 };
 
 pub(crate) async fn callback_query_handler(
@@ -68,7 +67,7 @@ pub(crate) async fn callback_query_handler(
     let chat = message.chat();
     let record = dynamo_chats::ChatRecord {
         chat_id: chat.id.0,
-        chat_type: chat_type_name(chat).to_string(),
+        chat_type: utils::chat_type_name(chat).to_string(),
         username: chat.username().map(|value| value.to_string()),
         first_name: chat.first_name().map(|value| value.to_string()),
         last_name: chat.last_name().map(|value| value.to_string()),
@@ -150,18 +149,4 @@ fn logger_from_callback_message(message: &MaybeInaccessibleMessage) -> logging::
         .regular_message()
         .map(logging::Logger::from_message)
         .unwrap_or_else(|| logging::Logger::new().kind("callback_query"))
-}
-
-fn chat_type_name(chat: &Chat) -> &'static str {
-    if chat.is_private() {
-        "private"
-    } else if chat.is_group() {
-        "group"
-    } else if chat.is_supergroup() {
-        "supergroup"
-    } else if chat.is_channel() {
-        "channel"
-    } else {
-        "other"
-    }
 }
