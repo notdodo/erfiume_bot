@@ -16,8 +16,6 @@ pub struct Station {
     soglia2: f64,
     soglia3: f64,
     bacino: Option<String>,
-    provincia: Option<String>,
-    comune: Option<String>,
     value: f64,
 }
 
@@ -52,12 +50,6 @@ impl Station {
         if let Some(bacino) = self.bacino.as_ref().filter(|value| !value.is_empty()) {
             lines.push(format!("Bacino: {}", bacino));
         }
-        if let Some(comune) = self.comune.as_ref().filter(|value| !value.is_empty()) {
-            lines.push(format!("Comune: {}", comune));
-        }
-        if let Some(provincia) = self.provincia.as_ref().filter(|value| !value.is_empty()) {
-            lines.push(format!("Provincia: {}", provincia));
-        }
         lines
     }
 }
@@ -66,12 +58,6 @@ pub(crate) fn format_station_list_entry(entry: &StationListEntry) -> String {
     let mut details = Vec::new();
     if let Some(bacino) = entry.bacino.as_ref().filter(|value| !value.is_empty()) {
         details.push(format!("Bacino: {}", bacino));
-    }
-    if let Some(comune) = entry.comune.as_ref().filter(|value| !value.is_empty()) {
-        details.push(format!("Comune: {}", comune));
-    }
-    if let Some(provincia) = entry.provincia.as_ref().filter(|value| !value.is_empty()) {
-        details.push(format!("Provincia: {}", provincia));
     }
 
     if details.is_empty() {
@@ -99,8 +85,6 @@ mod tests {
             soglia2: 2.0,
             soglia3: 3.0,
             bacino: None,
-            provincia: None,
-            comune: None,
             value: UNKNOWN_THRESHOLD,
         };
         let expected = "Stazione: Cesena\nValore: non disponibile \nSoglia Gialla: 1.00\nSoglia Arancione: 2.00\nSoglia Rossa: 3.00\nUltimo rilevamento: 20-10-2024 22:02".to_string();
@@ -121,8 +105,6 @@ mod tests {
             soglia2: 2.0,
             soglia3: 3.0,
             bacino: None,
-            provincia: None,
-            comune: None,
             value: 2.2,
         };
         let expected = "Stazione: Cesena\nValore: 2.20 🟠\nSoglia Gialla: 1.00\nSoglia Arancione: 2.00\nSoglia Rossa: 3.00\nUltimo rilevamento: 20-10-2024 22:02".to_string();
@@ -143,8 +125,6 @@ mod tests {
             soglia2: UNKNOWN_THRESHOLD,
             soglia3: UNKNOWN_THRESHOLD,
             bacino: None,
-            provincia: None,
-            comune: None,
             value: 1.2,
         };
         let expected =

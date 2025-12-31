@@ -3,13 +3,11 @@ use crate::alerts::{self, AlertsConfig};
 use crate::logging;
 use crate::region::{RegionError, RegionResult};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use chrono::{Datelike, Duration, TimeZone, Utc};
-use chrono_tz::Europe::Rome;
+use chrono::{Duration, Utc};
 use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use reqwest::Client as HTTPClient;
 use serde::Deserialize;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::time::Duration as StdDuration;
@@ -23,8 +21,6 @@ const MARCHE_MENU_URL: &str =
     "http://app.protezionecivile.marche.it/sol/annaliidro2/menu.sol?lang=it";
 const MARCHE_INDEX_URL: &str =
     "http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it";
-const MARCHE_DROPDOWN_URL: &str =
-    "http://app.protezionecivile.marche.it/sol/json_sol/json_dropdown.sol";
 const MARCHE_QUERY_URL: &str =
     "http://app.protezionecivile.marche.it/sol/annaliidro2/queryResultsFile.sol?lang=it";
 const MARCHE_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
@@ -32,6 +28,7 @@ const MARCHE_REQUEST_TIMEOUT_SECS: u64 = 90;
 const MARCHE_TIMESTEP_TYPE: &str = "y";
 const MARCHE_TIMESTEP_VALUE: &str = "999";
 const MARCHE_COOKIE_HEADER: &str = "displayCookieConsent=y; PHPSESSID=erfiume";
+const MARCHE_ORIGIN: &str = "http://app.protezionecivile.marche.it";
 
 struct MarcheSensor {
     id_raw: String,
@@ -42,8 +39,6 @@ struct MarcheSensor {
 #[derive(Default, Clone)]
 struct MarcheStationMeta {
     bacino: Option<String>,
-    provincia: Option<String>,
-    comune: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,31 +61,18 @@ impl Region for Marche {
         http_client: &HTTPClient,
         dynamodb_client: &DynamoDbClient,
     ) -> Result<RegionResult, RegionError> {
-        logging::Logger::new().info("marche.fetch.start", "Starting Marche fetch");
         let alerts_config = AlertsConfig::from_env();
         let html = fetch_menu_html(http_client).await?;
-        logging::Logger::new().info(
-            "marche.menu.fetched",
-            &format!("Fetched menu HTML ({} bytes)", html.len()),
-        );
         let sensors = parse_station_options(&html);
-        logging::Logger::new().info(
-            "marche.menu.parsed",
-            &format!("Parsed {} sensors", sensors.len()),
-        );
         let max_per_request = MAX_SENSORS;
-        let (begin, end) = build_date_range();
-        logging::Logger::new().info(
-            "marche.range.built",
-            &format!("Date range: {begin} -> {end}"),
-        );
+        let end = Utc::now() + Duration::hours(12);
+        let start = end - Duration::hours(LATEST_LOOKBACK_HOURS);
+        let fmt = "%Y-%m-%d %H:%M";
+        let begin = start.format(fmt).to_string();
+        let end = end.format(fmt).to_string();
 
         let mut series_values = HashMap::new();
         for (index, chunk) in sensors.chunks(max_per_request).enumerate() {
-            logging::Logger::new().info(
-                "marche.series.request",
-                &format!("Fetching chunk {} ({} sensors)", index + 1, chunk.len()),
-            );
             let series = match fetch_series_chunk(http_client, chunk, &begin, &end).await {
                 Ok(series) => series,
                 Err(err) => {
@@ -102,27 +84,11 @@ impl Region for Marche {
                     return Err(err);
                 }
             };
-            logging::Logger::new().info(
-                "marche.series.response",
-                &format!("Chunk {} returned {} series", index + 1, series.len()),
-            );
             let chunk_values = extract_latest_values(series);
-            logging::Logger::new().info(
-                "marche.series.extracted",
-                &format!(
-                    "Chunk {} yielded {} latest values",
-                    index + 1,
-                    chunk_values.len()
-                ),
-            );
             for (id, value) in chunk_values {
                 series_values.insert(id, value);
             }
         }
-        logging::Logger::new().info(
-            "marche.series.collected",
-            &format!("Collected {} values", series_values.len()),
-        );
 
         let station_meta = match fetch_station_metadata(http_client).await {
             Ok(meta) => meta,
@@ -136,21 +102,13 @@ impl Region for Marche {
             }
         };
 
-        let (threshold_begin, threshold_end) = build_month_range();
-        logging::Logger::new().info(
-            "marche.thresholds.range.built",
-            &format!("Threshold range: {threshold_begin} -> {threshold_end}"),
-        );
+        let threshold_end = Utc::now() + Duration::hours(12);
+        let threshold_start = threshold_end - Duration::hours(LATEST_LOOKBACK_HOURS);
+        let fmt = "%Y-%m-%d %H:%M";
+        let threshold_begin = threshold_start.format(fmt).to_string();
+        let threshold_end = threshold_end.format(fmt).to_string();
         let mut max_thresholds = HashMap::new();
         for (index, chunk) in sensors.chunks(max_per_request).enumerate() {
-            logging::Logger::new().info(
-                "marche.thresholds.request",
-                &format!(
-                    "Fetching threshold chunk {} ({} sensors)",
-                    index + 1,
-                    chunk.len()
-                ),
-            );
             let chunk_thresholds =
                 match fetch_thresholds_chunk(http_client, chunk, &threshold_begin, &threshold_end)
                     .await
@@ -165,29 +123,14 @@ impl Region for Marche {
                         continue;
                     }
                 };
-            logging::Logger::new().info(
-                "marche.thresholds.response",
-                &format!(
-                    "Threshold chunk {} returned {} entries",
-                    index + 1,
-                    chunk_thresholds.len()
-                ),
-            );
             for (id, value) in chunk_thresholds {
                 max_thresholds.insert(id, value);
             }
         }
-        logging::Logger::new().info(
-            "marche.thresholds.collected",
-            &format!("Collected {} threshold values", max_thresholds.len()),
-        );
 
         let mut updated = 0usize;
         for (index, sensor) in sensors.iter().enumerate() {
             let Some((timestamp, value)) = series_values.get(&sensor.id_raw) else {
-                logging::Logger::new()
-                    .station(&sensor.name)
-                    .info("marche.series.missing", "Missing series data for sensor");
                 continue;
             };
             let max_threshold = max_thresholds.get(&sensor.id_raw).copied();
@@ -203,8 +146,6 @@ impl Region for Marche {
                 soglia2: UNKNOWN_THRESHOLD,
                 soglia3: max_threshold.unwrap_or(UNKNOWN_THRESHOLD),
                 bacino: meta.and_then(|value| value.bacino.clone()),
-                provincia: meta.and_then(|value| value.provincia.clone()),
-                comune: meta.and_then(|value| value.comune.clone()),
                 value: Some(*value),
             };
 
@@ -232,18 +173,12 @@ impl Region for Marche {
                 soglia2: station.soglia2,
                 soglia3: station.soglia3,
                 bacino: station.bacino.clone(),
-                provincia: station.provincia.clone(),
-                comune: station.comune.clone(),
                 value: station.value,
             };
 
             match put_station_record(dynamodb_client, self.dynamodb_table(), &record).await {
                 Ok(()) => {
                     updated += 1;
-                    logging::Logger::new().station(&sensor.name).info(
-                        "marche.station.saved",
-                        &format!("Stored station {}", sensor.id_rt),
-                    );
                 }
                 Err(err) => {
                     logging::Logger::new().station(&sensor.name).error(
@@ -254,10 +189,6 @@ impl Region for Marche {
                 }
             }
         }
-        logging::Logger::new().info(
-            "marche.fetch.complete",
-            &format!("Updated {} of {} stations", updated, sensors.len()),
-        );
 
         Ok(RegionResult {
             message: format!("Processed {} of {} stations", updated, sensors.len()),
@@ -283,13 +214,21 @@ fn marche_table_name() -> &'static str {
 }
 
 async fn fetch_menu_html(http_client: &HTTPClient) -> Result<String, RegionError> {
-    let response = http_client
-        .post(MARCHE_MENU_URL)
-        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+    let response = marche_request(http_client, MARCHE_MENU_URL)
         .header(reqwest::header::REFERER, MARCHE_INDEX_URL)
-        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
-        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
-        .form(&menu_form_params("All", "All", "All"))
+        .form(&{
+            let params = vec![
+                ("sessid", SESSION_ID.to_string()),
+                ("TipoDato", "idrodata".to_string()),
+                ("TimeSeriesType", "0".to_string()),
+                ("Idrometri_query", "0".to_string()),
+                ("SelezionaBacino", "All".to_string()),
+                ("SelezionaProvincia", "All".to_string()),
+                ("SelezionaComune", "All".to_string()),
+                ("submit_basin", "Seleziona".to_string()),
+            ];
+            params
+        })
         .send()
         .await?;
     response.error_for_status_ref()?;
@@ -316,12 +255,8 @@ async fn fetch_series_chunk(
         params.push(("SelezionaStazione[]", sensor.id_raw.clone()));
     }
 
-    let response = http_client
-        .post(MARCHE_QUERY_URL)
-        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+    let response = marche_request(http_client, MARCHE_QUERY_URL)
         .header(reqwest::header::REFERER, MARCHE_MENU_URL)
-        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
-        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&params)
         .send()
         .await?;
@@ -348,12 +283,8 @@ async fn fetch_thresholds_chunk(
         params.push(("SelezionaStazione[]", sensor.id_raw.clone()));
     }
 
-    let response = http_client
-        .post(MARCHE_QUERY_URL)
-        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+    let response = marche_request(http_client, MARCHE_QUERY_URL)
         .header(reqwest::header::REFERER, MARCHE_MENU_URL)
-        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
-        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&params)
         .send()
         .await?;
@@ -369,6 +300,13 @@ fn extract_latest_values(series: Vec<MarcheSeries>) -> HashMap<String, (i64, f64
             continue;
         };
         if let Some((timestamp, value)) = latest_valid_point(&entry.data) {
+            if value < 0.0 && value.abs() <= 0.1 {
+                let tail = format_series_tail(&entry.data, 3);
+                logging::Logger::new().station(&entry.name).info(
+                    "marche.series.latest_suspicious",
+                    &format!("sensor_id={sensor_id} latest=({timestamp},{value}) tail={tail}"),
+                );
+            }
             values.insert(sensor_id, (timestamp, value));
         }
     }
@@ -377,8 +315,26 @@ fn extract_latest_values(series: Vec<MarcheSeries>) -> HashMap<String, (i64, f64
 
 fn latest_valid_point(data: &[(i64, Option<f64>)]) -> Option<(i64, f64)> {
     data.iter()
+        .filter_map(|(timestamp, value)| value.map(|value| (*timestamp, value)))
+        .max_by_key(|(timestamp, _)| *timestamp)
+}
+
+fn format_series_tail(data: &[(i64, Option<f64>)], count: usize) -> String {
+    let mut points: Vec<(i64, f64)> = data
+        .iter()
+        .filter_map(|(timestamp, value)| value.map(|value| (*timestamp, value)))
+        .collect();
+    points.sort_by_key(|(timestamp, _)| *timestamp);
+    let tail: Vec<String> = points
+        .into_iter()
         .rev()
-        .find_map(|(timestamp, value)| value.map(|value| (*timestamp, value)))
+        .take(count)
+        .collect::<Vec<(i64, f64)>>()
+        .into_iter()
+        .rev()
+        .map(|(timestamp, value)| format!("({timestamp},{value})"))
+        .collect();
+    format!("[{}]", tail.join(", "))
 }
 
 fn parse_series_response(payload: &str) -> Result<Vec<MarcheSeries>, serde_json::Error> {
@@ -390,14 +346,10 @@ async fn fetch_station_metadata(
 ) -> Result<HashMap<String, MarcheStationMeta>, RegionError> {
     let index_html = fetch_index_html(http_client).await?;
     let bacini = parse_select_options(&index_html, "SelezionaBacino");
-    logging::Logger::new().info(
-        "marche.bacini.parsed",
-        &format!("Parsed {} bacini", bacini.len()),
-    );
 
     let mut metadata: HashMap<String, MarcheStationMeta> = HashMap::new();
     for bacino in bacini {
-        let stations_html = fetch_menu_html_filtered(http_client, &bacino, "All", "All").await?;
+        let stations_html = fetch_menu_html_filtered(http_client, &bacino).await?;
         for sensor in parse_station_options(&stations_html) {
             set_station_meta(&mut metadata, &sensor.id_raw, |meta| {
                 if meta.bacino.is_none() {
@@ -405,45 +357,18 @@ async fn fetch_station_metadata(
                 }
             });
         }
-
-        let dropdown = fetch_dropdown_options(http_client, &bacino).await?;
-        for provincia in dropdown.provinces {
-            let html = fetch_menu_html_filtered(http_client, &bacino, &provincia, "All").await?;
-            for sensor in parse_station_options(&html) {
-                set_station_meta(&mut metadata, &sensor.id_raw, |meta| {
-                    if meta.provincia.is_none() {
-                        meta.provincia = Some(provincia.clone());
-                    }
-                });
-            }
-        }
-        for comune in dropdown.communes {
-            let html = fetch_menu_html_filtered(http_client, &bacino, "All", &comune).await?;
-            for sensor in parse_station_options(&html) {
-                set_station_meta(&mut metadata, &sensor.id_raw, |meta| {
-                    if meta.comune.is_none() {
-                        meta.comune = Some(comune.clone());
-                    }
-                });
-            }
-        }
     }
 
-    logging::Logger::new().info(
-        "marche.metadata.collected",
-        &format!("Collected metadata for {} stations", metadata.len()),
-    );
     Ok(metadata)
 }
 
 async fn fetch_index_html(http_client: &HTTPClient) -> Result<String, RegionError> {
-    let response = http_client
-        .post(MARCHE_INDEX_URL)
-        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+    let response = marche_request(http_client, MARCHE_INDEX_URL)
         .header(reqwest::header::REFERER, MARCHE_INDEX_URL)
-        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
-        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
-        .form(&index_form_params())
+        .form(&{
+            let params = vec![("sessid", SESSION_ID.to_string())];
+            params
+        })
         .send()
         .await?;
     response.error_for_status_ref()?;
@@ -453,122 +378,35 @@ async fn fetch_index_html(http_client: &HTTPClient) -> Result<String, RegionErro
 async fn fetch_menu_html_filtered(
     http_client: &HTTPClient,
     bacino: &str,
-    provincia: &str,
-    comune: &str,
 ) -> Result<String, RegionError> {
-    let response = http_client
-        .post(MARCHE_MENU_URL)
-        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+    let response = marche_request(http_client, MARCHE_MENU_URL)
         .header(reqwest::header::REFERER, MARCHE_INDEX_URL)
-        .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
-        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
-        .form(&menu_form_params(bacino, provincia, comune))
+        .form(&{
+            let params = vec![
+                ("sessid", SESSION_ID.to_string()),
+                ("TipoDato", "idrodata".to_string()),
+                ("TimeSeriesType", "0".to_string()),
+                ("Idrometri_query", "0".to_string()),
+                ("SelezionaBacino", bacino.to_string()),
+                ("SelezionaProvincia", "All".to_string()),
+                ("SelezionaComune", "All".to_string()),
+                ("submit_basin", "Seleziona".to_string()),
+            ];
+            params
+        })
         .send()
         .await?;
     response.error_for_status_ref()?;
     Ok(response.text().await?)
 }
 
-struct MarcheDropdown {
-    provinces: Vec<String>,
-    communes: Vec<String>,
-}
-
-async fn fetch_dropdown_options(
-    http_client: &HTTPClient,
-    bacino: &str,
-) -> Result<MarcheDropdown, RegionError> {
-    let response = http_client
-        .post(MARCHE_DROPDOWN_URL)
-        .header("X-Requested-With", "XMLHttpRequest")
+fn marche_request(http_client: &HTTPClient, url: &str) -> reqwest::RequestBuilder {
+    http_client
+        .post(url)
         .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
-        .header(reqwest::header::REFERER, MARCHE_INDEX_URL)
+        .header(reqwest::header::ORIGIN, MARCHE_ORIGIN)
         .header(reqwest::header::COOKIE, MARCHE_COOKIE_HEADER)
         .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
-        .form(&dropdown_form_params(bacino))
-        .send()
-        .await?;
-    response.error_for_status_ref()?;
-    let payload = response.text().await?;
-    Ok(parse_dropdown_response(&payload))
-}
-
-fn parse_dropdown_response(payload: &str) -> MarcheDropdown {
-    let value: Value = serde_json::from_str(payload).unwrap_or(Value::Null);
-    let provinces = extract_dropdown_values(&value, "SelezionaProvincia");
-    let communes = extract_dropdown_values(&value, "SelezionaComune");
-    MarcheDropdown {
-        provinces,
-        communes,
-    }
-}
-
-fn extract_dropdown_values(root: &Value, key: &str) -> Vec<String> {
-    if let Some(value) = find_value_for_key(root, key) {
-        return extract_option_values(value);
-    }
-    Vec::new()
-}
-
-fn find_value_for_key<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {
-    match value {
-        Value::Object(map) => {
-            if let Some(found) = map.get(key) {
-                return Some(found);
-            }
-            for child in map.values() {
-                if let Some(found) = find_value_for_key(child, key) {
-                    return Some(found);
-                }
-            }
-            None
-        }
-        Value::Array(items) => items.iter().find_map(|item| find_value_for_key(item, key)),
-        _ => None,
-    }
-}
-
-fn extract_option_values(value: &Value) -> Vec<String> {
-    let mut values = Vec::new();
-    match value {
-        Value::Array(items) => {
-            for item in items {
-                values.extend(extract_option_values(item));
-            }
-        }
-        Value::Object(map) => {
-            if let Some(Value::String(value)) = map.get("value") {
-                values.push(value.clone());
-            } else if let Some(Value::String(value)) = map.get("id") {
-                values.push(value.clone());
-            } else if let Some(Value::String(value)) = map.get("text") {
-                values.push(value.clone());
-            } else if let Some(Value::String(value)) = map.get("label") {
-                values.push(value.clone());
-            } else {
-                for child in map.values() {
-                    values.extend(extract_option_values(child));
-                }
-            }
-        }
-        Value::String(value) => values.push(value.clone()),
-        _ => {}
-    }
-    normalize_option_values(values)
-}
-
-fn normalize_option_values(values: Vec<String>) -> Vec<String> {
-    let mut cleaned = Vec::new();
-    for value in values {
-        let trimmed = value.trim();
-        if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("all") {
-            continue;
-        }
-        if !cleaned.iter().any(|existing| existing == trimmed) {
-            cleaned.push(trimmed.to_string());
-        }
-    }
-    cleaned
 }
 
 fn set_station_meta(
@@ -687,53 +525,6 @@ fn extract_station_name(label: &str) -> String {
     trimmed.to_string()
 }
 
-fn menu_form_params(bacino: &str, provincia: &str, comune: &str) -> Vec<(&'static str, String)> {
-    vec![
-        ("sessid", SESSION_ID.to_string()),
-        ("TipoDato", "idrodata".to_string()),
-        ("TimeSeriesType", "0".to_string()),
-        ("Idrometri_query", "0".to_string()),
-        ("SelezionaBacino", bacino.to_string()),
-        ("SelezionaProvincia", provincia.to_string()),
-        ("SelezionaComune", comune.to_string()),
-        ("submit_basin", "Seleziona".to_string()),
-    ]
-}
-
-fn index_form_params() -> Vec<(&'static str, String)> {
-    vec![("sessid", SESSION_ID.to_string())]
-}
-
-fn dropdown_form_params(bacino: &str) -> Vec<(&'static str, String)> {
-    vec![
-        ("sessid", SESSION_ID.to_string()),
-        ("subDir", "annaliidro2".to_string()),
-        ("Trigger", "SelezionaBacino_id".to_string()),
-        ("SelezionaBacino", bacino.to_string()),
-        ("SelezionaProvincia", "All".to_string()),
-        ("SelezionaComune", "All".to_string()),
-        ("FlagSerieOmogenee", "0".to_string()),
-        ("FlagScalaDeflusso", "0".to_string()),
-    ]
-}
-
-fn build_date_range() -> (String, String) {
-    let end = Rome.from_utc_datetime(&Utc::now().naive_utc());
-    let start = end - Duration::hours(LATEST_LOOKBACK_HOURS);
-    let fmt = "%Y-%m-%d %H:%M";
-    (start.format(fmt).to_string(), end.format(fmt).to_string())
-}
-
-fn build_month_range() -> (String, String) {
-    let end = Rome.from_utc_datetime(&Utc::now().naive_utc());
-    let start = Rome
-        .with_ymd_and_hms(end.year(), end.month(), 1, 0, 0, 0)
-        .single()
-        .unwrap_or(end);
-    let fmt = "%Y-%m-%d %H:%M";
-    (start.format(fmt).to_string(), end.format(fmt).to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -773,7 +564,7 @@ mod tests {
 
     #[test]
     fn latest_valid_point_skips_nulls() {
-        let data = vec![(1, Some(0.1)), (2, None), (3, Some(0.2))];
+        let data = vec![(3, Some(0.2)), (1, Some(0.1)), (2, None)];
         assert_eq!(latest_valid_point(&data), Some((3, 0.2)));
     }
 

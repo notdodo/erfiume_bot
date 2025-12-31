@@ -158,8 +158,6 @@ async fn fetch_stations(
                 soglia3: round_two_decimals(soglia3),
                 lat,
                 bacino: None,
-                provincia: None,
-                comune: None,
                 timestamp: None,
                 value: None,
             }),
@@ -223,8 +221,6 @@ async fn process_station(
 
     if let Some(meta) = meta.as_ref() {
         station.bacino = meta.bacino.clone();
-        station.provincia = None;
-        station.comune = None;
     }
 
     if let Some(config) = alerts_config
@@ -247,8 +243,6 @@ async fn process_station(
         soglia2: station.soglia2,
         soglia3: station.soglia3,
         bacino: station.bacino.clone(),
-        provincia: station.provincia.clone(),
-        comune: station.comune.clone(),
         value: station.value,
     };
     put_station_record(dynamodb_client, table_name, &record).await?;
@@ -286,21 +280,38 @@ fn parse_grafico_metadata(payload: &str) -> Option<EmiliaRomagnaMeta> {
     let json = extract_json_object(&payload[marker..])?;
     let value: Value = serde_json::from_str(&json).ok()?;
 
-    let bacino = value
-        .get("namebasin")
-        .and_then(|value| value.as_str())
-        .map(str::to_string)
-        .or_else(|| {
-            value
-                .get("namesubbasin")
-                .and_then(|value| value.as_str())
-                .map(str::to_string)
-        });
-
-    let bacino = bacino?;
-    Some(EmiliaRomagnaMeta {
+    extract_bacino(&value).map(|bacino| EmiliaRomagnaMeta {
         bacino: Some(bacino),
     })
+}
+
+fn extract_bacino(value: &Value) -> Option<String> {
+    let raw = value
+        .get("namebasin")
+        .and_then(|value| value.as_str())
+        .or_else(|| value.get("namesubbasin").and_then(|value| value.as_str()))?;
+    let formatted = titlecase(raw.trim());
+    if formatted.is_empty() {
+        None
+    } else {
+        Some(formatted)
+    }
+}
+
+fn titlecase(input: &str) -> String {
+    let lower = input.trim().to_lowercase();
+    lower
+        .split_whitespace()
+        .filter_map(|word| {
+            let mut chars = word.chars();
+            let first = chars.next()?;
+            let mut out = String::new();
+            out.extend(first.to_uppercase());
+            out.push_str(chars.as_str());
+            Some(out)
+        })
+        .collect::<Vec<String>>()
+        .join(" ")
 }
 
 fn extract_json_object(payload: &str) -> Option<String> {
@@ -340,6 +351,6 @@ mod tests {
         </script>
         "#;
         let meta = parse_grafico_metadata(html).expect("expected metadata");
-        assert_eq!(meta.bacino, Some("SAVIO".to_string()));
+        assert_eq!(meta.bacino, Some("Savio".to_string()));
     }
 }

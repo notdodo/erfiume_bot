@@ -96,8 +96,6 @@ fn record_to_station(record: StationRecord) -> Station {
         soglia2: record.soglia2,
         soglia3: record.soglia3,
         bacino: record.bacino,
-        provincia: record.provincia,
-        comune: record.comune,
         value: record.value.unwrap_or(UNKNOWN_THRESHOLD),
     }
 }
@@ -155,8 +153,6 @@ mod tests {
             soglia2: 2.0,
             soglia3: 3.0,
             bacino: None,
-            provincia: None,
-            comune: None,
             value: None,
         };
         let station = record_to_station(record);
