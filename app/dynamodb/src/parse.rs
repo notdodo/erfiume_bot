@@ -66,6 +66,17 @@ where
     }
 }
 
+pub fn parse_optional_string_field(
+    item: &HashMap<String, AttributeValue>,
+    field: &str,
+) -> Result<Option<String>> {
+    match item.get(field) {
+        Some(AttributeValue::S(s)) if !s.is_empty() => Ok(Some(s.clone())),
+        Some(AttributeValue::Ss(ss)) if !ss.is_empty() => Ok(Some(ss.join(","))),
+        _ => Ok(None),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,6 +99,13 @@ mod tests {
     fn parse_optional_number_field_returns_none_on_missing() {
         let item: HashMap<String, AttributeValue> = HashMap::new();
         let parsed: Option<i64> = parse_optional_number_field(&item, "field").unwrap();
+        assert!(parsed.is_none());
+    }
+
+    #[test]
+    fn parse_optional_string_field_returns_none_on_missing() {
+        let item: HashMap<String, AttributeValue> = HashMap::new();
+        let parsed = parse_optional_string_field(&item, "field").unwrap();
         assert!(parsed.is_none());
     }
 }

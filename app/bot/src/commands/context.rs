@@ -63,10 +63,6 @@ impl ChatContext {
         )
     }
 
-    pub(crate) fn from_chat_id(dynamodb_client: &DynamoDbClient, chat_id: i64) -> Self {
-        Self::new(dynamodb_client.clone(), chat_id, "unknown", None)
-    }
-
     fn new(
         dynamodb_client: DynamoDbClient,
         chat_id: i64,

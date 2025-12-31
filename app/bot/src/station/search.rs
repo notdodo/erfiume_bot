@@ -159,6 +159,9 @@ mod tests {
             soglia1: 1.0,
             soglia2: 2.0,
             soglia3: 3.0,
+            bacino: None,
+            provincia: None,
+            comune: None,
             value: None,
         };
         let station = record_to_station(record);
