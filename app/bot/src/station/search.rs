@@ -2,7 +2,7 @@ use super::Station;
 use anyhow::{Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use erfiume_dynamodb::UNKNOWN_THRESHOLD;
-use erfiume_dynamodb::stations::{StationRecord, get_station_record, list_stations};
+use erfiume_dynamodb::stations::{StationRecord, get_station_record, list_station_entries};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use strsim::jaro_winkler;
@@ -28,17 +28,6 @@ fn fuzzy_search(search: &str, stations: &[String]) -> Option<String> {
         .filter(|(_, score)| *score > MIN_SCORE) // Adjust the threshold as needed
         .max_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap())
         .map(|(station, _)| station.clone())
-}
-
-pub async fn get_station(
-    client: &DynamoDbClient,
-    station_name: String,
-    table_name: &str,
-    page_size: i32,
-) -> Result<Option<Station>> {
-    get_station_with_match(client, station_name, table_name, page_size)
-        .await
-        .map(|result| result.map(|(station, _)| station))
 }
 
 pub async fn get_station_with_match(
@@ -72,7 +61,10 @@ pub async fn list_stations_cached(
         return Ok(cached);
     }
 
-    let names = list_stations(client, table_name, page_size).await?;
+    let entries = list_station_entries(client, table_name, page_size).await?;
+    let mut names: Vec<String> = entries.into_iter().map(|entry| entry.nomestaz).collect();
+    names.sort();
+    names.dedup();
     set_cached_station_names(table_name, names.clone());
     Ok(names)
 }
@@ -103,6 +95,9 @@ fn record_to_station(record: StationRecord) -> Station {
         soglia1: record.soglia1,
         soglia2: record.soglia2,
         soglia3: record.soglia3,
+        bacino: record.bacino,
+        provincia: record.provincia,
+        comune: record.comune,
         value: record.value.unwrap_or(UNKNOWN_THRESHOLD),
     }
 }

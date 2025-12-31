@@ -56,12 +56,16 @@ pub fn format_station_message(
     let mut lines = Vec::with_capacity(6);
     lines.push(format!("Stazione: {}", station_name));
     lines.push(format!("Valore: {} {}", value_str, alarm));
-    if thresholds_available {
+    if threshold_yellow != UNKNOWN_THRESHOLD {
         let yellow_str = format_threshold(threshold_yellow);
-        let orange_str = format_threshold(threshold_orange);
-        let red_str = format_threshold(threshold_red);
         lines.push(format!("Soglia Gialla: {}", yellow_str));
+    }
+    if threshold_orange != UNKNOWN_THRESHOLD {
+        let orange_str = format_threshold(threshold_orange);
         lines.push(format!("Soglia Arancione: {}", orange_str));
+    }
+    if threshold_red != UNKNOWN_THRESHOLD {
+        let red_str = format_threshold(threshold_red);
         lines.push(format!("Soglia Rossa: {}", red_str));
     }
     lines.push(format!("Ultimo rilevamento: {}", timestamp_formatted));

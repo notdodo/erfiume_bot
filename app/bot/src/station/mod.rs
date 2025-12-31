@@ -1,4 +1,5 @@
 pub(crate) mod search;
+use erfiume_dynamodb::stations::StationListEntry;
 use erfiume_dynamodb::utils::format_station_message;
 use serde::Deserialize;
 
@@ -14,19 +15,69 @@ pub struct Station {
     soglia1: f64,
     soglia2: f64,
     soglia3: f64,
+    bacino: Option<String>,
+    provincia: Option<String>,
+    comune: Option<String>,
     value: f64,
 }
 
 impl Station {
     pub fn create_station_message(&self) -> String {
-        format_station_message(
+        let base_message = format_station_message(
             &self.nomestaz,
             Some(self.value),
             self.soglia1,
             self.soglia2,
             self.soglia3,
             Some(self.timestamp),
-        )
+        );
+
+        let metadata_lines = self.metadata_lines();
+        if metadata_lines.is_empty() {
+            return base_message;
+        }
+
+        let mut lines: Vec<String> = base_message.lines().map(str::to_string).collect();
+        let mut insert_index = 1;
+        for line in metadata_lines {
+            lines.insert(insert_index, line);
+            insert_index += 1;
+        }
+
+        lines.join("\n")
+    }
+
+    fn metadata_lines(&self) -> Vec<String> {
+        let mut lines = Vec::new();
+        if let Some(bacino) = self.bacino.as_ref().filter(|value| !value.is_empty()) {
+            lines.push(format!("Bacino: {}", bacino));
+        }
+        if let Some(comune) = self.comune.as_ref().filter(|value| !value.is_empty()) {
+            lines.push(format!("Comune: {}", comune));
+        }
+        if let Some(provincia) = self.provincia.as_ref().filter(|value| !value.is_empty()) {
+            lines.push(format!("Provincia: {}", provincia));
+        }
+        lines
+    }
+}
+
+pub(crate) fn format_station_list_entry(entry: &StationListEntry) -> String {
+    let mut details = Vec::new();
+    if let Some(bacino) = entry.bacino.as_ref().filter(|value| !value.is_empty()) {
+        details.push(format!("Bacino: {}", bacino));
+    }
+    if let Some(comune) = entry.comune.as_ref().filter(|value| !value.is_empty()) {
+        details.push(format!("Comune: {}", comune));
+    }
+    if let Some(provincia) = entry.provincia.as_ref().filter(|value| !value.is_empty()) {
+        details.push(format!("Provincia: {}", provincia));
+    }
+
+    if details.is_empty() {
+        entry.nomestaz.clone()
+    } else {
+        format!("{} - {}", entry.nomestaz, details.join(", "))
     }
 }
 
@@ -47,6 +98,9 @@ mod tests {
             soglia1: 1.0,
             soglia2: 2.0,
             soglia3: 3.0,
+            bacino: None,
+            provincia: None,
+            comune: None,
             value: UNKNOWN_THRESHOLD,
         };
         let expected = "Stazione: Cesena\nValore: non disponibile \nSoglia Gialla: 1.00\nSoglia Arancione: 2.00\nSoglia Rossa: 3.00\nUltimo rilevamento: 20-10-2024 22:02".to_string();
@@ -66,6 +120,9 @@ mod tests {
             soglia1: 1.0,
             soglia2: 2.0,
             soglia3: 3.0,
+            bacino: None,
+            provincia: None,
+            comune: None,
             value: 2.2,
         };
         let expected = "Stazione: Cesena\nValore: 2.20 🟠\nSoglia Gialla: 1.00\nSoglia Arancione: 2.00\nSoglia Rossa: 3.00\nUltimo rilevamento: 20-10-2024 22:02".to_string();
@@ -85,6 +142,9 @@ mod tests {
             soglia1: UNKNOWN_THRESHOLD,
             soglia2: UNKNOWN_THRESHOLD,
             soglia3: UNKNOWN_THRESHOLD,
+            bacino: None,
+            provincia: None,
+            comune: None,
             value: 1.2,
         };
         let expected =

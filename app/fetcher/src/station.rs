@@ -36,6 +36,9 @@ pub struct Station {
     pub soglia1: f32,
     pub soglia2: f32,
     pub soglia3: f32,
+    pub bacino: Option<String>,
+    pub provincia: Option<String>,
+    pub comune: Option<String>,
     pub value: Option<f32>,
 }
 

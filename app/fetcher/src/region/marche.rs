@@ -11,12 +11,23 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::time::Duration as StdDuration;
 
 pub struct Marche;
 
 const SESSION_ID: &str = "erfiume";
 const MAX_SENSORS: usize = 5;
 const LATEST_LOOKBACK_HOURS: i64 = 24;
+const MARCHE_MENU_URL: &str =
+    "http://app.protezionecivile.marche.it/sol/annaliidro2/menu.sol?lang=it";
+const MARCHE_INDEX_URL: &str =
+    "http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it";
+const MARCHE_DROPDOWN_URL: &str =
+    "http://app.protezionecivile.marche.it/sol/json_sol/json_dropdown.sol";
+const MARCHE_QUERY_URL: &str =
+    "http://app.protezionecivile.marche.it/sol/annaliidro2/queryResultsFile.sol?lang=it";
+const MARCHE_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
+const MARCHE_REQUEST_TIMEOUT_SECS: u64 = 90;
 
 struct MarcheSensor {
     id_raw: String,
@@ -239,7 +250,9 @@ fn marche_table_name() -> &'static str {
 
 async fn fetch_menu_html(http_client: &HTTPClient) -> Result<String, RegionError> {
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/menu.sol?lang=it")
+        .post(MARCHE_MENU_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&menu_form_params("All", "All", "All"))
         .send()
         .await?;
@@ -266,7 +279,9 @@ async fn fetch_series_chunk(
     }
 
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/queryResultsFile.sol?lang=it")
+        .post(MARCHE_QUERY_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&params)
         .send()
         .await?;
@@ -294,7 +309,9 @@ async fn fetch_thresholds_chunk(
     }
 
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/queryResultsFile.sol?lang=it")
+        .post(MARCHE_QUERY_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&params)
         .send()
         .await?;
@@ -379,7 +396,9 @@ async fn fetch_station_metadata(
 
 async fn fetch_index_html(http_client: &HTTPClient) -> Result<String, RegionError> {
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/index.sol?lang=it")
+        .post(MARCHE_INDEX_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&index_form_params())
         .send()
         .await?;
@@ -394,7 +413,9 @@ async fn fetch_menu_html_filtered(
     comune: &str,
 ) -> Result<String, RegionError> {
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/annaliidro2/menu.sol?lang=it")
+        .post(MARCHE_MENU_URL)
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&menu_form_params(bacino, provincia, comune))
         .send()
         .await?;
@@ -412,8 +433,10 @@ async fn fetch_dropdown_options(
     bacino: &str,
 ) -> Result<MarcheDropdown, RegionError> {
     let response = http_client
-        .post("http://app.protezionecivile.marche.it/sol/json_sol/json_dropdown.sol")
+        .post(MARCHE_DROPDOWN_URL)
         .header("X-Requested-With", "XMLHttpRequest")
+        .header(reqwest::header::USER_AGENT, MARCHE_USER_AGENT)
+        .timeout(StdDuration::from_secs(MARCHE_REQUEST_TIMEOUT_SECS))
         .form(&dropdown_form_params(bacino))
         .send()
         .await?;

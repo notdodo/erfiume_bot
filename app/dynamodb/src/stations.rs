@@ -25,6 +25,14 @@ pub struct StationRecord {
     pub value: Option<f64>,
 }
 
+#[derive(Clone, Debug)]
+pub struct StationListEntry {
+    pub nomestaz: String,
+    pub bacino: Option<String>,
+    pub provincia: Option<String>,
+    pub comune: Option<String>,
+}
+
 pub async fn get_station_record(
     client: &Client,
     table_name: &str,
@@ -213,24 +221,24 @@ pub async fn put_station_record(
     }
 }
 
-pub async fn list_stations(
+pub async fn list_station_entries(
     client: &Client,
     table_name: &str,
     page_size: i32,
-) -> Result<Vec<String>> {
+) -> Result<Vec<StationListEntry>> {
     if table_name.is_empty() {
         return Err(anyhow!("stations table name is empty"));
     }
 
     let page_size = page_size.clamp(1, 100);
-    let mut names = Vec::new();
+    let mut entries: Vec<StationListEntry> = Vec::new();
     let mut last_evaluated_key: Option<HashMap<String, AttributeValue>> = None;
 
     loop {
         let mut request = client
             .scan()
             .table_name(table_name)
-            .projection_expression("nomestaz")
+            .projection_expression("nomestaz, bacino, provincia, comune")
             .limit(page_size);
 
         if let Some(key) = last_evaluated_key.take() {
@@ -240,7 +248,16 @@ pub async fn list_stations(
         let response = request.send().await?;
         if let Some(items) = response.items {
             for item in items {
-                names.push(parse_string_field(&item, "nomestaz")?);
+                let nomestaz = parse_string_field(&item, "nomestaz")?;
+                let bacino = parse_optional_string_field(&item, "bacino")?;
+                let provincia = parse_optional_string_field(&item, "provincia")?;
+                let comune = parse_optional_string_field(&item, "comune")?;
+                entries.push(StationListEntry {
+                    nomestaz,
+                    bacino,
+                    provincia,
+                    comune,
+                });
             }
         }
 
@@ -252,9 +269,9 @@ pub async fn list_stations(
         }
     }
 
-    names.sort();
-    names.dedup();
-    Ok(names)
+    entries.sort_by(|a, b| a.nomestaz.cmp(&b.nomestaz));
+    entries.dedup_by(|a, b| a.nomestaz == b.nomestaz);
+    Ok(entries)
 }
 
 #[cfg(test)]
