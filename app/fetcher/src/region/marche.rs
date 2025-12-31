@@ -275,7 +275,7 @@ async fn fetch_thresholds_chunk(
     let mut params = Vec::with_capacity(8 + sensors.len());
     params.push(("sessid", SESSION_ID.to_string()));
     params.push(("outputType", "file".to_string()));
-    params.push(("TipoDato", "validato".to_string()));
+    params.push(("TipoDato", "original".to_string()));
     params.push(("TipoTabella", "minMaxLV".to_string()));
     params.push(("BeginDate", begin.to_string()));
     params.push(("EndDate", end.to_string()));
