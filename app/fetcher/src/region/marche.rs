@@ -206,9 +206,13 @@ impl Region for Marche {
             };
 
             if let Some(config) = alerts_config.as_ref()
-                && let Err(err) =
-                    alerts::process_alerts_for_station(http_client, dynamodb_client, &station, config)
-                        .await
+                && let Err(err) = alerts::process_alerts_for_station(
+                    http_client,
+                    dynamodb_client,
+                    &station,
+                    config,
+                )
+                .await
             {
                 let logger = logging::Logger::new().station(&station.nomestaz);
                 logger.error("alerts.process_failed", &err, "Failed to process alerts");
