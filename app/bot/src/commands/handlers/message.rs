@@ -43,7 +43,7 @@ pub(crate) async fn message_handler(
                 );
             }
             if is_marche {
-                message.push_str("\n");
+                message.push('\n');
                 message.push_str(station::MARCHE_SOGLIA3_NOTICE);
             }
             message
