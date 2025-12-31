@@ -20,8 +20,6 @@ pub struct StationRecord {
     pub soglia2: f64,
     pub soglia3: f64,
     pub bacino: Option<String>,
-    pub provincia: Option<String>,
-    pub comune: Option<String>,
     pub value: Option<f64>,
 }
 
@@ -29,8 +27,6 @@ pub struct StationRecord {
 pub struct StationListEntry {
     pub nomestaz: String,
     pub bacino: Option<String>,
-    pub provincia: Option<String>,
-    pub comune: Option<String>,
 }
 
 pub async fn get_station_record(
@@ -63,8 +59,6 @@ pub async fn get_station_record(
     let soglia2 = parse_number_field::<f64>(&item, "soglia2")?;
     let soglia3 = parse_number_field::<f64>(&item, "soglia3")?;
     let bacino = parse_optional_string_field(&item, "bacino")?;
-    let provincia = parse_optional_string_field(&item, "provincia")?;
-    let comune = parse_optional_string_field(&item, "comune")?;
     let value = parse_optional_number_field::<f64>(&item, "value")?;
 
     Ok(Some(StationRecord {
@@ -78,8 +72,6 @@ pub async fn get_station_record(
         soglia2,
         soglia3,
         bacino,
-        provincia,
-        comune,
         value,
     }))
 }
@@ -179,20 +171,6 @@ pub async fn put_station_record(
         expression_attribute_values
             .insert(":bacino".to_string(), AttributeValue::S(bacino.to_string()));
     }
-    if let Some(provincia) = station.provincia.as_ref().filter(|value| !value.is_empty()) {
-        update_parts.push("provincia = if_not_exists(provincia, :provincia)");
-        condition_parts.push("attribute_not_exists(provincia)");
-        expression_attribute_values.insert(
-            ":provincia".to_string(),
-            AttributeValue::S(provincia.to_string()),
-        );
-    }
-    if let Some(comune) = station.comune.as_ref().filter(|value| !value.is_empty()) {
-        update_parts.push("comune = if_not_exists(comune, :comune)");
-        condition_parts.push("attribute_not_exists(comune)");
-        expression_attribute_values
-            .insert(":comune".to_string(), AttributeValue::S(comune.to_string()));
-    }
 
     let update_expression = format!("SET {}", update_parts.join(", "));
     let condition_expression = condition_parts.join(" OR ");
@@ -238,7 +216,7 @@ pub async fn list_station_entries(
         let mut request = client
             .scan()
             .table_name(table_name)
-            .projection_expression("nomestaz, bacino, provincia, comune")
+            .projection_expression("nomestaz, bacino")
             .limit(page_size);
 
         if let Some(key) = last_evaluated_key.take() {
@@ -250,14 +228,7 @@ pub async fn list_station_entries(
             for item in items {
                 let nomestaz = parse_string_field(&item, "nomestaz")?;
                 let bacino = parse_optional_string_field(&item, "bacino")?;
-                let provincia = parse_optional_string_field(&item, "provincia")?;
-                let comune = parse_optional_string_field(&item, "comune")?;
-                entries.push(StationListEntry {
-                    nomestaz,
-                    bacino,
-                    provincia,
-                    comune,
-                });
+                entries.push(StationListEntry { nomestaz, bacino });
             }
         }
 
@@ -291,8 +262,6 @@ mod tests {
             soglia2: 2.0,
             soglia3: 3.0,
             bacino: None,
-            provincia: None,
-            comune: None,
             value: Some(1.2),
         };
 

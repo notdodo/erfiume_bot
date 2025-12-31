@@ -176,12 +176,6 @@ fn station_metadata_lines(station: &Station) -> Vec<String> {
     if let Some(bacino) = station.bacino.as_ref().filter(|value| !value.is_empty()) {
         lines.push(format!("Bacino: {}", bacino));
     }
-    if let Some(comune) = station.comune.as_ref().filter(|value| !value.is_empty()) {
-        lines.push(format!("Comune: {}", comune));
-    }
-    if let Some(provincia) = station.provincia.as_ref().filter(|value| !value.is_empty()) {
-        lines.push(format!("Provincia: {}", provincia));
-    }
     lines
 }
 
@@ -202,8 +196,6 @@ mod tests {
             soglia2: 2.0,
             soglia3: 3.0,
             bacino: None,
-            provincia: None,
-            comune: None,
             value: Some(2.2),
         };
 
