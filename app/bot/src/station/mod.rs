@@ -3,6 +3,8 @@ use erfiume_dynamodb::stations::StationListEntry;
 use erfiume_dynamodb::utils::format_station_message;
 use serde::Deserialize;
 
+pub(crate) const MARCHE_SOGLIA3_NOTICE: &str = "Nota (Marche): la soglia rossa è il massimo storico (ultimi 3 anni) e non una soglia ufficiale.";
+
 #[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct Station {

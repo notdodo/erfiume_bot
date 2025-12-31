@@ -1,4 +1,4 @@
-use super::regions::{ensure_region_selected, stations_scan_page_size};
+use super::regions::{ensure_region_selected, regions_config, stations_scan_page_size};
 use crate::commands::context::ChatContext;
 use crate::commands::utils;
 use crate::station;
@@ -22,6 +22,9 @@ pub(crate) async fn message_handler(
     else {
         return Ok(());
     };
+    let is_marche = regions_config()
+        .ok()
+        .is_some_and(|regions| regions.marche.table_name == stations_table_name);
     let scan_page_size = stations_scan_page_size();
     let station_query = text.trim().replace("@erfiume_bot", "").replace("/", "");
     let text = match station::search::get_station_with_match(
@@ -38,6 +41,10 @@ pub(crate) async fn message_handler(
                 message.push_str(
                     "\nSe non è la stazione corretta prova ad affinare la ricerca.",
                 );
+            }
+            if is_marche {
+                message.push_str("\n");
+                message.push_str(station::MARCHE_SOGLIA3_NOTICE);
             }
             message
         }
