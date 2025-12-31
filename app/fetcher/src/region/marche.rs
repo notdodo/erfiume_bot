@@ -4,6 +4,7 @@ use crate::logging;
 use crate::region::{RegionError, RegionResult};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::{Duration, Utc};
+use chrono_tz::Europe::Rome;
 use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use reqwest::Client as HTTPClient;
@@ -29,7 +30,6 @@ const MARCHE_TIMESTEP_TYPE: &str = "y";
 const MARCHE_TIMESTEP_VALUE: &str = "999";
 const MARCHE_COOKIE_HEADER: &str = "displayCookieConsent=y; PHPSESSID=erfiume";
 const MARCHE_ORIGIN: &str = "http://app.protezionecivile.marche.it";
-const NULL_SENTINEL: f64 = -0.01;
 
 struct MarcheSensor {
     id_raw: String,
@@ -66,7 +66,7 @@ impl Region for Marche {
         let html = fetch_menu_html(http_client).await?;
         let sensors = parse_station_options(&html);
         let max_per_request = MAX_SENSORS;
-        let end = Utc::now() + Duration::hours(12);
+        let end = Utc::now().with_timezone(&Rome);
         let start = end - Duration::hours(LATEST_LOOKBACK_HOURS);
         let fmt = "%Y-%m-%d %H:%M";
         let begin = start.format(fmt).to_string();
@@ -103,7 +103,7 @@ impl Region for Marche {
             }
         };
 
-        let threshold_end = Utc::now() + Duration::hours(12);
+        let threshold_end = Utc::now().with_timezone(&Rome);
         let threshold_start = threshold_end - Duration::hours(LATEST_LOOKBACK_HOURS);
         let fmt = "%Y-%m-%d %H:%M";
         let threshold_begin = threshold_start.format(fmt).to_string();
@@ -317,15 +317,7 @@ fn extract_latest_values(series: Vec<MarcheSeries>) -> HashMap<String, (i64, f64
 
 fn latest_valid_point(data: &[(i64, Option<f64>)], now_ms: i64) -> Option<(i64, f64)> {
     data.iter()
-        .filter_map(|(timestamp, value)| {
-            value.and_then(|value| {
-                if value == NULL_SENTINEL {
-                    None
-                } else {
-                    Some((*timestamp, value))
-                }
-            })
-        })
+        .filter_map(|(timestamp, value)| value.map(|value| (*timestamp, value)))
         .filter(|(timestamp, _)| *timestamp <= now_ms)
         .max_by_key(|(timestamp, _)| *timestamp)
 }
@@ -333,15 +325,7 @@ fn latest_valid_point(data: &[(i64, Option<f64>)], now_ms: i64) -> Option<(i64, 
 fn format_series_tail(data: &[(i64, Option<f64>)], count: usize) -> String {
     let mut points: Vec<(i64, f64)> = data
         .iter()
-        .filter_map(|(timestamp, value)| {
-            value.and_then(|value| {
-                if value == NULL_SENTINEL {
-                    None
-                } else {
-                    Some((*timestamp, value))
-                }
-            })
-        })
+        .filter_map(|(timestamp, value)| value.map(|value| (*timestamp, value)))
         .collect();
     points.sort_by_key(|(timestamp, _)| *timestamp);
     let tail: Vec<String> = points
@@ -581,12 +565,6 @@ mod tests {
     fn latest_valid_point_skips_nulls() {
         let data = vec![(3, Some(0.2)), (1, Some(0.1)), (2, None)];
         assert_eq!(latest_valid_point(&data, 3), Some((3, 0.2)));
-    }
-
-    #[test]
-    fn latest_valid_point_skips_null_sentinel() {
-        let data = vec![(1, Some(0.07)), (2, Some(-0.01))];
-        assert_eq!(latest_valid_point(&data, 2), Some((1, 0.07)));
     }
 
     #[test]
