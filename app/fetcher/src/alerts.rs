@@ -149,10 +149,10 @@ async fn send_alert(
 fn format_station_message_for_alert(station: &Station) -> String {
     let base_message = format_station_message(
         &station.nomestaz,
-        station.value.map(|value| value as f64),
-        station.soglia1 as f64,
-        station.soglia2 as f64,
-        station.soglia3 as f64,
+        station.value,
+        station.soglia1,
+        station.soglia2,
+        station.soglia3,
         station.timestamp.map(|value| value as i64),
     );
 

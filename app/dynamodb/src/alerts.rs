@@ -11,12 +11,12 @@ pub struct AlertEntry {
     pub threshold: f64,
     pub active: i64,
     pub triggered_at: Option<u64>,
-    pub triggered_value: Option<f32>,
+    pub triggered_value: Option<f64>,
 }
 
 pub struct AlertSubscription {
     pub chat_id: i64,
-    pub threshold: f32,
+    pub threshold: f64,
     pub thread_id: Option<i64>,
 }
 
@@ -157,7 +157,7 @@ pub async fn list_active_alerts_for_chat(
             let threshold = parse_number_field::<f64>(&item, "threshold")?;
             let active = parse_number_field::<i64>(&item, "active")?;
             let triggered_at = parse_optional_number_field::<u64>(&item, "triggered_at")?;
-            let triggered_value = parse_optional_number_field::<f32>(&item, "triggered_value")?;
+            let triggered_value = parse_optional_number_field::<f64>(&item, "triggered_value")?;
             alerts.push(AlertEntry {
                 station_name,
                 threshold,
@@ -211,7 +211,7 @@ pub async fn list_alerts_for_chat(
                 let threshold = parse_number_field::<f64>(&item, "threshold")?;
                 let active = parse_number_field::<i64>(&item, "active")?;
                 let triggered_at = parse_optional_number_field::<u64>(&item, "triggered_at")?;
-                let triggered_value = parse_optional_number_field::<f32>(&item, "triggered_value")?;
+                let triggered_value = parse_optional_number_field::<f64>(&item, "triggered_value")?;
                 alerts.push(AlertEntry {
                     station_name,
                     threshold,
@@ -298,7 +298,7 @@ pub async fn list_pending_alerts_for_station(
     let mut alerts = Vec::with_capacity(items.len());
     for item in items {
         let chat_id = parse_number_field::<i64>(&item, "chat_id")?;
-        let threshold = parse_number_field::<f32>(&item, "threshold")?;
+        let threshold = parse_number_field::<f64>(&item, "threshold")?;
         let thread_id = parse_optional_number_field::<i64>(&item, "thread_id")?;
 
         alerts.push(AlertSubscription {
@@ -374,7 +374,7 @@ pub async fn mark_alert_triggered(
     station_name: &str,
     chat_id: i64,
     triggered_at: u64,
-    value: f32,
+    value: f64,
 ) -> Result<()> {
     if table_name.is_empty() {
         return Err(anyhow!("alerts table name is empty"));

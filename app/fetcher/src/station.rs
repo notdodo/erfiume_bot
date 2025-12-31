@@ -16,11 +16,11 @@ pub enum Entry {
         ordinamento: i32,
         nomestaz: String,
         lon: String,
-        soglia1: f32,
+        soglia1: f64,
         value: Option<String>,
-        soglia2: f32,
+        soglia2: f64,
         lat: String,
-        soglia3: f32,
+        soglia3: f64,
         timestamp: Option<u64>,
     },
 }
@@ -33,20 +33,20 @@ pub struct Station {
     pub nomestaz: String,
     pub lon: String,
     pub lat: String,
-    pub soglia1: f32,
-    pub soglia2: f32,
-    pub soglia3: f32,
+    pub soglia1: f64,
+    pub soglia2: f64,
+    pub soglia3: f64,
     pub bacino: Option<String>,
     pub provincia: Option<String>,
     pub comune: Option<String>,
-    pub value: Option<f32>,
+    pub value: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct StationData {
     #[serde(deserialize_with = "deserialize_timestamp")]
     pub t: u64,
-    pub v: Option<f32>,
+    pub v: Option<f64>,
 }
 fn deserialize_timestamp<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
@@ -94,6 +94,6 @@ mod tests {
         let json_data = json!({"t": "987654321", "v": null});
         let s: StationData = serde_json::from_value(json_data).unwrap();
         assert_eq!(s.t, 987654321);
-        assert_eq!(s.v, None);
+        assert!(s.v.is_none());
     }
 }
