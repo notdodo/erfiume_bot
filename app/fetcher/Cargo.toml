@@ -17,7 +17,7 @@ lambda_runtime.workspace = true
 openssl = { workspace = true, features = [
     "vendored",
 ] } # Needed only for cargo lambda build
-reqwest = { workspace = true, features = ["json"] }
+reqwest = { workspace = true, features = ["json", "form"] }
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["macros"] }
