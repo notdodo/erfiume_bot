@@ -11,8 +11,8 @@ authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
 [workspace.dependencies]
 anyhow = "1.0.100"
 aws-config = "1.8.12"
-aws-sdk-dynamodb = { version = "1.101.0", features = ["test-util"] }
-chrono = "0.4.42"
+aws-sdk-dynamodb = { version = "1.102.0", features = ["test-util"] }
+chrono = "0.4.43"
 chrono-tz = "0.10.4"
 edit-distance = "2.2.2"
 fastrand = "2.3.0"
