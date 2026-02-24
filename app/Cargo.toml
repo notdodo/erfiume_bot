@@ -16,7 +16,7 @@ chrono = "0.4.43"
 chrono-tz = "0.10.4"
 edit-distance = "2.2.2"
 fastrand = "2.3.0"
-futures = "0.3.31"
+futures = "0.3.32"
 lambda_runtime = "1.0.2"
 openssl = { version = "0.10.75", features = [
     "vendored",
