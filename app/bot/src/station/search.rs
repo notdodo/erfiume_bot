@@ -26,7 +26,7 @@ fn fuzzy_search(search: &str, stations: &[String]) -> Option<String> {
             (s, score)
         })
         .filter(|(_, score)| *score > MIN_SCORE) // Adjust the threshold as needed
-        .max_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap())
+        .max_by(|(_, score_a), (_, score_b)| score_a.total_cmp(score_b))
         .map(|(station, _)| station.clone())
 }
 

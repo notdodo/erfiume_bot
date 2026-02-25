@@ -1,8 +1,8 @@
 """An AWS Python Pulumi program"""
 
-import pulumi
-import pulumi_cloudflare
+from pulumi import Config, get_stack
 from pulumi_aws import apigatewayv2, dynamodb, lambda_, scheduler
+from pulumi_cloudflare import DnsRecord, Ruleset, RulesetRuleArgs
 
 from er_fiume import (
     Function,
@@ -115,10 +115,10 @@ fetcher_lambda = Function(
     variables={
         "ALERTS_TABLE_NAME": alerts_table.table.name,
         "EMILIA_ROMAGNA_STATIONS_TABLE_NAME": er_stations_table.table.name,
-        "ENVIRONMENT": pulumi.get_stack(),
+        "ENVIRONMENT": get_stack(),
         "MARCHE_STATIONS_TABLE_NAME": m_stations_table.table.name,
         "RUST_LOG": "info",
-        "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
+        "TELOXIDE_TOKEN": Config().require_secret("telegram-bot-token"),
     },
 )
 
@@ -157,7 +157,7 @@ bot_lambda = Function(
         "ALERTS_TABLE_NAME": alerts_table.table.name,
         "CHATS_TABLE_NAME": chats_table.table.name,
         "EMILIA_ROMAGNA_STATIONS_TABLE_NAME": er_stations_table.table.name,
-        "ENVIRONMENT": pulumi.get_stack(),
+        "ENVIRONMENT": get_stack(),
         "MARCHE_STATIONS_TABLE_NAME": m_stations_table.table.name,
         "REGION_EMILIA_ROMAGNA_KEY": "emilia-romagna",
         "REGION_EMILIA_ROMAGNA_LABEL": "Emilia-Romagna",
@@ -165,7 +165,7 @@ bot_lambda = Function(
         "REGION_MARCHE_LABEL": "Marche",
         "RUST_LOG": "info",
         "STATIONS_SCAN_PAGE_SIZE": "25",
-        "TELOXIDE_TOKEN": pulumi.Config().require_secret("telegram-bot-token"),
+        "TELOXIDE_TOKEN": Config().require_secret("telegram-bot-token"),
     },
 )
 
@@ -227,7 +227,7 @@ gw_api_mapping = apigatewayv2.ApiMapping(
     stage="$default",
 )
 
-pulumi_cloudflare.DnsRecord(
+DnsRecord(
     f"{RESOURCES_PREFIX}-api-gw-cname",
     name="erfiume",
     type="CNAME",
@@ -237,10 +237,8 @@ pulumi_cloudflare.DnsRecord(
     ttl=1,
 )
 
-telegram_authorization_token = pulumi.Config().require_secret(
-    "telegram-authorization-token"
-)
-pulumi_cloudflare.Ruleset(
+telegram_authorization_token = Config().require_secret("telegram-authorization-token")
+Ruleset(
     f"{RESOURCES_PREFIX}-waf",
     zone_id="cec5bf01afed114303a536c264a1f394",
     name="erfiume-bot-check-authorization-header",
@@ -248,12 +246,12 @@ pulumi_cloudflare.Ruleset(
     kind="zone",
     phase="http_request_firewall_custom",
     rules=[
-        pulumi_cloudflare.RulesetRuleArgs(
+        RulesetRuleArgs(
             action="block",
             expression="(cf.client.bot)",
             enabled=True,
         ),
-        pulumi_cloudflare.RulesetRuleArgs(
+        RulesetRuleArgs(
             action="block",
             expression=telegram_authorization_token.apply(
                 lambda header: f'(all(http.request.headers["x-telegram-bot-api-secret-token"][*] ne "{header}") and http.host eq "{CUSTOM_DOMAIN_NAME}")'  # noqa: E501
@@ -265,7 +263,7 @@ pulumi_cloudflare.Ruleset(
 
 TelegramBot(
     f"{RESOURCES_PREFIX}-apigateway-registration",
-    token=pulumi.Config().require_secret("telegram-bot-token"),
+    token=Config().require_secret("telegram-bot-token"),
     authorization_token=telegram_authorization_token,
     react_on=[
         "message",

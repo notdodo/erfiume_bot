@@ -64,7 +64,7 @@ show_error_codes = true
 show_error_context = true
 implicit_reexport = true
 namespace_packages = true
-exclude = ["\\.venv", "\\.ruff_cache", "\\.mypy_cache"]
+exclude = ["\\.venv", "\\.ruff_cache", "\\.mypy_cache", "schema.py"]
 
 [tool.pylint."MESSAGES CONTROL"]
 persistent = "no"

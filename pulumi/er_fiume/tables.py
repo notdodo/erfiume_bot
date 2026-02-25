@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-import pulumi
+from pulumi import ComponentResource, ResourceOptions
 from pulumi_aws import dynamodb
 
 from .helpers import format_resource_name
@@ -34,7 +34,7 @@ class TableAttribute:
     type: TableAttributeType
 
 
-class Table(pulumi.ComponentResource):
+class Table(ComponentResource):
     """
     A Pulumi custom resource to create a table.
 
@@ -53,7 +53,7 @@ class Table(pulumi.ComponentResource):
             list[dynamodb.TableGlobalSecondaryIndexArgs] | None
         ) = None,
         ttl: str | None = None,
-        opts: pulumi.ResourceOptions | None = None,
+        opts: ResourceOptions | None = None,
     ) -> None:
         """
         Initialize the Table class.
@@ -88,8 +88,8 @@ class Table(pulumi.ComponentResource):
             ],
             global_secondary_indexes=self.global_secondary_indexes,
             ttl=ttl_attribute,
-            opts=pulumi.ResourceOptions.merge(
-                pulumi.ResourceOptions(parent=self, delete_before_replace=True), opts
+            opts=ResourceOptions.merge(
+                ResourceOptions(parent=self, delete_before_replace=True), opts
             ),
         )
 
