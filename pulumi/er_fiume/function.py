@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-import pulumi
+from pulumi import ComponentResource, FileArchive, Output, ResourceOptions
 from pulumi_aws import cloudwatch, lambda_
 
 from .helpers import format_resource_name
@@ -27,7 +27,7 @@ class FunctionCPUArchitecture(Enum):
     X86 = "x86_64"
 
 
-class Function(pulumi.ComponentResource):
+class Function(ComponentResource):
     """
     A Pulumi custom resource to create a Lambda function.
 
@@ -47,9 +47,9 @@ class Function(pulumi.ComponentResource):
         architecture: FunctionCPUArchitecture = FunctionCPUArchitecture.X86,
         code_runtime: FunctionRuntime | None = FunctionRuntime.RUST,
         role: LambdaRole | None = None,
-        variables: dict[str, str | pulumi.Output[str]] | None = None,
+        variables: dict[str, str | Output[str]] | None = None,
         timeout: int | None = 3,
-        opts: pulumi.ResourceOptions | None = None,
+        opts: ResourceOptions | None = None,
     ) -> None:
         """
         Initialize the Function class.
@@ -61,7 +61,7 @@ class Function(pulumi.ComponentResource):
         self.function = lambda_.Function(
             self.resource_name,
             architectures=[architecture.value],
-            code=pulumi.FileArchive("./er_fiume/dummy.zip"),
+            code=FileArchive("./er_fiume/dummy.zip"),
             name=self.name,
             role=role.arn if role else None,
             handler="bootstrap",
@@ -71,9 +71,7 @@ class Function(pulumi.ComponentResource):
             },
             memory_size=memory,
             timeout=timeout,
-            opts=pulumi.ResourceOptions.merge(
-                pulumi.ResourceOptions(parent=self), opts
-            ),
+            opts=ResourceOptions.merge(ResourceOptions(parent=self), opts),
         )
 
         cloudwatch.LogGroup(
@@ -81,9 +79,7 @@ class Function(pulumi.ComponentResource):
             log_group_class="STANDARD",
             name=f"/aws/lambda/{self.name}",
             retention_in_days=14,
-            opts=pulumi.ResourceOptions.merge(
-                pulumi.ResourceOptions(parent=self), opts
-            ),
+            opts=ResourceOptions.merge(ResourceOptions(parent=self), opts),
         )
 
         self.arn = self.function.arn

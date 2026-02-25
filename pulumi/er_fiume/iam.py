@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import pulumi
+from pulumi import ComponentResource, Output, ResourceOptions
 from pulumi_aws import get_caller_identity, iam
 
 from .helpers import format_resource_name
 
 
-class LambdaRole(pulumi.ComponentResource):
+class LambdaRole(ComponentResource):
     """
     A Pulumi custom resource to create a IAM LambdaRole.
 
@@ -21,9 +21,9 @@ class LambdaRole(pulumi.ComponentResource):
     def __init__(
         self,
         name: str,
-        permissions: list[dict[str, str | list[str | pulumi.Output[str]]]],
+        permissions: list[dict[str, str | list[str | Output[str]]]],
         path: str | None = None,
-        opts: pulumi.ResourceOptions | None = None,
+        opts: ResourceOptions | None = None,
     ) -> None:
         """
         Initialize the IAM class.
@@ -71,15 +71,13 @@ class LambdaRole(pulumi.ComponentResource):
                     ).json,
                 )
             ],
-            opts=pulumi.ResourceOptions.merge(
-                pulumi.ResourceOptions(parent=self), opts
-            ),
+            opts=ResourceOptions.merge(ResourceOptions(parent=self), opts),
         )
         self.arn = self.role.arn
         self.register_outputs({"lambdarole": self.role})
 
 
-class GenericRole(pulumi.ComponentResource):
+class GenericRole(ComponentResource):
     """
     A Pulumi custom resource to create a IAM GenericRole.
 
@@ -94,9 +92,9 @@ class GenericRole(pulumi.ComponentResource):
         self,
         name: str,
         for_services: list[str],
-        permissions: list[dict[str, str | list[str | pulumi.Output[str]]]],
+        permissions: list[dict[str, str | list[str | Output[str]]]],
         path: str | None = None,
-        opts: pulumi.ResourceOptions | None = None,
+        opts: ResourceOptions | None = None,
     ) -> None:
         """
         Initialize the IAM class.
@@ -139,9 +137,7 @@ class GenericRole(pulumi.ComponentResource):
                     ).json,
                 )
             ],
-            opts=pulumi.ResourceOptions.merge(
-                pulumi.ResourceOptions(parent=self), opts
-            ),
+            opts=ResourceOptions.merge(ResourceOptions(parent=self), opts),
         )
         self.arn = self.role.arn
         self.register_outputs({"iamrole": self.role})

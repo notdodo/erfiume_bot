@@ -1,4 +1,3 @@
-# mypy: disable-error-code="import-untyped"
 """
 Generate architecture diagram.
 """
