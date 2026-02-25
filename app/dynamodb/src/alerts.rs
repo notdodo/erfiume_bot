@@ -2,7 +2,7 @@ use crate::{
     ALERT_ACTIVE, ALERT_TRIGGERED, parse_number_field, parse_optional_number_field,
     parse_string_field,
 };
-use anyhow::{Result, anyhow};
+use anyhow::{Ok, Result, anyhow};
 use aws_sdk_dynamodb::{Client, types::AttributeValue};
 use std::collections::HashMap;
 
@@ -12,6 +12,17 @@ pub struct AlertEntry {
     pub active: i64,
     pub triggered_at: Option<u64>,
     pub triggered_value: Option<f64>,
+}
+impl AlertEntry {
+    fn from_item(item: &HashMap<String, AttributeValue>) -> Result<Self> {
+        Ok(Self {
+            station_name: parse_string_field(item, "station")?,
+            threshold: parse_number_field::<f64>(item, "threshold")?,
+            active: parse_number_field::<i64>(item, "active")?,
+            triggered_at: parse_optional_number_field::<u64>(item, "triggered_at")?,
+            triggered_value: parse_optional_number_field::<f64>(item, "triggered_value")?,
+        })
+    }
 }
 
 pub struct AlertSubscription {
@@ -153,18 +164,7 @@ pub async fn list_active_alerts_for_chat(
 
         let response = request.send().await?;
         for item in response.items.unwrap_or_default() {
-            let station_name = parse_string_field(&item, "station")?;
-            let threshold = parse_number_field::<f64>(&item, "threshold")?;
-            let active = parse_number_field::<i64>(&item, "active")?;
-            let triggered_at = parse_optional_number_field::<u64>(&item, "triggered_at")?;
-            let triggered_value = parse_optional_number_field::<f64>(&item, "triggered_value")?;
-            alerts.push(AlertEntry {
-                station_name,
-                threshold,
-                active,
-                triggered_at,
-                triggered_value,
-            });
+            alerts.push(AlertEntry::from_item(&item)?);
         }
 
         if response.last_evaluated_key.is_none() {
@@ -207,18 +207,7 @@ pub async fn list_alerts_for_chat(
 
             let response = request.send().await?;
             for item in response.items.unwrap_or_default() {
-                let station_name = parse_string_field(&item, "station")?;
-                let threshold = parse_number_field::<f64>(&item, "threshold")?;
-                let active = parse_number_field::<i64>(&item, "active")?;
-                let triggered_at = parse_optional_number_field::<u64>(&item, "triggered_at")?;
-                let triggered_value = parse_optional_number_field::<f64>(&item, "triggered_value")?;
-                alerts.push(AlertEntry {
-                    station_name,
-                    threshold,
-                    active,
-                    triggered_at,
-                    triggered_value,
-                });
+                alerts.push(AlertEntry::from_item(&item)?);
             }
 
             if response.last_evaluated_key.is_none() {
