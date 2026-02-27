@@ -10,7 +10,6 @@ use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use reqwest::Client as HTTPClient;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::sync::OnceLock;
 use std::time::Duration as StdDuration;
 
 pub struct Marche;
@@ -54,15 +53,16 @@ impl Region for Marche {
         "Marche"
     }
 
-    fn dynamodb_table(&self) -> &'static str {
-        marche_table_name()
-    }
-
     async fn fetch_stations_data(
         &self,
         http_client: &HTTPClient,
         dynamodb_client: &DynamoDbClient,
     ) -> Result<RegionResult, RegionError> {
+        let table_name = std::env::var("MARCHE_STATIONS_TABLE_NAME")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .ok_or("Missing env var: MARCHE_STATIONS_TABLE_NAME")?;
         let alerts_config = AlertsConfig::from_env();
         let html = fetch_menu_html(http_client).await?;
         let sensors = parse_station_options(&html);
@@ -178,7 +178,7 @@ impl Region for Marche {
                 value: station.value,
             };
 
-            match put_station_record(dynamodb_client, self.dynamodb_table(), &record).await {
+            match put_station_record(dynamodb_client, &table_name, &record).await {
                 Ok(()) => {
                     updated += 1;
                 }
@@ -200,19 +200,6 @@ impl Region for Marche {
             status_code: if updated < sensors.len() { 206 } else { 200 },
         })
     }
-}
-
-fn marche_table_name() -> &'static str {
-    static TABLE_NAME: OnceLock<String> = OnceLock::new();
-    TABLE_NAME
-        .get_or_init(|| {
-            std::env::var("MARCHE_STATIONS_TABLE_NAME")
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| panic!("Missing env var: MARCHE_STATIONS_TABLE_NAME"))
-        })
-        .as_str()
 }
 
 async fn fetch_menu_html(http_client: &HTTPClient) -> Result<String, RegionError> {

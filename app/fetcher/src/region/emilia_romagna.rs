@@ -11,7 +11,6 @@ use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use futures::StreamExt;
 use reqwest::Client as HTTPClient;
 use serde_json::Value;
-use std::sync::OnceLock;
 
 pub struct EmiliaRomagna;
 
@@ -38,15 +37,16 @@ impl Region for EmiliaRomagna {
         "Emilia-Romagna"
     }
 
-    fn dynamodb_table(&self) -> &'static str {
-        emilia_romagna_table_name()
-    }
-
     async fn fetch_stations_data(
         &self,
         http_client: &HTTPClient,
         dynamodb_client: &DynamoDbClient,
     ) -> Result<RegionResult, RegionError> {
+        let table_name = std::env::var("EMILIA_ROMAGNA_STATIONS_TABLE_NAME")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .ok_or("Missing env var: EMILIA_ROMAGNA_STATIONS_TABLE_NAME")?;
         let api_base = API_BASE_URL;
         let latest_timestamp = fetch_latest_time(http_client, api_base).await?;
         let stations = fetch_stations(http_client, api_base, latest_timestamp).await?;
@@ -60,7 +60,7 @@ impl Region for EmiliaRomagna {
                 dynamodb_client,
                 api_base,
                 station,
-                self.dynamodb_table(),
+                &table_name,
                 alerts_config.as_ref(),
             )
         });
@@ -90,19 +90,6 @@ impl Region for EmiliaRomagna {
             status_code: if error_count > 0 { 206 } else { 200 },
         })
     }
-}
-
-fn emilia_romagna_table_name() -> &'static str {
-    static TABLE_NAME: OnceLock<String> = OnceLock::new();
-    TABLE_NAME
-        .get_or_init(|| {
-            std::env::var("EMILIA_ROMAGNA_STATIONS_TABLE_NAME")
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| panic!("Missing env var: EMILIA_ROMAGNA_STATIONS_TABLE_NAME"))
-        })
-        .as_str()
 }
 
 async fn fetch_latest_time(client: &HTTPClient, api_base: &str) -> Result<i64, RegionError> {

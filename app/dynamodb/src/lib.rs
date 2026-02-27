@@ -12,3 +12,5 @@ pub const ALERT_ACTIVE: &str = "1";
 pub const ALERT_TRIGGERED: &str = "0";
 /// Sentinel value for missing or unavailable threshold levels.
 pub const UNKNOWN_THRESHOLD: f64 = -9999.0;
+/// Cooldown period (24 hours) before a triggered alert can be reactivated.
+pub const ALERT_COOLDOWN_MILLIS: u64 = 24 * 60 * 60 * 1000;

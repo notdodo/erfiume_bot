@@ -1,5 +1,5 @@
-use erfiume_dynamodb::ALERT_ACTIVE;
 use erfiume_dynamodb::alerts as dynamo_alerts;
+use erfiume_dynamodb::{ALERT_ACTIVE, ALERT_COOLDOWN_MILLIS};
 use teloxide::{
     payloads::SendMessageSetters,
     prelude::{Bot, Requester},
@@ -15,6 +15,7 @@ pub(crate) fn escape_markdown_v2(text: &str) -> String {
         .replace("(", "\\(")
         .replace(")", "\\)")
         .replace("~", "\\~")
+        .replace("`", "\\`")
         .replace(">", "\\>")
         .replace("#", "\\#")
         .replace("+", "\\+")
@@ -85,13 +86,12 @@ pub(crate) async fn send_message_with_markup(
 }
 
 pub(crate) fn format_alert_status(alert: &dynamo_alerts::AlertEntry, now_millis: u64) -> String {
-    const COOLDOWN_MILLIS: u64 = 24 * 60 * 60 * 1000;
     if alert.active == ALERT_ACTIVE.parse::<i64>().unwrap_or(1) {
         return "attivo".to_string();
     }
 
     let remaining = alert.triggered_at.map(|triggered_at| {
-        COOLDOWN_MILLIS.saturating_sub(now_millis.saturating_sub(triggered_at))
+        ALERT_COOLDOWN_MILLIS.saturating_sub(now_millis.saturating_sub(triggered_at))
     });
 
     let mut status = if let Some(value) = alert.triggered_value {
