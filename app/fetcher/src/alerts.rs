@@ -1,6 +1,7 @@
 use crate::{logging, station::Station};
 use anyhow::{Context, Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
+use erfiume_dynamodb::ALERT_COOLDOWN_MILLIS;
 use erfiume_dynamodb::alerts::{
     AlertSubscription, list_pending_alerts_for_station, mark_alert_triggered,
     reactivate_expired_alerts_for_station,
@@ -17,10 +18,12 @@ pub struct AlertsConfig {
 impl AlertsConfig {
     pub fn from_env() -> Option<Self> {
         let table_name = std::env::var("ALERTS_TABLE_NAME").ok()?;
+        let table_name = table_name.trim().to_string();
         if table_name.is_empty() {
             return None;
         }
         let telegram_token = std::env::var("TELOXIDE_TOKEN").ok()?;
+        let telegram_token = telegram_token.trim().to_string();
         if telegram_token.is_empty() {
             return None;
         }
@@ -42,13 +45,12 @@ pub async fn process_alerts_for_station(
     };
 
     let now_millis = current_time_millis();
-    let cooldown_millis = 24 * 60 * 60 * 1000;
     let _ = reactivate_expired_alerts_for_station(
         dynamodb_client,
         &config.table_name,
         &station.nomestaz,
         now_millis,
-        cooldown_millis,
+        ALERT_COOLDOWN_MILLIS,
     )
     .await;
 

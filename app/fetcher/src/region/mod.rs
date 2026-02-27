@@ -9,7 +9,6 @@ pub type RegionError = Box<dyn std::error::Error + Send + Sync>;
 
 pub trait Region {
     fn name(&self) -> &'static str;
-    fn dynamodb_table(&self) -> &'static str;
     async fn fetch_stations_data(
         &self,
         http_client: &HTTPClient,
@@ -35,13 +34,6 @@ impl Region for Regions {
         match self {
             Regions::EmiliaRomagna(r) => r.name(),
             Regions::Marche(r) => r.name(),
-        }
-    }
-
-    fn dynamodb_table(&self) -> &'static str {
-        match self {
-            Regions::EmiliaRomagna(r) => r.dynamodb_table(),
-            Regions::Marche(r) => r.dynamodb_table(),
         }
     }
 
