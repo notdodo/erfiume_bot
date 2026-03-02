@@ -12,7 +12,7 @@ authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
 anyhow = "1.0.102"
 aws-config = "1.8.13"
 aws-sdk-dynamodb = { version = "1.106.0", features = ["test-util"] }
-chrono = "0.4.43"
+chrono = "0.4.44"
 chrono-tz = "0.10.4"
 edit-distance = "2.2.2"
 fastrand = "2.3.0"
