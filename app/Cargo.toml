@@ -10,8 +10,8 @@ authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
 
 [workspace.dependencies]
 anyhow = "1.0.102"
-aws-config = "1.8.14"
-aws-sdk-dynamodb = { version = "1.107.0", features = ["test-util"] }
+aws-config = "1.8.15"
+aws-sdk-dynamodb = { version = "1.108.0", features = ["test-util"] }
 chrono = "0.4.44"
 chrono-tz = "0.10.4"
 edit-distance = "2.2.2"
