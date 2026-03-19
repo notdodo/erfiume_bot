@@ -66,6 +66,10 @@ implicit_reexport = true
 namespace_packages = true
 exclude = ["\\.venv", "\\.ruff_cache", "\\.mypy_cache", "schema.py"]
 
+[[tool.mypy.overrides]]
+module = ["pulumi_aws.*"]
+follow_imports = "skip"
+
 [tool.pylint."MESSAGES CONTROL"]
 persistent = "no"
 disable = ["fixme", "line-too-long"]
