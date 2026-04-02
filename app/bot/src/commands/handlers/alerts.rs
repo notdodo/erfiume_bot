@@ -1,16 +1,17 @@
 use super::commands::CommandHandler;
 use super::parsing::{parse_station_arg, parse_station_threshold_args};
-use super::regions::{ensure_region_selected, stations_scan_page_size};
+use super::regions::ensure_region_selected;
 use crate::commands::utils::format_alert_status;
 use crate::station;
 use chrono::Utc;
+use erfiume_core::config::{ALERTS_TABLE_NAME_ENV_NAME, env_var, stations_scan_page_size_from_env};
 use erfiume_dynamodb::alerts as dynamo_alerts;
 use erfiume_dynamodb::utils::current_time_millis;
 
 pub(super) async fn handle_lista_avvisi(
     handler: &CommandHandler<'_>,
 ) -> Result<(), teloxide::RequestError> {
-    let Some(alerts_table_name) = alerts_table_name() else {
+    let Some(alerts_table_name) = env_var(ALERTS_TABLE_NAME_ENV_NAME) else {
         return handler
             .send_text("Funzionalità non disponibile al momento.")
             .await;
@@ -68,7 +69,7 @@ pub(super) async fn handle_rimuovi_avviso(
         return Ok(());
     };
 
-    let Some(alerts_table_name) = alerts_table_name() else {
+    let Some(alerts_table_name) = env_var(ALERTS_TABLE_NAME_ENV_NAME) else {
         return handler
             .send_text("Funzionalità non disponibile al momento.")
             .await;
@@ -144,26 +145,21 @@ pub(super) async fn handle_rimuovi_avviso(
         return Ok(());
     };
 
-    let scan_page_size = stations_scan_page_size();
-    let station_result = station::search::get_station_with_match(
+    let scan_page_size = stations_scan_page_size_from_env();
+    let Some(station) = station::search::get_station_with_match(
         handler.dynamodb(),
         station_name,
         stations_table_name.as_str(),
         scan_page_size,
     )
     .await
-    .map(|result| result.map(|(station, _)| station));
-
-    let station = match station_result {
-        Ok(Some(item)) => item,
-        _ => {
-            handler
-                .send_text(
-                    "Nessuna stazione trovata con quel nome. Usa /stazioni per vedere l'elenco.",
-                )
-                .await?;
-            return Ok(());
-        }
+    .ok()
+    .flatten()
+    .map(|(station, _)| station) else {
+        handler
+            .send_text(station::STATION_NOT_FOUND_MESSAGE)
+            .await?;
+        return Ok(());
     };
 
     let removed = match dynamo_alerts::delete_alert(
@@ -205,7 +201,7 @@ pub(super) async fn handle_avvisami(
         return Ok(());
     };
 
-    let Some(alerts_table_name) = alerts_table_name() else {
+    let Some(alerts_table_name) = env_var(ALERTS_TABLE_NAME_ENV_NAME) else {
         return handler
             .send_text("Funzionalità non disponibile al momento.")
             .await;
@@ -224,26 +220,21 @@ pub(super) async fn handle_avvisami(
         return Ok(());
     };
 
-    let scan_page_size = stations_scan_page_size();
-    let station_result = station::search::get_station_with_match(
+    let scan_page_size = stations_scan_page_size_from_env();
+    let Some(station) = station::search::get_station_with_match(
         handler.dynamodb(),
         station_name,
         stations_table_name.as_str(),
         scan_page_size,
     )
     .await
-    .map(|result| result.map(|(station, _)| station));
-
-    let station = match station_result {
-        Ok(Some(item)) => item,
-        _ => {
-            handler
-                .send_text(
-                    "Nessuna stazione trovata con quel nome. Usa /stazioni per vedere l'elenco.",
-                )
-                .await?;
-            return Ok(());
-        }
+    .ok()
+    .flatten()
+    .map(|(station, _)| station) else {
+        handler
+            .send_text(station::STATION_NOT_FOUND_MESSAGE)
+            .await?;
+        return Ok(());
     };
 
     let already_exists = match dynamo_alerts::alert_exists(
@@ -328,14 +319,4 @@ pub(super) async fn handle_avvisami(
             station.nomestaz, threshold
         ))
         .await
-}
-
-fn alerts_table_name() -> Option<String> {
-    let raw = std::env::var("ALERTS_TABLE_NAME").unwrap_or_default();
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }

@@ -11,6 +11,7 @@ aws-config.workspace = true
 aws-sdk-dynamodb.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
+erfiume-core = { path = "../core" }
 erfiume-dynamodb = { path = "../dynamodb" }
 futures.workspace = true
 lambda_runtime.workspace = true

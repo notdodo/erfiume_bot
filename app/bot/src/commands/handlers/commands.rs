@@ -1,12 +1,12 @@
 use super::alerts;
 use super::regions::{
     ensure_region_selected, load_region_for_chat, region_keyboard, regions_config,
-    stations_scan_page_size,
 };
 use crate::commands::context::ChatContext;
 use crate::commands::utils;
 use crate::{logging, station};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
+use erfiume_core::config::stations_scan_page_size_from_env;
 use teloxide::prelude::Bot;
 use teloxide::types::{LinkPreviewOptions, Message, ReplyMarkup};
 use teloxide::utils::command::BotCommands;
@@ -198,7 +198,7 @@ impl<'a> CommandHandler<'a> {
         else {
             return Ok(());
         };
-        let scan_page_size = stations_scan_page_size();
+        let scan_page_size = stations_scan_page_size_from_env();
         let text = match erfiume_dynamodb::stations::list_station_entries(
             self.dynamodb(),
             stations_table_name.as_str(),

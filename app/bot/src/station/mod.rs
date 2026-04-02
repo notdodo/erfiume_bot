@@ -4,6 +4,8 @@ use erfiume_dynamodb::utils::format_station_message;
 use serde::Deserialize;
 
 pub(crate) const MARCHE_SOGLIA3_NOTICE: &str = "Nota (Marche): la soglia rossa è il massimo storico (ultimi 1.5 anni) e non una soglia ufficiale.";
+pub(crate) const STATION_NOT_FOUND_MESSAGE: &str =
+    "Nessuna stazione trovata con quel nome. Usa /stazioni per vedere l'elenco.";
 
 #[derive(Deserialize)]
 #[allow(dead_code)]

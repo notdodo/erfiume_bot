@@ -3,6 +3,7 @@ use crate::logging;
 use anyhow::Error;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::Utc;
+use erfiume_core::config::{CHATS_TABLE_NAME_ENV_NAME, env_var};
 use erfiume_dynamodb::chats as dynamo_chats;
 use teloxide::types::Message;
 use tokio::sync::Mutex;
@@ -74,7 +75,7 @@ impl ChatContext {
             dynamodb_client,
             chat_id,
             chat_type,
-            chats_table_name: load_chats_table_name(),
+            chats_table_name: env_var(CHATS_TABLE_NAME_ENV_NAME),
             region_key: Mutex::new(RegionKeyCache::default()),
             presence_data,
             presence_written: Mutex::new(false),
@@ -178,15 +179,5 @@ impl ChatContext {
                 "Failed to store chat",
             );
         }
-    }
-}
-
-fn load_chats_table_name() -> Option<String> {
-    let value = std::env::var("CHATS_TABLE_NAME").unwrap_or_default();
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
     }
 }
