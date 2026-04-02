@@ -1,8 +1,9 @@
-use super::regions::{ensure_region_selected, regions_config, stations_scan_page_size};
+use super::regions::{ensure_region_selected, regions_config};
 use crate::commands::context::ChatContext;
 use crate::commands::utils;
 use crate::station;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
+use erfiume_core::config::stations_scan_page_size_from_env;
 use teloxide::prelude::Bot;
 use teloxide::types::Message;
 
@@ -25,7 +26,7 @@ pub(crate) async fn message_handler(
     let is_marche = regions_config()
         .ok()
         .is_some_and(|regions| regions.marche.table_name == stations_table_name);
-    let scan_page_size = stations_scan_page_size();
+    let scan_page_size = stations_scan_page_size_from_env();
     let station_query = text.trim().replace("@erfiume_bot", "").replace("/", "");
     let text = match station::search::get_station_with_match(
         dynamodb_client,

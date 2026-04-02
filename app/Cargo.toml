@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["bot", "fetcher", "dynamodb"]
+members = ["bot", "fetcher", "dynamodb", "core"]
 
 [workspace.package]
 version = "0.1.0"
@@ -11,13 +11,13 @@ authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
 [workspace.dependencies]
 anyhow = "1.0.102"
 aws-config = "1.8.15"
-aws-sdk-dynamodb = { version = "1.109.0", features = ["test-util"] }
+aws-sdk-dynamodb = { version = "1.110.0", features = ["test-util"] }
 chrono = "0.4.44"
 chrono-tz = "0.10.4"
 edit-distance = "2.2.2"
 fastrand = "2.3.0"
 futures = "0.3.32"
-lambda_runtime = "1.1.1"
+lambda_runtime = "1.1.2"
 openssl = { version = "0.10.76", features = [
     "vendored",
 ] } # Needed only for cargo lambda build

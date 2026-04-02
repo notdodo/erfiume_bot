@@ -5,6 +5,7 @@ use crate::region::{RegionError, RegionResult};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::{Duration, Utc};
 use chrono_tz::Europe::Rome;
+use erfiume_core::config::StationsTablesConfig;
 use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use reqwest::Client as HTTPClient;
@@ -58,11 +59,9 @@ impl Region for Marche {
         http_client: &HTTPClient,
         dynamodb_client: &DynamoDbClient,
     ) -> Result<RegionResult, RegionError> {
-        let table_name = std::env::var("MARCHE_STATIONS_TABLE_NAME")
-            .ok()
-            .map(|v| v.trim().to_string())
-            .filter(|v| !v.is_empty())
-            .ok_or("Missing env var: MARCHE_STATIONS_TABLE_NAME")?;
+        let table_name = StationsTablesConfig::from_env()
+            .map_err(|err| err.to_string())?
+            .marche;
         let alerts_config = AlertsConfig::from_env();
         let html = fetch_menu_html(http_client).await?;
         let sensors = parse_station_options(&html);

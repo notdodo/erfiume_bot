@@ -1,25 +1,12 @@
 use crate::commands::context::ChatContext;
 use crate::commands::utils;
 use crate::logging;
+use erfiume_core::config::{RegionConfig, RegionsConfig};
 use std::sync::OnceLock;
 use teloxide::prelude::Bot;
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Message};
 
 const REGION_CALLBACK_PREFIX: &str = "region:";
-const DEFAULT_SCAN_PAGE_SIZE: i32 = 25;
-const MAX_SCAN_PAGE_SIZE: i32 = 100;
-
-#[derive(Clone)]
-pub(crate) struct RegionConfig {
-    pub(crate) key: String,
-    pub(crate) label: String,
-    pub(crate) table_name: String,
-}
-
-pub(crate) struct RegionsConfig {
-    pub(crate) emilia_romagna: RegionConfig,
-    pub(crate) marche: RegionConfig,
-}
 
 pub(crate) fn region_keyboard(regions: &RegionsConfig) -> InlineKeyboardMarkup {
     InlineKeyboardMarkup::new(vec![vec![
@@ -42,7 +29,7 @@ pub(crate) fn parse_region_callback_data<'a>(
     regions: &'a RegionsConfig,
 ) -> Option<&'a RegionConfig> {
     let key = data.strip_prefix(REGION_CALLBACK_PREFIX)?;
-    region_from_key(regions, key)
+    regions.find_by_key(key)
 }
 
 pub(crate) async fn load_region_for_chat<'a>(
@@ -50,7 +37,11 @@ pub(crate) async fn load_region_for_chat<'a>(
     logger: &logging::Logger,
     regions: &'a RegionsConfig,
 ) -> Result<Option<&'a RegionConfig>, &'static str> {
-    let region_logger = logger_with_table(logger, ctx.chats_table_name());
+    let region_logger = if let Some(table) = ctx.chats_table_name() {
+        logger.clone().table(table)
+    } else {
+        logger.clone()
+    };
     let Some(region_key) = ctx
         .region_key_with_logging(&region_logger)
         .await
@@ -59,7 +50,7 @@ pub(crate) async fn load_region_for_chat<'a>(
         return Ok(None);
     };
 
-    if let Some(region) = region_from_key(regions, &region_key) {
+    if let Some(region) = regions.find_by_key(&region_key) {
         Ok(Some(region))
     } else {
         region_logger.info("chats.region_unknown", "Unknown region in chat record");
@@ -119,60 +110,10 @@ pub(crate) async fn ensure_region_selected(
 
 pub(crate) fn regions_config() -> Result<&'static RegionsConfig, String> {
     static CONFIG: OnceLock<Result<RegionsConfig, String>> = OnceLock::new();
-    match CONFIG.get_or_init(load_regions_config) {
+    match CONFIG.get_or_init(RegionsConfig::from_env) {
         Ok(config) => Ok(config),
         Err(err) => Err(err.clone()),
     }
-}
-
-pub(crate) fn stations_scan_page_size() -> i32 {
-    let raw = std::env::var("STATIONS_SCAN_PAGE_SIZE").unwrap_or_default();
-    let parsed = raw.trim().parse::<i32>().ok();
-    let value = parsed.unwrap_or(DEFAULT_SCAN_PAGE_SIZE);
-    value.clamp(1, MAX_SCAN_PAGE_SIZE)
-}
-
-fn logger_with_table(logger: &logging::Logger, table: Option<&str>) -> logging::Logger {
-    if let Some(table) = table {
-        logger.clone().table(table)
-    } else {
-        logger.clone()
-    }
-}
-
-fn region_from_key<'a>(regions: &'a RegionsConfig, key: &str) -> Option<&'a RegionConfig> {
-    if key.eq_ignore_ascii_case(regions.emilia_romagna.key.as_str()) {
-        Some(&regions.emilia_romagna)
-    } else if key.eq_ignore_ascii_case(regions.marche.key.as_str()) {
-        Some(&regions.marche)
-    } else {
-        None
-    }
-}
-
-fn load_regions_config() -> Result<RegionsConfig, String> {
-    let emilia_romagna = RegionConfig {
-        key: require_env("REGION_EMILIA_ROMAGNA_KEY")?,
-        label: require_env("REGION_EMILIA_ROMAGNA_LABEL")?,
-        table_name: require_env("EMILIA_ROMAGNA_STATIONS_TABLE_NAME")?,
-    };
-    let marche = RegionConfig {
-        key: require_env("REGION_MARCHE_KEY")?,
-        label: require_env("REGION_MARCHE_LABEL")?,
-        table_name: require_env("MARCHE_STATIONS_TABLE_NAME")?,
-    };
-    Ok(RegionsConfig {
-        emilia_romagna,
-        marche,
-    })
-}
-
-fn require_env(name: &str) -> Result<String, String> {
-    std::env::var(name)
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| format!("Missing env var: {name}"))
 }
 
 #[cfg(test)]
@@ -197,11 +138,16 @@ mod tests {
     fn region_from_key_matches_and_unknown_returns_none() {
         let regions = sample_regions_config();
         assert!(
-            region_from_key(&regions, "emilia-romagna")
+            regions
+                .find_by_key("emilia-romagna")
                 .is_some_and(|region| region.key == "emilia-romagna")
         );
-        assert!(region_from_key(&regions, "Marche").is_some_and(|region| region.key == "marche"));
-        assert!(region_from_key(&regions, "unknown").is_none());
+        assert!(
+            regions
+                .find_by_key("Marche")
+                .is_some_and(|region| region.key == "marche")
+        );
+        assert!(regions.find_by_key("unknown").is_none());
     }
 
     fn sample_regions_config() -> RegionsConfig {

@@ -7,6 +7,7 @@ use crate::{
 };
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::{Duration, Utc};
+use erfiume_core::config::StationsTablesConfig;
 use erfiume_dynamodb::stations::{StationRecord, put_station_record};
 use futures::StreamExt;
 use reqwest::Client as HTTPClient;
@@ -42,11 +43,9 @@ impl Region for EmiliaRomagna {
         http_client: &HTTPClient,
         dynamodb_client: &DynamoDbClient,
     ) -> Result<RegionResult, RegionError> {
-        let table_name = std::env::var("EMILIA_ROMAGNA_STATIONS_TABLE_NAME")
-            .ok()
-            .map(|v| v.trim().to_string())
-            .filter(|v| !v.is_empty())
-            .ok_or("Missing env var: EMILIA_ROMAGNA_STATIONS_TABLE_NAME")?;
+        let table_name = StationsTablesConfig::from_env()
+            .map_err(|err| err.to_string())?
+            .emilia_romagna;
         let api_base = API_BASE_URL;
         let latest_timestamp = fetch_latest_time(http_client, api_base).await?;
         let stations = fetch_stations(http_client, api_base, latest_timestamp).await?;

@@ -3,6 +3,7 @@ use crate::commands::utils;
 use crate::logging;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::Utc;
+use erfiume_core::config::{CHATS_TABLE_NAME_ENV_NAME, env_var};
 use erfiume_dynamodb::chats as dynamo_chats;
 use teloxide::payloads::{AnswerCallbackQuerySetters, EditMessageTextSetters, SendMessageSetters};
 use teloxide::prelude::{Bot, Requester};
@@ -54,14 +55,11 @@ pub(crate) async fn callback_query_handler(
         return Ok(());
     };
 
-    let chats_table_name = match std::env::var("CHATS_TABLE_NAME") {
-        Ok(value) if !value.trim().is_empty() => value.trim().to_string(),
-        _ => {
-            bot.answer_callback_query(query.id)
-                .text("Configurazione non disponibile.")
-                .await?;
-            return Ok(());
-        }
+    let Some(chats_table_name) = env_var(CHATS_TABLE_NAME_ENV_NAME) else {
+        bot.answer_callback_query(query.id)
+            .text("Configurazione non disponibile.")
+            .await?;
+        return Ok(());
     };
 
     let chat = message.chat();
