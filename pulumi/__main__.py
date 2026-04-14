@@ -38,9 +38,10 @@ m_stations_table = Table(
 alerts_table = Table(
     name="Alerts",
     hash_key="station",
-    range_key="chat_id",
+    range_key="chat_scope",
     attributes=[
         TableAttribute(name="station", type=TableAttributeType.STRING),
+        TableAttribute(name="chat_scope", type=TableAttributeType.STRING),
         TableAttribute(name="chat_id", type=TableAttributeType.NUMBER),
         TableAttribute(name="active", type=TableAttributeType.NUMBER),
     ],

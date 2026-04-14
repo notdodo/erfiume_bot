@@ -168,6 +168,7 @@ mod tests {
             station_name: "Cesena".to_string(),
             threshold: 1.0,
             active: ALERT_ACTIVE.parse::<i64>().unwrap_or(1),
+            thread_id: None,
             triggered_at: None,
             triggered_value: None,
         };
@@ -180,6 +181,7 @@ mod tests {
             station_name: "Cesena".to_string(),
             threshold: 1.0,
             active: 0,
+            thread_id: None,
             triggered_at: Some(0),
             triggered_value: Some(2.5),
         };
