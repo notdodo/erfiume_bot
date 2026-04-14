@@ -111,6 +111,7 @@ pub(super) async fn handle_rimuovi_avviso(
             &alerts_table_name,
             &alert.station_name,
             chat_id,
+            alert.thread_id,
         )
         .await
         {
@@ -167,6 +168,7 @@ pub(super) async fn handle_rimuovi_avviso(
         &alerts_table_name,
         &station.nomestaz,
         chat_id,
+        handler.msg().thread_id.map(|id| i64::from(id.0.0)),
     )
     .await
     {
@@ -242,6 +244,7 @@ pub(super) async fn handle_avvisami(
         &alerts_table_name,
         &station.nomestaz,
         chat_id,
+        thread_id,
     )
     .await
     {

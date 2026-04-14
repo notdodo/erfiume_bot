@@ -82,7 +82,7 @@ pub async fn process_alerts_for_station(
             dynamodb_client,
             &config.table_name,
             &station.nomestaz,
-            alert.chat_id,
+            &alert.chat_scope,
             triggered_at,
             current_value,
         )

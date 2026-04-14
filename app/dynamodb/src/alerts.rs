@@ -10,6 +10,7 @@ pub struct AlertEntry {
     pub station_name: String,
     pub threshold: f64,
     pub active: i64,
+    pub thread_id: Option<i64>,
     pub triggered_at: Option<u64>,
     pub triggered_value: Option<f64>,
 }
@@ -19,6 +20,7 @@ impl AlertEntry {
             station_name: parse_string_field(item, "station")?,
             threshold: parse_number_field::<f64>(item, "threshold")?,
             active: parse_number_field::<i64>(item, "active")?,
+            thread_id: parse_optional_number_field::<i64>(item, "thread_id")?,
             triggered_at: parse_optional_number_field::<u64>(item, "triggered_at")?,
             triggered_value: parse_optional_number_field::<f64>(item, "triggered_value")?,
         })
@@ -26,9 +28,17 @@ impl AlertEntry {
 }
 
 pub struct AlertSubscription {
+    pub chat_scope: String,
     pub chat_id: i64,
     pub threshold: f64,
     pub thread_id: Option<i64>,
+}
+
+pub fn chat_scope(chat_id: i64, thread_id: Option<i64>) -> String {
+    match thread_id {
+        Some(thread_id) => format!("{chat_id}#{thread_id}"),
+        None => chat_id.to_string(),
+    }
 }
 
 pub async fn upsert_alert(
@@ -43,6 +53,7 @@ pub async fn upsert_alert(
     if table_name.is_empty() {
         return Err(anyhow!("alerts table name is empty"));
     }
+    let alert_scope = chat_scope(chat_id, thread_id);
 
     let mut expression_attribute_values = HashMap::from([
         (
@@ -57,10 +68,15 @@ pub async fn upsert_alert(
             ":active".to_string(),
             AttributeValue::N(ALERT_ACTIVE.to_string()),
         ),
+        (
+            ":chat_id".to_string(),
+            AttributeValue::N(chat_id.to_string()),
+        ),
     ]);
 
     let mut update_expression =
-        "SET threshold = :threshold, created_at = :created_at, active = :active".to_string();
+        "SET threshold = :threshold, created_at = :created_at, active = :active, chat_id = :chat_id"
+            .to_string();
     let mut remove_fields = vec!["triggered_at", "triggered_value"];
 
     if let Some(thread_id) = thread_id {
@@ -82,7 +98,7 @@ pub async fn upsert_alert(
         .update_item()
         .table_name(table_name)
         .key("station", AttributeValue::S(station_name.to_string()))
-        .key("chat_id", AttributeValue::N(chat_id.to_string()))
+        .key("chat_scope", AttributeValue::S(alert_scope))
         .update_expression(update_expression)
         .set_expression_attribute_values(Some(expression_attribute_values))
         .send()
@@ -96,16 +112,18 @@ pub async fn delete_alert(
     table_name: &str,
     station_name: &str,
     chat_id: i64,
+    thread_id: Option<i64>,
 ) -> Result<bool> {
     if table_name.is_empty() {
         return Err(anyhow!("alerts table name is empty"));
     }
+    let alert_scope = chat_scope(chat_id, thread_id);
 
     let response = client
         .delete_item()
         .table_name(table_name)
         .key("station", AttributeValue::S(station_name.to_string()))
-        .key("chat_id", AttributeValue::N(chat_id.to_string()))
+        .key("chat_scope", AttributeValue::S(alert_scope))
         .return_values(aws_sdk_dynamodb::types::ReturnValue::AllOld)
         .send()
         .await?;
@@ -118,16 +136,18 @@ pub async fn alert_exists(
     table_name: &str,
     station_name: &str,
     chat_id: i64,
+    thread_id: Option<i64>,
 ) -> Result<bool> {
     if table_name.is_empty() {
         return Err(anyhow!("alerts table name is empty"));
     }
+    let alert_scope = chat_scope(chat_id, thread_id);
 
     let response = client
         .get_item()
         .table_name(table_name)
         .key("station", AttributeValue::S(station_name.to_string()))
-        .key("chat_id", AttributeValue::N(chat_id.to_string()))
+        .key("chat_scope", AttributeValue::S(alert_scope))
         .send()
         .await?;
 
@@ -156,7 +176,9 @@ pub async fn list_active_alerts_for_chat(
             .expression_attribute_names("#active", "active")
             .expression_attribute_values(":chat_id", AttributeValue::N(chat_id.to_string()))
             .expression_attribute_values(":active", AttributeValue::N(ALERT_ACTIVE.to_string()))
-            .projection_expression("station, threshold, active, triggered_at, triggered_value");
+            .projection_expression(
+                "station, threshold, active, thread_id, triggered_at, triggered_value",
+            );
 
         if let Some(key) = last_evaluated_key.take() {
             request = request.set_exclusive_start_key(Some(key));
@@ -199,7 +221,9 @@ pub async fn list_alerts_for_chat(
                 .expression_attribute_names("#active", "active")
                 .expression_attribute_values(":chat_id", AttributeValue::N(chat_id.to_string()))
                 .expression_attribute_values(":active", AttributeValue::N(active_value.to_string()))
-                .projection_expression("station, threshold, active, triggered_at, triggered_value");
+                .projection_expression(
+                    "station, threshold, active, thread_id, triggered_at, triggered_value",
+                );
 
             if let Some(key) = last_evaluated_key.take() {
                 request = request.set_exclusive_start_key(Some(key));
@@ -279,18 +303,20 @@ pub async fn list_pending_alerts_for_station(
         .expression_attribute_names("#active", "active")
         .expression_attribute_values(":station", AttributeValue::S(station_name.to_string()))
         .expression_attribute_values(":active", AttributeValue::N(ALERT_ACTIVE.to_string()))
-        .projection_expression("chat_id, threshold, thread_id")
+        .projection_expression("chat_scope, chat_id, threshold, thread_id")
         .send()
         .await?;
 
     let items = response.items.unwrap_or_default();
     let mut alerts = Vec::with_capacity(items.len());
     for item in items {
+        let chat_scope = parse_string_field(&item, "chat_scope")?;
         let chat_id = parse_number_field::<i64>(&item, "chat_id")?;
         let threshold = parse_number_field::<f64>(&item, "threshold")?;
         let thread_id = parse_optional_number_field::<i64>(&item, "thread_id")?;
 
         alerts.push(AlertSubscription {
+            chat_scope,
             chat_id,
             threshold,
             thread_id,
@@ -320,14 +346,14 @@ pub async fn reactivate_expired_alerts_for_station(
         .expression_attribute_names("#active", "active")
         .expression_attribute_values(":station", AttributeValue::S(station_name.to_string()))
         .expression_attribute_values(":active", AttributeValue::N(ALERT_TRIGGERED.to_string()))
-        .projection_expression("chat_id, triggered_at")
+        .projection_expression("chat_scope, chat_id, triggered_at")
         .send()
         .await?;
 
     let items = response.items.unwrap_or_default();
     let mut reactivated = 0usize;
     for item in items {
-        let chat_id = parse_number_field::<i64>(&item, "chat_id")?;
+        let chat_scope = parse_string_field(&item, "chat_scope")?;
         let triggered_at = parse_optional_number_field::<u64>(&item, "triggered_at")?;
         let Some(triggered_at) = triggered_at else {
             continue;
@@ -345,7 +371,7 @@ pub async fn reactivate_expired_alerts_for_station(
             .update_item()
             .table_name(table_name)
             .key("station", AttributeValue::S(station_name.to_string()))
-            .key("chat_id", AttributeValue::N(chat_id.to_string()))
+            .key("chat_scope", AttributeValue::S(chat_scope))
             .update_expression("SET active = :active REMOVE triggered_at, triggered_value")
             .set_expression_attribute_values(Some(expression_attribute_values))
             .send()
@@ -361,7 +387,7 @@ pub async fn mark_alert_triggered(
     client: &Client,
     table_name: &str,
     station_name: &str,
-    chat_id: i64,
+    alert_scope: &str,
     triggered_at: u64,
     value: f64,
 ) -> Result<()> {
@@ -388,7 +414,7 @@ pub async fn mark_alert_triggered(
         .update_item()
         .table_name(table_name)
         .key("station", AttributeValue::S(station_name.to_string()))
-        .key("chat_id", AttributeValue::N(chat_id.to_string()))
+        .key("chat_scope", AttributeValue::S(alert_scope.to_string()))
         .update_expression(
             "SET triggered_at = :triggered_at, triggered_value = :triggered_value, active = :active",
         )
@@ -422,6 +448,7 @@ mod tests {
             station_name,
             threshold,
             active: ALERT_ACTIVE.parse::<i64>().unwrap_or(1),
+            thread_id: None,
             triggered_at: None,
             triggered_value: None,
         };
