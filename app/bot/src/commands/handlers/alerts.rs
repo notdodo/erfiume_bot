@@ -318,7 +318,7 @@ pub(super) async fn handle_avvisami(
 
     handler
         .send_text(&format!(
-            "Ok! Ti avviser• quando {} supera {}.",
+            "Ok! Ti avviserò quando {} supera {}.",
             station.nomestaz, threshold
         ))
         .await
