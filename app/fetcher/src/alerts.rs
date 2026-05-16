@@ -45,14 +45,19 @@ pub async fn process_alerts_for_station(
     };
 
     let now_millis = current_time_millis();
-    let _ = reactivate_expired_alerts_for_station(
+    if let Err(err) = reactivate_expired_alerts_for_station(
         dynamodb_client,
         &config.table_name,
         &station.nomestaz,
         now_millis,
         ALERT_COOLDOWN_MILLIS,
     )
-    .await;
+    .await
+    {
+        logging::Logger::new()
+            .station(&station.nomestaz)
+            .error("alerts.reactivate_failed", &err, "Failed to reactivate expired alerts");
+    }
 
     let pending_alerts =
         list_pending_alerts_for_station(dynamodb_client, &config.table_name, &station.nomestaz)
