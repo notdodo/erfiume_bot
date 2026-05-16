@@ -171,10 +171,8 @@ fn format_station_message_for_alert(station: &Station) -> String {
     }
 
     let mut lines: Vec<String> = base_message.lines().map(str::to_string).collect();
-    let mut insert_index = 1;
-    for line in metadata_lines {
-        lines.insert(insert_index, line);
-        insert_index += 1;
+    for (i, line) in metadata_lines.into_iter().enumerate() {
+        lines.insert(1 + i, line);
     }
 
     lines.join("\n")
