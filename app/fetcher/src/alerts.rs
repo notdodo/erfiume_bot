@@ -45,14 +45,21 @@ pub async fn process_alerts_for_station(
     };
 
     let now_millis = current_time_millis();
-    let _ = reactivate_expired_alerts_for_station(
+    if let Err(err) = reactivate_expired_alerts_for_station(
         dynamodb_client,
         &config.table_name,
         &station.nomestaz,
         now_millis,
         ALERT_COOLDOWN_MILLIS,
     )
-    .await;
+    .await
+    {
+        logging::Logger::new().station(&station.nomestaz).error(
+            "alerts.reactivate_failed",
+            &err,
+            "Failed to reactivate expired alerts",
+        );
+    }
 
     let pending_alerts =
         list_pending_alerts_for_station(dynamodb_client, &config.table_name, &station.nomestaz)
@@ -164,10 +171,8 @@ fn format_station_message_for_alert(station: &Station) -> String {
     }
 
     let mut lines: Vec<String> = base_message.lines().map(str::to_string).collect();
-    let mut insert_index = 1;
-    for line in metadata_lines {
-        lines.insert(insert_index, line);
-        insert_index += 1;
+    for (i, line) in metadata_lines.into_iter().enumerate() {
+        lines.insert(1 + i, line);
     }
 
     lines.join("\n")
