@@ -54,9 +54,11 @@ pub async fn process_alerts_for_station(
     )
     .await
     {
-        logging::Logger::new()
-            .station(&station.nomestaz)
-            .error("alerts.reactivate_failed", &err, "Failed to reactivate expired alerts");
+        logging::Logger::new().station(&station.nomestaz).error(
+            "alerts.reactivate_failed",
+            &err,
+            "Failed to reactivate expired alerts",
+        );
     }
 
     let pending_alerts =
