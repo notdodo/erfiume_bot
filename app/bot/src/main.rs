@@ -83,14 +83,17 @@ async fn lambda_handler(
         )
         .branch(Update::filter_callback_query().endpoint(commands::callback_query_handler));
 
-    let _ = handler
+    if let std::ops::ControlFlow::Break(Err(err)) = handler
         .dispatch(deps![
             app_state.me.clone(),
             app_state.bot.clone(),
             update,
             app_state.dynamodb_client.clone()
         ])
-        .await;
+        .await
+    {
+        tracing::error!(error = ?err, "Handler error");
+    }
     Ok(json!({
         "message": "Lambda executed successfully",
         "statusCode": 200,

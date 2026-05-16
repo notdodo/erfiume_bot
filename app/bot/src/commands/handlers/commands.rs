@@ -199,29 +199,58 @@ impl<'a> CommandHandler<'a> {
             return Ok(());
         };
         let scan_page_size = stations_scan_page_size_from_env();
-        let text = match erfiume_dynamodb::stations::list_station_entries(
+        let stations = match erfiume_dynamodb::stations::list_station_entries(
             self.dynamodb(),
             stations_table_name.as_str(),
             scan_page_size,
         )
         .await
         {
-            Ok(stations) if !stations.is_empty() => stations
-                .iter()
-                .map(station::format_station_list_entry)
-                .collect::<Vec<String>>()
-                .join("\n"),
-            Ok(_) => "Nessuna stazione disponibile al momento.".to_string(),
+            Ok(stations) if !stations.is_empty() => stations,
+            Ok(_) => {
+                return self
+                    .send_text("Nessuna stazione disponibile al momento.")
+                    .await;
+            }
             Err(err) => {
                 self.logger.clone().table(stations_table_name).error(
                     "stations.list_failed",
                     &err,
                     "Failed to list stations",
                 );
-                "Errore nel recupero delle stazioni. Riprova più tardi.".to_string()
+                return self
+                    .send_text("Errore nel recupero delle stazioni. Riprova più tardi.")
+                    .await;
             }
         };
-        self.send_text(&text).await
+
+        let lines: Vec<String> = stations
+            .iter()
+            .map(station::format_station_list_entry)
+            .collect();
+        self.send_long_text(lines).await
+    }
+
+    // Splits lines into chunks that stay within Telegram's 4096-character limit.
+    // Uses 2000 chars as the pre-escape threshold to absorb MarkdownV2 escaping expansion.
+    async fn send_long_text(&self, lines: Vec<String>) -> Result<(), teloxide::RequestError> {
+        const MAX_CHUNK: usize = 2000;
+        let mut chunk = String::new();
+        for line in lines {
+            if !chunk.is_empty() && chunk.len() + 1 + line.len() > MAX_CHUNK {
+                self.send_text(&chunk).await?;
+                chunk = line;
+            } else {
+                if !chunk.is_empty() {
+                    chunk.push('\n');
+                }
+                chunk.push_str(&line);
+            }
+        }
+        if !chunk.is_empty() {
+            self.send_text(&chunk).await?;
+        }
+        Ok(())
     }
 
     async fn handle_info(&self) -> Result<(), teloxide::RequestError> {
