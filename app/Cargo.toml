@@ -18,7 +18,7 @@ edit-distance = "2.2.2"
 fastrand = "2.4.1"
 futures = "0.3.32"
 lambda_runtime = "1.2.0"
-openssl = { version = "0.10.79", features = [
+openssl = { version = "0.10.80", features = [
     "vendored",
 ] } # Needed only for cargo lambda build
 reqwest = { version = "0.13.3", features = ["json", "form"] }
