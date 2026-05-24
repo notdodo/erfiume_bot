@@ -10,8 +10,8 @@ authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
 
 [workspace.dependencies]
 anyhow = "1.0.102"
-aws-config = "1.8.16"
-aws-sdk-dynamodb = { version = "1.111.0", features = ["test-util"] }
+aws-config = "1.8.17"
+aws-sdk-dynamodb = { version = "1.112.0", features = ["test-util"] }
 chrono = "0.4.44"
 chrono-tz = "0.10.4"
 edit-distance = "2.2.2"
@@ -24,7 +24,7 @@ openssl = { version = "0.10.80", features = [
 reqwest = { version = "0.13.3", features = ["json", "form"] }
 serde = "1.0.228"
 serde_dynamo = "4.3.0"
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 strsim = "0.11.1"
 teloxide = { version = "0.17.0", features = ["macros"] }
 tokio = { version = "1.52.3", features = ["macros"] }
