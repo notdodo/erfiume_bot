@@ -46,7 +46,7 @@ async fn lambda_handler(
     Ok(json!({"regions": aggregated}))
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), LambdaError> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env()) // Enable log level filtering via `RUST_LOG` env var

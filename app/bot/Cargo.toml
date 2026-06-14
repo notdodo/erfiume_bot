@@ -16,14 +16,11 @@ chrono.workspace = true
 edit-distance.workspace = true
 fastrand.workspace = true
 lambda_runtime.workspace = true
-openssl = { workspace = true, features = [
-    "vendored",
-] } # Needed only for cargo lambda build
 serde_dynamo.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 strsim.workspace = true
-teloxide = { workspace = true, features = ["macros"] }
+teloxide.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 tracing-subscriber.workspace = true
 tracing.workspace = true

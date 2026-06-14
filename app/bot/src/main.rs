@@ -3,7 +3,8 @@ use aws_sdk_dynamodb::Client as DynamoDbClient;
 use lambda_runtime::{Error as LambdaError, LambdaEvent, service_fn};
 use serde_json::{Value, json};
 use teloxide::{
-    dispatching::{HandlerExt, UpdateFilterExt},
+    RequestError,
+    dispatching::{HandlerExt, UpdateFilterExt, UpdateHandler},
     dptree::deps,
     prelude::{Bot, Requester, Update, dptree},
     respond,
@@ -19,9 +20,27 @@ struct AppState {
     dynamodb_client: DynamoDbClient,
     bot: Bot,
     me: Me,
+    handler: UpdateHandler<RequestError>,
 }
 
-#[tokio::main]
+fn build_handler() -> UpdateHandler<RequestError> {
+    dptree::entry()
+        .branch(
+            Update::filter_message()
+                .branch(
+                    dptree::entry()
+                        .filter_command::<commands::Command>()
+                        .endpoint(commands::commands_handler),
+                )
+                .branch(dptree::endpoint(|msg, bot, dynamodb_client| async move {
+                    commands::message_handler(&bot, &msg, &dynamodb_client).await?;
+                    respond(())
+                })),
+        )
+        .branch(Update::filter_callback_query().endpoint(commands::callback_query_handler))
+}
+
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), LambdaError> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env()) // Enable log level filtering via `RUST_LOG` env var
@@ -41,6 +60,7 @@ async fn main() -> Result<(), LambdaError> {
         dynamodb_client,
         bot,
         me,
+        handler: build_handler(),
     };
 
     lambda_runtime::run(service_fn(|event: LambdaEvent<Value>| async {
@@ -68,22 +88,8 @@ async fn lambda_handler(
     let update: Update = serde_json::from_str(inner_json_str)?;
     logging::update_summary(&update);
 
-    let handler = dptree::entry()
-        .branch(
-            Update::filter_message()
-                .branch(
-                    dptree::entry()
-                        .filter_command::<commands::Command>()
-                        .endpoint(commands::commands_handler),
-                )
-                .branch(dptree::endpoint(|msg, bot, dynamodb_client| async move {
-                    commands::message_handler(&bot, &msg, &dynamodb_client).await?;
-                    respond(())
-                })),
-        )
-        .branch(Update::filter_callback_query().endpoint(commands::callback_query_handler));
-
-    if let std::ops::ControlFlow::Break(Err(err)) = handler
+    if let std::ops::ControlFlow::Break(Err(err)) = app_state
+        .handler
         .dispatch(deps![
             app_state.me.clone(),
             app_state.bot.clone(),
