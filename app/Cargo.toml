@@ -18,15 +18,28 @@ edit-distance = "2.2.2"
 fastrand = "2.4.1"
 futures = "0.3.32"
 lambda_runtime = "1.2.1"
-openssl = { version = "0.10.80", features = [
-    "vendored",
-] } # Needed only for cargo lambda build
-reqwest = { version = "0.13.4", features = ["json", "form"] }
+reqwest = { version = "0.13.4", default-features = false, features = [
+    "json",
+    "form",
+    "http2",
+    "charset",
+    "rustls",
+] }
 serde = "1.0.228"
 serde_dynamo = "4.3.0"
 serde_json = "1.0.150"
 strsim = "0.11.1"
-teloxide = { version = "0.17.0", features = ["macros"] }
+teloxide = { version = "0.17.0", default-features = false, features = [
+    "macros",
+    "rustls",
+] }
 tokio = { version = "1.52.3", features = ["macros"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
