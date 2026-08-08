@@ -118,8 +118,7 @@ impl Region for Marche {
                 let mut results = Vec::with_capacity(indices.len());
                 for index in indices {
                     let sensor = &sensors[index];
-                    let Some((timestamp, value)) =
-                        series_values.get(&sensor.id_raw).copied()
+                    let Some((timestamp, value)) = series_values.get(&sensor.id_raw).copied()
                     else {
                         continue;
                     };
@@ -197,8 +196,7 @@ async fn process_sensor(
 
     if let Some(config) = alerts_config
         && let Err(err) =
-            alerts::process_alerts_for_station(http_client, dynamodb_client, &station, config)
-                .await
+            alerts::process_alerts_for_station(http_client, dynamodb_client, &station, config).await
     {
         let logger = logging::Logger::new().station(&station.nomestaz);
         logger.error("alerts.process_failed", &err, "Failed to process alerts");
