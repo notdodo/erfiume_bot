@@ -123,8 +123,11 @@ impl ChatContext {
         &self,
         logger: &logging::Logger,
     ) -> Result<Option<String>, ChatRegionLookupError> {
-        self.ensure_chat_presence_with_logging(logger).await;
-        match self.region_key().await {
+        let (_, region_result) = tokio::join!(
+            self.ensure_chat_presence_with_logging(logger),
+            self.region_key()
+        );
+        match region_result {
             Ok(value) => Ok(value),
             Err(ChatRegionLookupError::MissingChatsTable) => {
                 let err = "Missing env var: CHATS_TABLE_NAME";

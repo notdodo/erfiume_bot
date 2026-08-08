@@ -199,7 +199,7 @@ impl<'a> CommandHandler<'a> {
             return Ok(());
         };
         let scan_page_size = stations_scan_page_size_from_env();
-        let stations = match erfiume_dynamodb::stations::list_station_entries(
+        let stations = match station::search::list_station_entries_cached(
             self.dynamodb(),
             stations_table_name.as_str(),
             scan_page_size,

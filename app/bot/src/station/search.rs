@@ -2,12 +2,14 @@ use super::Station;
 use anyhow::{Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use erfiume_dynamodb::UNKNOWN_THRESHOLD;
-use erfiume_dynamodb::stations::{StationRecord, get_station_record, list_station_entries};
+use erfiume_dynamodb::stations::{
+    StationListEntry, StationRecord, get_station_record, list_station_entries,
+};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use strsim::jaro_winkler;
 
-static STATION_CACHE: OnceLock<Mutex<HashMap<String, Vec<String>>>> = OnceLock::new();
+static STATION_CACHE: OnceLock<Mutex<HashMap<String, Vec<StationListEntry>>>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StationMatch {
@@ -40,8 +42,9 @@ pub async fn get_station_with_match(
         return Ok(Some((record_to_station(record), StationMatch::Exact)));
     }
 
-    let stations = list_stations_cached(client, table_name, page_size).await?;
-    if let Some(closest_match) = fuzzy_search(&station_name, &stations) {
+    let entries = list_station_entries_cached(client, table_name, page_size).await?;
+    let names: Vec<String> = entries.iter().map(|entry| entry.nomestaz.clone()).collect();
+    if let Some(closest_match) = fuzzy_search(&station_name, &names) {
         let record = get_station_record(client, table_name, &closest_match).await?;
         match record {
             Some(record) => Ok(Some((record_to_station(record), StationMatch::Fuzzy))),
@@ -52,35 +55,32 @@ pub async fn get_station_with_match(
     }
 }
 
-pub async fn list_stations_cached(
+pub async fn list_station_entries_cached(
     client: &DynamoDbClient,
     table_name: &str,
     page_size: i32,
-) -> Result<Vec<String>> {
-    if let Some(cached) = get_cached_station_names(table_name) {
+) -> Result<Vec<StationListEntry>> {
+    if let Some(cached) = get_cached_entries(table_name) {
         return Ok(cached);
     }
 
     let entries = list_station_entries(client, table_name, page_size).await?;
-    let mut names: Vec<String> = entries.into_iter().map(|entry| entry.nomestaz).collect();
-    names.sort();
-    names.dedup();
-    set_cached_station_names(table_name, names.clone());
-    Ok(names)
+    set_cached_entries(table_name, entries.clone());
+    Ok(entries)
 }
 
-fn station_cache() -> &'static Mutex<HashMap<String, Vec<String>>> {
+fn station_cache() -> &'static Mutex<HashMap<String, Vec<StationListEntry>>> {
     STATION_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn get_cached_station_names(table_name: &str) -> Option<Vec<String>> {
+fn get_cached_entries(table_name: &str) -> Option<Vec<StationListEntry>> {
     let cache = station_cache().lock().ok()?;
     cache.get(table_name).cloned()
 }
 
-fn set_cached_station_names(table_name: &str, names: Vec<String>) {
+fn set_cached_entries(table_name: &str, entries: Vec<StationListEntry>) {
     if let Ok(mut cache) = station_cache().lock() {
-        cache.insert(table_name.to_string(), names);
+        cache.insert(table_name.to_string(), entries);
     }
 }
 
