@@ -52,9 +52,12 @@ async fn main() -> Result<(), LambdaError> {
         .init();
 
     let bot = Bot::from_env();
-    let me = bot.get_me().await?;
-    let dynamodb_client =
-        DynamoDbClient::new(&aws_config::defaults(BehaviorVersion::latest()).load().await);
+    let (me, aws_cfg) = tokio::join!(
+        bot.get_me(),
+        aws_config::defaults(BehaviorVersion::latest()).load()
+    );
+    let me = me?;
+    let dynamodb_client = DynamoDbClient::new(&aws_cfg);
 
     let app_state = AppState {
         dynamodb_client,

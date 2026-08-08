@@ -25,7 +25,7 @@ pub enum Entry {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Station {
     pub timestamp: Option<u64>,
     pub idstazione: String,

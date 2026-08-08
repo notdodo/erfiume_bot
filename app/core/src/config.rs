@@ -1,8 +1,8 @@
 const DEFAULT_SCAN_PAGE_SIZE: i32 = 25;
 const MAX_SCAN_PAGE_SIZE: i32 = 100;
 
-const ALERTS_TABLE_NAME_ENV: &str = "ALERTS_TABLE_NAME";
-const CHATS_TABLE_NAME_ENV: &str = "CHATS_TABLE_NAME";
+pub const ALERTS_TABLE_NAME_ENV_NAME: &str = "ALERTS_TABLE_NAME";
+pub const CHATS_TABLE_NAME_ENV_NAME: &str = "CHATS_TABLE_NAME";
 const EMILIA_ROMAGNA_STATIONS_TABLE_NAME_ENV: &str = "EMILIA_ROMAGNA_STATIONS_TABLE_NAME";
 const MARCHE_STATIONS_TABLE_NAME_ENV: &str = "MARCHE_STATIONS_TABLE_NAME";
 const REGION_EMILIA_ROMAGNA_KEY_ENV: &str = "REGION_EMILIA_ROMAGNA_KEY";
@@ -91,9 +91,6 @@ pub fn env_var(name: &str) -> Option<String> {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
 }
-
-pub const ALERTS_TABLE_NAME_ENV_NAME: &str = ALERTS_TABLE_NAME_ENV;
-pub const CHATS_TABLE_NAME_ENV_NAME: &str = CHATS_TABLE_NAME_ENV;
 
 #[cfg(test)]
 mod tests {

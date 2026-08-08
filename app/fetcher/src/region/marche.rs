@@ -8,6 +8,7 @@ use chrono_tz::Europe::Rome;
 use erfiume_core::config::StationsTablesConfig;
 use erfiume_dynamodb::UNKNOWN_THRESHOLD;
 use erfiume_dynamodb::stations::{StationRecord, put_station_record};
+use futures::StreamExt;
 use reqwest::Client as HTTPClient;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -17,6 +18,10 @@ pub struct Marche;
 
 const SESSION_ID: &str = "erfiume";
 const MAX_SENSORS: usize = 5;
+// Safe concurrently (checked live); kept low, the remote site is slow and public.
+const EXTERNAL_CONCURRENCY_LIMIT: usize = 8;
+// AWS-only calls, same limit as EmiliaRomagna.
+const STATION_CONCURRENCY_LIMIT: usize = 40;
 const LATEST_LOOKBACK_HOURS: i64 = 24;
 const THRESHOLD_LOOKBACK_DAYS: i64 = 365 * 3 / 2;
 const MARCHE_MENU_URL: &str =
@@ -65,140 +70,244 @@ impl Region for Marche {
         let alerts_config = AlertsConfig::from_env();
         let html = fetch_menu_html(http_client).await?;
         let sensors = parse_station_options(&html);
-        let max_per_request = MAX_SENSORS;
         let end = Utc::now().with_timezone(&Rome);
         let start = end - Duration::hours(LATEST_LOOKBACK_HOURS);
         let fmt = "%Y-%m-%d %H:%M";
         let begin = start.format(fmt).to_string();
         let end = end.format(fmt).to_string();
 
-        let mut series_values = HashMap::new();
-        for (index, chunk) in sensors.chunks(max_per_request).enumerate() {
-            let series = match fetch_series_chunk(http_client, chunk, &begin, &end).await {
-                Ok(series) => series,
-                Err(err) => {
-                    logging::Logger::new().error(
-                        "marche.series.failed",
-                        &err,
-                        &format!("Failed to fetch chunk {}", index + 1),
-                    );
-                    return Err(err);
-                }
-            };
-            let chunk_values = extract_latest_values(series);
-            for (id, value) in chunk_values {
-                series_values.insert(id, value);
-            }
-        }
-
-        let station_meta = match fetch_station_metadata(http_client).await {
-            Ok(meta) => meta,
-            Err(err) => {
-                logging::Logger::new().error(
-                    "marche.metadata.failed",
-                    &err,
-                    "Failed to collect station metadata",
-                );
-                HashMap::new()
-            }
-        };
-
         let threshold_end = Utc::now().with_timezone(&Rome);
         let threshold_start = threshold_end - Duration::days(THRESHOLD_LOOKBACK_DAYS);
-        let fmt = "%Y-%m-%d %H:%M";
         let threshold_begin = threshold_start.format(fmt).to_string();
         let threshold_end = threshold_end.format(fmt).to_string();
-        let mut max_thresholds = HashMap::new();
-        for (index, chunk) in sensors.chunks(max_per_request).enumerate() {
-            let chunk_thresholds =
-                match fetch_thresholds_chunk(http_client, chunk, &threshold_begin, &threshold_end)
-                    .await
-                {
-                    Ok(thresholds) => thresholds,
-                    Err(err) => {
-                        logging::Logger::new().error(
-                            "marche.thresholds.failed",
-                            &err,
-                            &format!("Failed to fetch threshold chunk {}", index + 1),
-                        );
-                        continue;
-                    }
-                };
-            for (id, value) in chunk_thresholds {
-                max_thresholds.insert(id, value);
+
+        // Series, thresholds, and metadata are independent, so fetch them together.
+        let (series_result, max_thresholds, station_meta) = tokio::join!(
+            fetch_all_series_values(http_client, &sensors, &begin, &end),
+            fetch_all_thresholds(http_client, &sensors, &threshold_begin, &threshold_end),
+            fetch_station_metadata(http_client),
+        );
+        let series_values = series_result?;
+        let station_meta = station_meta.unwrap_or_else(|err| {
+            logging::Logger::new().error(
+                "marche.metadata.failed",
+                &err,
+                "Failed to collect station metadata",
+            );
+            HashMap::new()
+        });
+
+        let sensors_len = sensors.len();
+
+        // Same-named sensors share a partition key and must not process alerts concurrently.
+        let mut groups: HashMap<&str, Vec<usize>> = HashMap::new();
+        for (index, sensor) in sensors.iter().enumerate() {
+            if series_values.contains_key(&sensor.id_raw) {
+                groups.entry(sensor.name.as_str()).or_default().push(index);
             }
         }
 
-        let mut updated = 0usize;
-        for (index, sensor) in sensors.iter().enumerate() {
-            let Some((timestamp, value)) = series_values.get(&sensor.id_raw) else {
-                continue;
-            };
-            let max_threshold = max_thresholds.get(&sensor.id_raw).copied();
-            let meta = station_meta.get(&sensor.id_raw);
-            let station = crate::station::Station {
-                timestamp: Some((*timestamp).max(0) as u64),
-                idstazione: sensor.id_rt.clone(),
-                ordinamento: (index + 1) as i32,
-                nomestaz: sensor.name.clone(),
-                lon: "0".to_string(),
-                lat: "0".to_string(),
-                soglia1: UNKNOWN_THRESHOLD,
-                soglia2: UNKNOWN_THRESHOLD,
-                soglia3: max_threshold.unwrap_or(UNKNOWN_THRESHOLD),
-                bacino: meta.and_then(|value| value.bacino.clone()),
-                value: Some(*value),
-            };
-
-            if let Some(config) = alerts_config.as_ref()
-                && let Err(err) = alerts::process_alerts_for_station(
-                    http_client,
-                    dynamodb_client,
-                    &station,
-                    config,
-                )
-                .await
-            {
-                let logger = logging::Logger::new().station(&station.nomestaz);
-                logger.error("alerts.process_failed", &err, "Failed to process alerts");
-            }
-
-            let record = StationRecord {
-                timestamp: station.timestamp.unwrap_or_default() as i64,
-                idstazione: station.idstazione.clone(),
-                ordinamento: station.ordinamento,
-                nomestaz: station.nomestaz.clone(),
-                lon: station.lon.clone(),
-                lat: station.lat.clone(),
-                soglia1: station.soglia1,
-                soglia2: station.soglia2,
-                soglia3: station.soglia3,
-                bacino: station.bacino.clone(),
-                value: station.value,
-            };
-
-            match put_station_record(dynamodb_client, &table_name, &record).await {
-                Ok(()) => {
-                    updated += 1;
-                }
-                Err(err) => {
-                    logging::Logger::new().station(&sensor.name).error(
-                        "marche.station.save_failed",
-                        &err,
-                        &format!("Failed to store station {}", sensor.id_rt),
+        let group_futures = groups.into_values().map(|indices| {
+            let sensors = &sensors;
+            let series_values = &series_values;
+            let max_thresholds = &max_thresholds;
+            let station_meta = &station_meta;
+            let table_name = &table_name;
+            let alerts_config = alerts_config.as_ref();
+            async move {
+                let mut results = Vec::with_capacity(indices.len());
+                for index in indices {
+                    let sensor = &sensors[index];
+                    let Some((timestamp, value)) = series_values.get(&sensor.id_raw).copied()
+                    else {
+                        continue;
+                    };
+                    let max_threshold = max_thresholds.get(&sensor.id_raw).copied();
+                    let bacino = station_meta
+                        .get(&sensor.id_raw)
+                        .and_then(|meta| meta.bacino.clone());
+                    results.push(
+                        process_sensor(
+                            http_client,
+                            dynamodb_client,
+                            table_name,
+                            alerts_config,
+                            sensor,
+                            (index + 1) as i32,
+                            timestamp,
+                            value,
+                            max_threshold,
+                            bacino,
+                        )
+                        .await,
                     );
                 }
+                results
             }
-        }
+        });
+
+        let grouped_results: Vec<Vec<Result<(), RegionError>>> =
+            futures::stream::iter(group_futures)
+                .buffer_unordered(STATION_CONCURRENCY_LIMIT)
+                .collect()
+                .await;
+        let updated = grouped_results
+            .iter()
+            .flatten()
+            .filter(|res| res.is_ok())
+            .count();
 
         Ok(RegionResult {
-            message: format!("Processed {} of {} stations", updated, sensors.len()),
-            stations_found: sensors.len(),
+            message: format!("Processed {} of {} stations", updated, sensors_len),
+            stations_found: sensors_len,
             stations_updated: updated,
-            errors: sensors.len().saturating_sub(updated),
-            status_code: if updated < sensors.len() { 206 } else { 200 },
+            errors: sensors_len.saturating_sub(updated),
+            status_code: if updated < sensors_len { 206 } else { 200 },
         })
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn process_sensor(
+    http_client: &HTTPClient,
+    dynamodb_client: &DynamoDbClient,
+    table_name: &str,
+    alerts_config: Option<&AlertsConfig>,
+    sensor: &MarcheSensor,
+    ordinamento: i32,
+    timestamp: i64,
+    value: f64,
+    max_threshold: Option<f64>,
+    bacino: Option<String>,
+) -> Result<(), RegionError> {
+    let station = crate::station::Station {
+        timestamp: Some(timestamp.max(0) as u64),
+        idstazione: sensor.id_rt.clone(),
+        ordinamento,
+        nomestaz: sensor.name.clone(),
+        lon: "0".to_string(),
+        lat: "0".to_string(),
+        soglia1: UNKNOWN_THRESHOLD,
+        soglia2: UNKNOWN_THRESHOLD,
+        soglia3: max_threshold.unwrap_or(UNKNOWN_THRESHOLD),
+        bacino,
+        value: Some(value),
+    };
+
+    if let Some(config) = alerts_config
+        && let Err(err) =
+            alerts::process_alerts_for_station(http_client, dynamodb_client, &station, config).await
+    {
+        let logger = logging::Logger::new().station(&station.nomestaz);
+        logger.error("alerts.process_failed", &err, "Failed to process alerts");
+    }
+
+    let record = StationRecord {
+        timestamp: station.timestamp.unwrap_or_default() as i64,
+        idstazione: station.idstazione.clone(),
+        ordinamento: station.ordinamento,
+        nomestaz: station.nomestaz.clone(),
+        lon: station.lon.clone(),
+        lat: station.lat.clone(),
+        soglia1: station.soglia1,
+        soglia2: station.soglia2,
+        soglia3: station.soglia3,
+        bacino: station.bacino.clone(),
+        value: station.value,
+    };
+
+    put_station_record(dynamodb_client, table_name, &record)
+        .await
+        .inspect_err(|err| {
+            logging::Logger::new().station(&sensor.name).error(
+                "marche.station.save_failed",
+                err,
+                &format!("Failed to store station {}", sensor.id_rt),
+            );
+        })
+        .map_err(RegionError::from)
+}
+
+async fn fetch_all_series_values(
+    http_client: &HTTPClient,
+    sensors: &[MarcheSensor],
+    begin: &str,
+    end: &str,
+) -> Result<HashMap<String, (i64, f64)>, RegionError> {
+    let futures = sensors
+        .chunks(MAX_SENSORS)
+        .enumerate()
+        .map(|(index, chunk)| async move {
+            fetch_series_chunk(http_client, chunk, begin, end)
+                .await
+                .map_err(|err| (index, err))
+        });
+
+    // Drain manually so an early error cancels chunks still in flight.
+    let mut series_values = HashMap::new();
+    let mut stream = futures::stream::iter(futures).buffer_unordered(EXTERNAL_CONCURRENCY_LIMIT);
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(series) => {
+                for (id, value) in extract_latest_values(series) {
+                    series_values.insert(id, value);
+                }
+            }
+            Err((index, err)) => {
+                // Chunks finish out of order, so this is the first observed failure, not the lowest index.
+                logging::Logger::new().error(
+                    "marche.series.failed",
+                    &err,
+                    &format!(
+                        "Failed to fetch chunk {} (aborting remaining in-flight chunks)",
+                        index + 1
+                    ),
+                );
+                return Err(err);
+            }
+        }
+    }
+    Ok(series_values)
+}
+
+async fn fetch_all_thresholds(
+    http_client: &HTTPClient,
+    sensors: &[MarcheSensor],
+    begin: &str,
+    end: &str,
+) -> HashMap<String, f64> {
+    let futures = sensors
+        .chunks(MAX_SENSORS)
+        .enumerate()
+        .map(|(index, chunk)| async move {
+            (
+                index,
+                fetch_thresholds_chunk(http_client, chunk, begin, end).await,
+            )
+        });
+    let results: Vec<_> = futures::stream::iter(futures)
+        .buffer_unordered(EXTERNAL_CONCURRENCY_LIMIT)
+        .collect()
+        .await;
+
+    let mut max_thresholds = HashMap::new();
+    for (index, result) in results {
+        match result {
+            Ok(thresholds) => {
+                for (id, value) in thresholds {
+                    max_thresholds.insert(id, value);
+                }
+            }
+            Err(err) => {
+                logging::Logger::new().error(
+                    "marche.thresholds.failed",
+                    &err,
+                    &format!("Failed to fetch threshold chunk {}", index + 1),
+                );
+            }
+        }
+    }
+    max_thresholds
 }
 
 async fn fetch_menu_html(http_client: &HTTPClient) -> Result<String, RegionError> {
@@ -333,15 +442,35 @@ async fn fetch_station_metadata(
     let index_html = fetch_index_html(http_client).await?;
     let bacini = parse_select_options(&index_html, "SelezionaBacino");
 
+    // Checked live: concurrent per-basin requests don't cross-contaminate.
+    let futures = bacini.into_iter().map(|bacino| async move {
+        let result = fetch_menu_html_filtered(http_client, &bacino).await;
+        (bacino, result)
+    });
+    let results: Vec<_> = futures::stream::iter(futures)
+        .buffer_unordered(EXTERNAL_CONCURRENCY_LIMIT)
+        .collect()
+        .await;
+
     let mut metadata: HashMap<String, MarcheStationMeta> = HashMap::new();
-    for bacino in bacini {
-        let stations_html = fetch_menu_html_filtered(http_client, &bacino).await?;
-        for sensor in parse_station_options(&stations_html) {
-            set_station_meta(&mut metadata, &sensor.id_raw, |meta| {
-                if meta.bacino.is_none() {
-                    meta.bacino = Some(bacino.clone());
+    for (bacino, result) in results {
+        match result {
+            Ok(stations_html) => {
+                for sensor in parse_station_options(&stations_html) {
+                    set_station_meta(&mut metadata, &sensor.id_raw, |meta| {
+                        if meta.bacino.is_none() {
+                            meta.bacino = Some(bacino.clone());
+                        }
+                    });
                 }
-            });
+            }
+            Err(err) => {
+                logging::Logger::new().error(
+                    "marche.metadata.bacino_failed",
+                    &err,
+                    &format!("Failed to fetch stations for bacino {bacino}"),
+                );
+            }
         }
     }
 

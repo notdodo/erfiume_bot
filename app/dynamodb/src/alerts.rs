@@ -154,50 +154,6 @@ pub async fn alert_exists(
     Ok(response.item.is_some())
 }
 
-pub async fn list_active_alerts_for_chat(
-    client: &Client,
-    table_name: &str,
-    chat_id: i64,
-) -> Result<Vec<AlertEntry>> {
-    if table_name.is_empty() {
-        return Err(anyhow!("alerts table name is empty"));
-    }
-
-    let mut alerts = Vec::new();
-    let mut last_evaluated_key = None;
-
-    loop {
-        let mut request = client
-            .query()
-            .table_name(table_name)
-            .index_name("chat_id-active-index")
-            .key_condition_expression("#chat_id = :chat_id AND #active = :active")
-            .expression_attribute_names("#chat_id", "chat_id")
-            .expression_attribute_names("#active", "active")
-            .expression_attribute_values(":chat_id", AttributeValue::N(chat_id.to_string()))
-            .expression_attribute_values(":active", AttributeValue::N(ALERT_ACTIVE.to_string()))
-            .projection_expression(
-                "station, threshold, active, thread_id, triggered_at, triggered_value",
-            );
-
-        if let Some(key) = last_evaluated_key.take() {
-            request = request.set_exclusive_start_key(Some(key));
-        }
-
-        let response = request.send().await?;
-        for item in response.items.unwrap_or_default() {
-            alerts.push(AlertEntry::from_item(&item)?);
-        }
-
-        if response.last_evaluated_key.is_none() {
-            break;
-        }
-        last_evaluated_key = response.last_evaluated_key;
-    }
-
-    Ok(alerts)
-}
-
 pub async fn list_alerts_for_chat(
     client: &Client,
     table_name: &str,

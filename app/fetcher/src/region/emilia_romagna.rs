@@ -32,7 +32,6 @@ fn round_two_decimals(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
 }
 
-#[allow(unused_variables)]
 impl Region for EmiliaRomagna {
     fn name(&self) -> &'static str {
         "Emilia-Romagna"
