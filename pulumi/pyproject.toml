@@ -30,6 +30,7 @@ dev = [
 
 [tool.uv]
 package = false
+exclude-newer = "7 days"
 
 [build-system]
 requires = ["hatchling"]
@@ -69,7 +70,3 @@ exclude = ["\\.venv", "\\.ruff_cache", "\\.mypy_cache", "schema.py"]
 [[tool.mypy.overrides]]
 module = ["pulumi_aws.*"]
 follow_imports = "skip"
-
-[tool.pylint."MESSAGES CONTROL"]
-persistent = "no"
-disable = ["fixme", "line-too-long"]
