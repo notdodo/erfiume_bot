@@ -935,6 +935,9 @@ dependencies = [
 [[package]]
 name = "erfiume-core"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "erfiume-dynamodb"
@@ -944,6 +947,7 @@ dependencies = [
  "aws-sdk-dynamodb",
  "chrono",
  "chrono-tz",
+ "erfiume-core",
 ]
 
 [[package]]

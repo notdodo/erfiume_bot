@@ -37,7 +37,7 @@ pub(crate) async fn message_handler(
     .await
     {
         Ok(Some((item, match_kind))) => {
-            let mut message = item.create_station_message().to_string();
+            let mut message = station::create_station_message(&item);
             if matches!(match_kind, station::search::StationMatch::Fuzzy) {
                 message.push_str(
                     "\nSe non è la stazione corretta prova ad affinare la ricerca.",

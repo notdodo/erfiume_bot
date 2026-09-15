@@ -1,10 +1,7 @@
 use super::Station;
 use anyhow::{Result, anyhow};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use erfiume_dynamodb::UNKNOWN_THRESHOLD;
-use erfiume_dynamodb::stations::{
-    StationListEntry, StationRecord, get_station_record, list_station_entries,
-};
+use erfiume_dynamodb::stations::{StationListEntry, get_station_record, list_station_entries};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use strsim::jaro_winkler;
@@ -39,7 +36,7 @@ pub async fn get_station_with_match(
     page_size: i32,
 ) -> Result<Option<(Station, StationMatch)>> {
     if let Some(record) = get_station_record(client, table_name, &station_name).await? {
-        return Ok(Some((record_to_station(record), StationMatch::Exact)));
+        return Ok(Some((record, StationMatch::Exact)));
     }
 
     let entries = list_station_entries_cached(client, table_name, page_size).await?;
@@ -47,7 +44,7 @@ pub async fn get_station_with_match(
     if let Some(closest_match) = fuzzy_search(&station_name, &names) {
         let record = get_station_record(client, table_name, &closest_match).await?;
         match record {
-            Some(record) => Ok(Some((record_to_station(record), StationMatch::Fuzzy))),
+            Some(record) => Ok(Some((record, StationMatch::Fuzzy))),
             None => Err(anyhow!("Station '{}' not found", closest_match)),
         }
     } else {
@@ -81,22 +78,6 @@ fn get_cached_entries(table_name: &str) -> Option<Vec<StationListEntry>> {
 fn set_cached_entries(table_name: &str, entries: Vec<StationListEntry>) {
     if let Ok(mut cache) = station_cache().lock() {
         cache.insert(table_name.to_string(), entries);
-    }
-}
-
-fn record_to_station(record: StationRecord) -> Station {
-    Station {
-        timestamp: record.timestamp,
-        idstazione: record.idstazione,
-        ordinamento: record.ordinamento,
-        nomestaz: record.nomestaz,
-        lon: record.lon,
-        lat: record.lat,
-        soglia1: record.soglia1,
-        soglia2: record.soglia2,
-        soglia3: record.soglia3,
-        bacino: record.bacino,
-        value: record.value.unwrap_or(UNKNOWN_THRESHOLD),
     }
 }
 
@@ -138,24 +119,5 @@ mod tests {
         let stations = vec!["Cesena".to_string(), "S. Carlo".to_string()];
 
         assert_eq!(fuzzy_search(&message, &stations), expected);
-    }
-
-    #[test]
-    fn record_to_station_uses_unknown_value_on_missing() {
-        let record = StationRecord {
-            timestamp: 1,
-            idstazione: "id".to_string(),
-            ordinamento: 1,
-            nomestaz: "Cesena".to_string(),
-            lon: "lon".to_string(),
-            lat: "lat".to_string(),
-            soglia1: 1.0,
-            soglia2: 2.0,
-            soglia3: 3.0,
-            bacino: None,
-            value: None,
-        };
-        let station = record_to_station(record);
-        assert_eq!(station.value, UNKNOWN_THRESHOLD);
     }
 }

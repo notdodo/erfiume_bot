@@ -7,7 +7,7 @@ use chrono::{Duration, Utc};
 use chrono_tz::Europe::Rome;
 use erfiume_core::config::StationsTablesConfig;
 use erfiume_dynamodb::UNKNOWN_THRESHOLD;
-use erfiume_dynamodb::stations::{StationRecord, put_station_record};
+use erfiume_dynamodb::stations::put_station_record;
 use futures::StreamExt;
 use reqwest::Client as HTTPClient;
 use serde::Deserialize;
@@ -181,7 +181,7 @@ async fn process_sensor(
     bacino: Option<String>,
 ) -> Result<(), RegionError> {
     let station = crate::station::Station {
-        timestamp: Some(timestamp.max(0) as u64),
+        timestamp: Some(timestamp.max(0)),
         idstazione: sensor.id_rt.clone(),
         ordinamento,
         nomestaz: sensor.name.clone(),
@@ -202,21 +202,7 @@ async fn process_sensor(
         logger.error("alerts.process_failed", &err, "Failed to process alerts");
     }
 
-    let record = StationRecord {
-        timestamp: station.timestamp.unwrap_or_default() as i64,
-        idstazione: station.idstazione.clone(),
-        ordinamento: station.ordinamento,
-        nomestaz: station.nomestaz.clone(),
-        lon: station.lon.clone(),
-        lat: station.lat.clone(),
-        soglia1: station.soglia1,
-        soglia2: station.soglia2,
-        soglia3: station.soglia3,
-        bacino: station.bacino.clone(),
-        value: station.value,
-    };
-
-    put_station_record(dynamodb_client, table_name, &record)
+    put_station_record(dynamodb_client, table_name, &station)
         .await
         .inspect_err(|err| {
             logging::Logger::new().station(&sensor.name).error(

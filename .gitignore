@@ -6,4 +6,6 @@ dist/
 .DS_Store
 *.md
 !README.md
+!docs/rust-runtime.md
 .cargo/
+.codegraph/
