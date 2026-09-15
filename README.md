@@ -6,7 +6,7 @@
 ![Alt](https://repobeats.axiom.co/api/embed/35afc992da7617e96b55ad9a8765b0f06b50e3be.svg "Repobeats analytics image")
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/58bb5033-87e0-4794-99f7-ddc1a3fd65b4" width="400px"/>
+  <img src="./assets/logo.png" width="400px"/>
 </p>
 
 ## Introduction

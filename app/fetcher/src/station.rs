@@ -25,20 +25,7 @@ pub enum Entry {
     },
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct Station {
-    pub timestamp: Option<u64>,
-    pub idstazione: String,
-    pub ordinamento: i32,
-    pub nomestaz: String,
-    pub lon: String,
-    pub lat: String,
-    pub soglia1: f64,
-    pub soglia2: f64,
-    pub soglia3: f64,
-    pub bacino: Option<String>,
-    pub value: Option<f64>,
-}
+pub use erfiume_core::station::Station;
 
 #[derive(Debug, Deserialize)]
 pub struct StationData {

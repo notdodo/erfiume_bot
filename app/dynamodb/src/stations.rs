@@ -6,22 +6,8 @@ use anyhow::{Result, anyhow};
 use aws_sdk_dynamodb::{
     Client, error::SdkError, operation::update_item::UpdateItemError, types::AttributeValue,
 };
+use erfiume_core::station::Station;
 use std::collections::HashMap;
-
-#[derive(Clone, Debug)]
-pub struct StationRecord {
-    pub timestamp: i64,
-    pub idstazione: String,
-    pub ordinamento: i32,
-    pub nomestaz: String,
-    pub lon: String,
-    pub lat: String,
-    pub soglia1: f64,
-    pub soglia2: f64,
-    pub soglia3: f64,
-    pub bacino: Option<String>,
-    pub value: Option<f64>,
-}
 
 #[derive(Clone, Debug)]
 pub struct StationListEntry {
@@ -33,7 +19,7 @@ pub async fn get_station_record(
     client: &Client,
     table_name: &str,
     station_name: &str,
-) -> Result<Option<StationRecord>> {
+) -> Result<Option<Station>> {
     if table_name.is_empty() {
         return Err(anyhow!("stations table name is empty"));
     }
@@ -61,8 +47,8 @@ pub async fn get_station_record(
     let bacino = parse_optional_string_field(&item, "bacino")?;
     let value = parse_optional_number_field::<f64>(&item, "value")?;
 
-    Ok(Some(StationRecord {
-        timestamp,
+    Ok(Some(Station {
+        timestamp: Some(timestamp),
         idstazione,
         ordinamento,
         nomestaz,
@@ -79,13 +65,13 @@ pub async fn get_station_record(
 pub async fn put_station_record(
     client: &Client,
     table_name: &str,
-    station: &StationRecord,
+    station: &Station,
 ) -> Result<()> {
     if table_name.is_empty() {
         return Err(anyhow!("stations table name is empty"));
     }
 
-    let new_timestamp = station.timestamp;
+    let new_timestamp = station.timestamp.unwrap_or_default();
     let new_value = station.value.unwrap_or_default();
 
     let mut expression_attribute_values = HashMap::from([
@@ -251,8 +237,8 @@ mod tests {
 
     #[test]
     fn station_record_roundtrip_fields() {
-        let record = StationRecord {
-            timestamp: 123,
+        let record = Station {
+            timestamp: Some(123),
             idstazione: "id".to_string(),
             ordinamento: 1,
             nomestaz: "Cesena".to_string(),

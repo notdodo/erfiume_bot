@@ -83,7 +83,10 @@ pub async fn process_alerts_for_station(
             continue;
         }
 
-        let triggered_at = station.timestamp.unwrap_or(now_millis);
+        let triggered_at = station
+            .timestamp
+            .map(|value| value as u64)
+            .unwrap_or(now_millis);
 
         if let Err(err) = mark_alert_triggered(
             dynamodb_client,
@@ -162,7 +165,7 @@ fn format_station_message_for_alert(station: &Station) -> String {
         station.soglia1,
         station.soglia2,
         station.soglia3,
-        station.timestamp.map(|value| value as i64),
+        station.timestamp,
     );
 
     let metadata_lines = station_metadata_lines(station);

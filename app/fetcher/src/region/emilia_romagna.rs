@@ -8,7 +8,7 @@ use crate::{
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use chrono::{Duration, Utc};
 use erfiume_core::config::StationsTablesConfig;
-use erfiume_dynamodb::stations::{StationRecord, put_station_record};
+use erfiume_dynamodb::stations::put_station_record;
 use futures::StreamExt;
 use reqwest::Client as HTTPClient;
 use serde_json::Value;
@@ -165,7 +165,7 @@ async fn fetch_station_data(
     response.error_for_status_ref()?;
     let entries: Vec<StationData> = response.json().await?;
     if let Some(latest_value) = entries.iter().max_by_key(|e| e.t) {
-        station.timestamp = Some(latest_value.t);
+        station.timestamp = Some(latest_value.t as i64);
         station.value = latest_value.v.map(round_two_decimals);
     }
 
@@ -217,20 +217,7 @@ async fn process_station(
         return Err(err.into());
     }
 
-    let record = StationRecord {
-        timestamp: station.timestamp.unwrap_or_default() as i64,
-        idstazione: station.idstazione.clone(),
-        ordinamento: station.ordinamento,
-        nomestaz: station.nomestaz.clone(),
-        lon: station.lon.clone(),
-        lat: station.lat.clone(),
-        soglia1: station.soglia1,
-        soglia2: station.soglia2,
-        soglia3: station.soglia3,
-        bacino: station.bacino.clone(),
-        value: station.value,
-    };
-    put_station_record(dynamodb_client, table_name, &record).await?;
+    put_station_record(dynamodb_client, table_name, &station).await?;
 
     Ok(())
 }
