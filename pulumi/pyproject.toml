@@ -32,6 +32,9 @@ dev = [
 [tool.uv]
 package = false
 exclude-newer = "7 days"
+# Allow the security fix for GHSA-cx6f-vjhg-g3cc before the release cooldown.
+exclude-newer-package = { virtualenv = false }
+constraint-dependencies = ["virtualenv>=21.14.13"]
 
 [build-system]
 requires = ["hatchling"]
