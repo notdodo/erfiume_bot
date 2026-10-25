@@ -22,7 +22,6 @@ jobs:
       id-token: write
     uses: notdodo/github-actions/.github/workflows/pulumi-preview.yml@pulumi-v0
     with:
-      egress-policy-allowlist: get.pulumi.com:443
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-read
       aws-secrets-mapping: >
         CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-only
