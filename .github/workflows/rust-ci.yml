@@ -19,3 +19,5 @@ jobs:
     uses: notdodo/github-actions/.github/workflows/rust-ci.yml@rust-ci-v0
     with:
       working-directory: ./app/
+      build-lambda: true
+      lambda-arch: arm64

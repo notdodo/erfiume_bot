@@ -25,5 +25,7 @@ jobs:
       aws-role: arn:aws:iam::841162699174:role/erfiume-oidc-read
       aws-secrets-mapping: >
         CLOUDFLARE_API_TOKEN, erfiume-gha-cloudflare-read-only
+      egress-policy-allowlist: >
+        api.cloudflare.com:443
       stack-name: notdodo/erfiume/production
       working-directory: ./pulumi

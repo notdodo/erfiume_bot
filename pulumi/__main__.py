@@ -48,8 +48,14 @@ alerts_table = Table(
     global_secondary_indexes=[
         dynamodb.TableGlobalSecondaryIndexArgs(
             name="chat_id-active-index",
-            hash_key="chat_id",
-            range_key="active",
+            key_schemas=[
+                dynamodb.TableGlobalSecondaryIndexKeySchemaArgs(
+                    attribute_name="chat_id", key_type="HASH"
+                ),
+                dynamodb.TableGlobalSecondaryIndexKeySchemaArgs(
+                    attribute_name="active", key_type="RANGE"
+                ),
+            ],
             projection_type="INCLUDE",
             non_key_attributes=[
                 "station",
@@ -61,8 +67,14 @@ alerts_table = Table(
         ),
         dynamodb.TableGlobalSecondaryIndexArgs(
             name="station-active-index",
-            hash_key="station",
-            range_key="active",
+            key_schemas=[
+                dynamodb.TableGlobalSecondaryIndexKeySchemaArgs(
+                    attribute_name="station", key_type="HASH"
+                ),
+                dynamodb.TableGlobalSecondaryIndexKeySchemaArgs(
+                    attribute_name="active", key_type="RANGE"
+                ),
+            ],
             projection_type="INCLUDE",
             non_key_attributes=[
                 "chat_id",
