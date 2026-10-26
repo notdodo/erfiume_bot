@@ -9,12 +9,12 @@ requires-python = ">3.12.0"
 readme = "README.md"
 keywords = ["erfiume", "telegram", "fiumi"]
 dependencies = [
-    "pulumi-aws>=7.3.0",
-    "pulumi-cloudflare>=6.4.1",
-    "pydantic>=2.11.7",
-    "requests>=2.32.4",
-    "diagrams>=0.24.1",
-    "packaging>=26.2",
+    "pulumi-aws>=7.51.1",
+    "pulumi-cloudflare>=6.23.1",
+    "pydantic>=2.14.1",
+    "requests>=2.34.2",
+    "diagrams>=0.25.1",
+    "packaging>=26.3",
 ]
 
 [project.urls]
@@ -24,17 +24,13 @@ Documentation = "https://github.com/notdodo/erfiume/blob/main/README.md"
 
 [dependency-groups]
 dev = [
-    "mypy[faster-cache]>=1.17.1",
-    "ruff>=0.12.7",
-    "types-requests>=2.32.4.20250611",
+    "mypy[faster-cache]>=2.4.0",
+    "ruff>=0.17.2",
+    "types-requests>=2.33.0.20261006",
 ]
 
 [tool.uv]
 package = false
-exclude-newer = "7 days"
-# Allow the security fix for GHSA-cx6f-vjhg-g3cc before the release cooldown.
-exclude-newer-package = { virtualenv = false }
-constraint-dependencies = ["virtualenv>=21.14.13"]
 
 [build-system]
 requires = ["hatchling"]
@@ -47,7 +43,7 @@ output-format = "github"
 fixable = ["ALL"]
 unfixable = []
 select = ["ALL"]
-ignore = ["D2", "D4", "ANN", "COM812", "ISC001", "ERA001", "PLR0913"]
+ignore = ["CPY001", "D2", "D4", "ANN", "COM812", "ISC001", "ERA001", "PLR0913"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -57,6 +53,9 @@ case-sensitive = true
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-positional-args = 8
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 150
