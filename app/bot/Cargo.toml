@@ -24,3 +24,7 @@ teloxide.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 tracing-subscriber.workspace = true
 tracing.workspace = true
+
+[lints.rust]
+# Temporary until Cargo Lambda includes cargo-zigbuild 0.24's linker flag fix.
+linker_messages = "allow"
