@@ -9,34 +9,34 @@ description = "Bot per leggere i livelli idrometrici dei fiumi in Emilia-Romagna
 authors = ["Edoardo Rosa <6991986+notdodo@users.noreply.github.com>"]
 
 [workspace.dependencies]
-anyhow = "1.0.102"
-aws-config = "1.8.17"
-aws-sdk-dynamodb = { version = "1.112.0", default-features = false, features = [
+anyhow = "1.0.104"
+aws-config = "1.13.0"
+aws-sdk-dynamodb = { version = "1.134.0", default-features = false, features = [
     "default-https-client",
     "rt-tokio",
 ] }
-chrono = "0.4.44"
+chrono = "0.4.45"
 chrono-tz = "0.10.4"
 edit-distance = "2.2.2"
-fastrand = "2.4.1"
-futures = "0.3.32"
-lambda_runtime = "1.2.1"
-reqwest = { version = "0.13.4", default-features = false, features = [
+fastrand = "2.5.0"
+futures = "0.3.34"
+lambda_runtime = "1.5.0"
+reqwest = { version = "0.13.5", default-features = false, features = [
     "json",
     "form",
     "http2",
     "charset",
     "rustls",
 ] }
-serde = "1.0.228"
+serde = "1.0.229"
 serde_dynamo = "4.3.0"
-serde_json = "1.0.150"
+serde_json = "1.0.154"
 strsim = "0.11.1"
 teloxide = { version = "0.17.0", default-features = false, features = [
     "macros",
     "rustls",
 ] }
-tokio = { version = "1.52.3", features = ["macros"] }
+tokio = { version = "1.54.1", features = ["macros"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 
